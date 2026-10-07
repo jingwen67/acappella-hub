@@ -677,6 +677,19 @@
     .top .kicker { grid-column: 1; grid-row: 2; }
     .top h1 { grid-column: 1; grid-row: 3; }
     .top .who .account-mini { grid-column: 2; grid-row: 3; align-self: start; justify-self: center; color: var(--muted); }
+
+    .gallery-panel { margin: 24px 0; }
+    .gallery-panel h2 { margin: 0; }
+    .photo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .photo-card { min-width:0; }
+    .photo-thumb { display:block; width:100%; padding:0; border:0; background:var(--paper); border-radius:12px; overflow:hidden; }
+    .photo-thumb img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
+    .photo-actions { display:flex; flex-wrap:wrap; gap:6px; }
+    .photo-actions .nav-btn { font-size:14px; padding:5px 8px; margin:0; }
+    .photo-actions .pair { display:flex; gap:5px; align-items:center; }
+    .photo-preview { max-width:calc(100vw - 24px); max-height:90dvh; padding:16px; border:1px solid var(--line); border-radius:16px; background:var(--card); }
+    .photo-preview::backdrop { background:#241c1699; }
+    .photo-preview img { display:block; max-width:100%; max-height:75dvh; object-fit:contain; }
   </style>
 </head>
 <body>
@@ -1440,6 +1453,7 @@
 
     function showAuth() {
       stopPolling();
+      galleryCache.clear();
       latest = null;
       view = 'hub';
       window.history.replaceState({view: 'hub'}, '', '/');
@@ -1488,6 +1502,7 @@
     window.addEventListener('hashchange', restoreNavigation);
 
     function openProfile(id, from) {
+      galleryCache.delete(id);
       profileId = id;
       profileFrom = from || 'members';
       showView('profile');
@@ -2124,6 +2139,69 @@
       return new File([blob], 'photo.jpg', { type: 'image/jpeg' });
     }
 
+
+    const galleryCache = new Map();
+    let galleryPending = new Set();
+    async function loadGallery(owner) {
+      if (galleryPending.has(owner)) return;
+      galleryPending.add(owner);
+      const viewer = latest?.user?.id;
+      try {
+        const album = await api('/api/profiles/' + owner + '/photos');
+        if (latest?.user?.id === viewer) galleryCache.set(owner, album);
+      } catch (error) { galleryCache.set(owner, {error:error.message}); }
+      finally {
+        galleryPending.delete(owner);
+        if (view === 'profile' && profileId === owner && latest) renderProfile(latest);
+      }
+    }
+    function photoPreview(photo) {
+      const dialog = el('dialog', {class:'photo-preview'});
+      const close = el('button', {class:'nav-btn',type:'button',onclick:()=>dialog.close()}, pair('关闭','Close'));
+      dialog.append(close, el('img', {src:photo.url,alt:''}));
+      dialog.addEventListener('close',()=>dialog.remove());
+      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+      document.body.append(dialog); dialog.showModal();
+    }
+    function galleryNode(person, mine) {
+      const owner=person.id, album=galleryCache.get(owner);
+      const box=el('section',{class:'panel stack gallery-panel'},
+        el('h2',{},pair('相册','Photo gallery')),
+        el('p',{class:'hint'},pair('大家都可以上传 TA 的照片。本人可删除任何照片并选择头像，上传者可删除自己上传的照片。','Anyone can add photos of this member. The owner can delete any photo and choose an avatar; uploaders can delete their own photos.')));
+      const input=el('input',{type:'file',accept:'image/*','aria-label':'上传照片 / Upload photo'});
+      const upload=el('form',{class:'stack',onsubmit:async event=>{
+        event.preventDefault(); const file=input.files?.[0]; if(!file)return;
+        const button=event.currentTarget.querySelector('button');button.disabled=true;
+        try{const photo=await prepareAvatar(file);const body=new FormData();body.set('photo',photo);
+          const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});
+          const data=await res.json();if(!res.ok)throw new Error(errorText(data.error));
+          galleryCache.set(owner,data);if(latest&&profileId===owner)renderProfile(latest);
+        }catch(error){showBanner(error.message);button.disabled=false;}
+      }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));
+      box.append(upload,el('p',{class:'hint'},pair('JPG、PNG、WebP 或 GIF，每张小于 5 MB。','JPG, PNG, WebP, or GIF, under 5 MB per photo.')));
+      if(!album){box.append(el('p',{class:'hint'},pair('正在加载…','Loading…')));loadGallery(owner);return box;}
+      if(album.error){box.append(el('p',{class:'hint'},album.error),el('button',{class:'nav-btn',type:'button',onclick:()=>loadGallery(owner)},pair('重试','Retry')));return box;}
+      const grid=el('div',{class:'photo-grid'});
+      for(const photo of album.photos){
+        const card=el('div',{class:'photo-card'},
+          el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo)},el('img',{src:photo.url,alt:'',loading:'lazy'})),
+          el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
+        const actions=el('div',{class:'photo-actions'});
+        if(photo.isAvatar)actions.append(el('span',{class:'hint'},pair('当前头像','Current avatar')));
+        else if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>run(async()=>{
+          galleryCache.set(owner,await api('/api/photos/'+photo.id+'/avatar',{method:'POST',body:'{}'}));
+          return api('/api/state');
+        })},pair('设为头像','Set as avatar')));
+        if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{
+          if(!confirm('删除这张照片？如果它是当前头像，头像也会移除。\nDelete this photo? If it is the current avatar, the avatar will also be removed.'))return;
+          run(async()=>{galleryCache.set(owner,await api('/api/photos/'+photo.id+'/delete',{method:'POST',body:'{}'}));return api('/api/state');});
+        }},pair('删除','Delete')));
+        card.append(actions);grid.append(card);
+      }
+      box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));
+      return box;
+    }
+
     function profileField(key, name, value, max) {
       if (name === 'funFact') {
         const box = el('textarea', { name, maxlength: String(max), rows: '3' });
@@ -2167,6 +2245,7 @@
         ].filter(([, value]) => value);
         profileBody.replaceChildren(
           head,
+          galleryNode(person, mine),
           facts.length
             ? el('section', { class: 'card stack' }, facts.map(([key, value]) => el('p', {},
                 el('span', { class: 'meta' }, en(key)),
@@ -2179,21 +2258,13 @@
       }
       profileBody.replaceChildren(
         head,
+        galleryNode(person, mine),
         el('form', {
           class: 'panel stack',
           onsubmit: (event) => {
             event.preventDefault();
             const form = event.target;
             run(async () => {
-              const file = form.elements.avatar.files?.[0];
-              if (file) {
-                const photo = await prepareAvatar(file);
-                const body = new FormData();
-                body.set('avatar', photo);
-                const res = await fetch('/api/profile/avatar', { method: 'POST', credentials: 'same-origin', body });
-                const uploaded = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(errors.en[uploaded.error] || errors.en.generic);
-              }
               return api('/api/profile', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -2218,10 +2289,6 @@
           profileField('program', 'program', person.program, 80),
           profileField('funFact', 'funFact', person.funFact, 240),
           profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
-          el('label', {},
-            el('span', {}, en('photo')),
-            el('input', { name: 'avatar', type: 'file', accept: 'image/*' }),
-          ),
           el('button', { class: 'primary', type: 'submit' }, en('saveProfile')),
         ),
       );

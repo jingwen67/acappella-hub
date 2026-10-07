@@ -1,3 +1,4 @@
+import { galleryService } from './gallery.js';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -108,6 +109,15 @@ for (const column of ['is_alumni', 'is_president', 'is_vp', 'is_secretary', 'is_
 for (const column of ['full_name', 'pronouns', 'position', 'voice_part', 'school', 'grad_year', 'program', 'fun_fact', 'favorite_food', 'avatar_ext']) {
   if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
 }
+if (!userColumns.has('avatar_photo_id')) db.exec('ALTER TABLE users ADD COLUMN avatar_photo_id TEXT');
+if (!userColumns.has('gallery_seeded')) db.exec('ALTER TABLE users ADD COLUMN gallery_seeded INTEGER NOT NULL DEFAULT 0');
+db.exec(`CREATE TABLE IF NOT EXISTS photos (id TEXT PRIMARY KEY NOT NULL, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, ext TEXT NOT NULL, created_at TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_photos_owner_created ON photos(owner_id,created_at);`);
+const galleryFiles = {
+ async get(key) { const path=join(dataDir,key); if(!existsSync(path))return null; const bytes=readFileSync(path); return {arrayBuffer:async()=>bytes}; },
+ async put(key,bytes) { const path=join(dataDir,key); mkdirSync(join(dataDir,key.split('/')[0]),{recursive:true}); writeFileSync(path,Buffer.from(bytes)); },
+ async delete(key) { const path=join(dataDir,key); if(existsSync(path))unlinkSync(path); }
+};
+const gallery = galleryService({db, files:galleryFiles, imageExt, fail});
 const scoreColumns = new Set(db.prepare(`PRAGMA table_info(scores)`).all().map((column) => column.name));
 if (!scoreColumns.has('kinds')) db.exec(`ALTER TABLE scores ADD COLUMN kinds TEXT NOT NULL DEFAULT ''`);
 const phaseColumns = new Set(db.prepare(`PRAGMA table_info(phases)`).all().map((column) => column.name));
@@ -691,6 +701,28 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
     const { pathname } = url;
 
+
+    const albumRoute = pathname.match(/^\/api\/profiles\/(\d+)\/photos$/);
+    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar))?$/);
+    if (albumRoute || photoRoute) {
+      const user = await requireUser(req);
+      if (albumRoute) {
+        const owner = Number(albumRoute[1]);
+        if (req.method === 'GET') { send(res, 200, await gallery.list(owner, user)); return; }
+        if (req.method === 'POST') {
+          const parts = parseMultipart(await readRaw(req, 5 * 1024 * 1024 + 65536), req.headers['content-type']);
+          send(res, 201, await gallery.upload(owner, user, parts.find(p => p.name === 'photo' && p.filename))); return;
+        }
+      } else if (req.method === 'GET' && !photoRoute[2]) {
+        const photo = await gallery.bytes(photoRoute[1]);
+        res.writeHead(200, {'Content-Type':photo.type,'Cache-Control':'private, no-cache','X-Content-Type-Options':'nosniff'});
+        res.end(Buffer.from(photo.body)); return;
+      } else if (req.method === 'POST' && photoRoute[2]) {
+        const result = await gallery[photoRoute[2] === 'avatar' ? 'select' : 'remove'](photoRoute[1], user);
+        send(res, 200, result); return;
+      }
+      throw fail(405, 'not_found');
+    }
     if (req.method === 'GET' && pathname === '/') {
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
@@ -890,6 +922,7 @@ const server = createServer(async (req, res) => {
       const target = statements.account.get(Number(removeUser[1]));
       if (!target) throw fail(404, 'user_missing');
       if (target.is_admin) throw fail(400, 'cannot_change_admin');
+      const ownedPhotos = await db.prepare('SELECT id,ext FROM photos WHERE owner_id = ?').all(target.id);
       withTx(() => {
         statements.deleteUserSessions.run(target.id);
         statements.deleteUserVotes.run(target.id, target.id);
@@ -899,6 +932,7 @@ const server = createServer(async (req, res) => {
         statements.reassignScoreUploader.run(user.id, target.id);
         statements.deleteUser.run(target.id);
       });
+      for (const photo of ownedPhotos) await galleryFiles.delete('photos/'+photo.id+'.'+photo.ext);
       for (const ext of ['jpg', 'png', 'webp', 'gif']) {
         const file = join(avatarDir, `${target.id}.${ext}`);
         if (existsSync(file)) unlinkSync(file);

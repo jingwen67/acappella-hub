@@ -74,7 +74,14 @@ This is a home screen shortcut to the website and requires an internet connectio
 
 Open **My profile** from the home page. Fill in your English full name, pronouns, voice part, school, graduation year, major, fun fact, and favorite food, then save. Use a four-digit graduation year, such as `2027`.
 
-You can upload a JPG, PNG, WebP, or GIF avatar under 5 MB. Your saved profile appears in the member roster and is visible to other signed-in members. Only share information you are comfortable sharing with the group.
+Each profile has a **Photo gallery**. Any signed-in member can add photos of that person. Each photo must be under 5 MB; JPG, PNG, WebP, and GIF are supported. Click a photo to enlarge it and see who uploaded it.
+
+- The **profile owner** can delete any photo in their gallery and choose **Set as avatar**.
+- **Uploaders** can delete their own uploads. Other members cannot change the owner's avatar.
+- Deleting the photo used as the current avatar removes the avatar too; choose another photo afterward.
+- Existing avatars are automatically preserved when the gallery is first opened. Without an avatar, the first character of the member's name is shown.
+
+Profiles and galleries are visible to other signed-in members. Share only information and photos you are comfortable sharing with the group.
 
 <a id="roster"></a>
 ### Members

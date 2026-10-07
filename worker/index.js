@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink } from './google.js';
 import { database, boundedBody, hashPassword, verifyPassword, initialize, responseSink } from './runtime.js';
 import { assets } from './assets.js';
+import { galleryService } from '../gallery.js';
 export default {
   async fetch(request, env) {
     if (!env.DB || !env.FILES) return new Response('Storage unavailable', {
@@ -20,6 +21,7 @@ export default {
     });
     const db = database(env.DB);
     const google = createGoogle(env.FILES);
+    const gallery = galleryService({db, files:env.FILES, imageExt, fail});
     const req = {
       request,
       method: request.method,
@@ -498,6 +500,28 @@ export default {
         const {
           pathname
         } = url;
+
+    const albumRoute = pathname.match(/^\/api\/profiles\/(\d+)\/photos$/);
+    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar))?$/);
+    if (albumRoute || photoRoute) {
+      const user = await requireUser(req);
+      if (albumRoute) {
+        const owner = Number(albumRoute[1]);
+        if (req.method === 'GET') { send(res, 200, await gallery.list(owner, user)); return; }
+        if (req.method === 'POST') {
+          const parts = parseMultipart(await readRaw(req, 5 * 1024 * 1024 + 65536), req.headers['content-type']);
+          send(res, 201, await gallery.upload(owner, user, parts.find(p => p.name === 'photo' && p.filename))); return;
+        }
+      } else if (req.method === 'GET' && !photoRoute[2]) {
+        const photo = await gallery.bytes(photoRoute[1]);
+        res.writeHead(200, {'Content-Type':photo.type,'Cache-Control':'private, no-cache','X-Content-Type-Options':'nosniff'});
+        res.end(Buffer.from(photo.body)); return;
+      } else if (req.method === 'POST' && photoRoute[2]) {
+        const result = await gallery[photoRoute[2] === 'avatar' ? 'select' : 'remove'](photoRoute[1], user);
+        send(res, 200, result); return;
+      }
+      throw fail(405, 'not_found');
+    }
         if (req.method === 'GET' && pathname === '/api/state') {
           send(res, 200, await stateFor(await requireUser(req)));
           return;
@@ -659,6 +683,7 @@ export default {
           const target = await statements.account.get(Number(removeUser[1]));
           if (!target) throw fail(404, 'user_missing');
           if (target.is_admin) throw fail(400, 'cannot_change_admin');
+      const ownedPhotos = await db.prepare('SELECT id,ext FROM photos WHERE owner_id = ?').all(target.id);
           await withTx(async () => {
             await statements.deleteUserSessions.run(target.id);
             await statements.deleteUserVotes.run(target.id, target.id);
@@ -668,6 +693,7 @@ export default {
             await statements.reassignScoreUploader.run(user.id, target.id);
             await statements.deleteUser.run(target.id);
           });
+          for (const photo of ownedPhotos) await env.FILES.delete('photos/'+photo.id+'.'+photo.ext);
           for (const ext of ['jpg', 'png', 'webp', 'gif']) {
             await env.FILES.delete(`avatars/${target.id}.${ext}`);
           }

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey, uniqueIndex, check, customType } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, uniqueIndex, check, customType, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 const nocaseText = customType<{data:string}>({dataType(){return 'text COLLATE NOCASE';}});
 export const users = sqliteTable('users', {
@@ -26,7 +26,16 @@ export const users = sqliteTable('users', {
   fun_fact: text('fun_fact').notNull().default(""),
   favorite_food: text('favorite_food').notNull().default(""),
   avatar_ext: text('avatar_ext').notNull().default(""),
+  avatar_photo_id: text('avatar_photo_id'),
+  gallery_seeded: integer('gallery_seeded').notNull().default(0),
 });
+export const photos = sqliteTable('photos', {
+  id: text('id').primaryKey(),
+  owner_id: integer('owner_id').notNull().references(() => users.id, {onDelete:'cascade'}),
+  uploaded_by: integer('uploaded_by').references(() => users.id, {onDelete:'set null'}),
+  ext: text('ext').notNull(),
+  created_at: text('created_at').notNull(),
+}, t => [index('idx_photos_owner_created').on(t.owner_id, t.created_at)]);
 export const sessions = sqliteTable('sessions', {
   token: text('token').primaryKey(),
   user_id: integer('user_id').notNull().references(() => users.id),
