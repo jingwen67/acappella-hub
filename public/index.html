@@ -666,6 +666,17 @@
     }
     .global-guide { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 100; padding: 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--again); font-size: 14px; font-weight: 600; text-decoration: none; box-shadow: 0 3px 12px #241c1610; white-space: nowrap; }
     body > main { padding-top: max(76px, calc(60px + env(safe-area-inset-top))); }
+
+    .top { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; row-gap: 4px; align-items: start; }
+    .top > div { display: contents; }
+    .top .nav-btn { grid-row: 1; min-height: 32px; padding: 3px 8px; margin: 0; font-size: 14px; color: var(--muted); white-space: nowrap; }
+    .top > div:not(.who) > .nav-btn { grid-column: 1; justify-self: start; }
+    .top .who > .nav-btn { grid-column: 2; justify-self: end; margin: 0; }
+    .top .nav-btn .pair { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+    .top .nav-btn .pair .en { font-size: inherit; }
+    .top .kicker { grid-column: 1; grid-row: 2; }
+    .top h1 { grid-column: 1; grid-row: 3; }
+    .top .who .account-mini { grid-column: 2; grid-row: 3; align-self: start; justify-self: center; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -722,7 +733,7 @@
     <section id="profile" hidden>
       <header class="top">
         <div>
-          <button id="profile-back" class="nav-btn" type="button">Back</button>
+          <button id="profile-back" class="nav-btn" type="button" data-i18n="back">Back</button>
           <p class="kicker">CU Chinese A Cappella</p>
           <h1 id="profile-title">My profile</h1>
         </div>
