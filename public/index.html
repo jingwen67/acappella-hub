@@ -154,7 +154,9 @@
       text-decoration: none;
     }
 
-    .who .nav-btn { margin: 0; order: 2; min-height: 32px; padding: 3px 8px; border-color: var(--line); font-size: 14px; color: var(--muted); }
+    .who .nav-btn { margin: 0 0 6px; order: 0; justify-self: end; white-space: nowrap; min-height: 32px; padding: 3px 8px; border-color: var(--line); font-size: 14px; color: var(--muted); }
+    .who .nav-btn .pair { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+    .who .nav-btn .pair .en { font-size: inherit; }
     .who .account-mini { order: 1; display: grid; justify-items: center; gap: 4px; max-width: 140px; text-align: center; overflow-wrap: anywhere; font-size: 14px; }
     .who .account-mini .avatar { width: 32px; height: 32px; font-size: 16px; }
 
@@ -725,7 +727,7 @@
           <h1 id="profile-title">My profile</h1>
         </div>
         <div class="who">
-          <button id="profile-logout" class="nav-btn" type="button">Log out</button>
+          <button id="profile-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button>
           <span id="profile-me"></span>
         </div>
       </header>
