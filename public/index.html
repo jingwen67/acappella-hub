@@ -2041,7 +2041,7 @@
           : [el('p', { class: 'hint' }, t('noneYet'))]),
       );
       roster.replaceChildren(
-        bar,
+        ...(bar ? [bar] : []),
         group('Active', people.filter((person) => !personIsAlumni(person))),
         group('Alumni', people.filter((person) => personIsAlumni(person))),
       );
