@@ -19,7 +19,7 @@ export function galleryService({db, files, imageExt, fail}) {
   const photos=await db.prepare('SELECT p.*,u.name AS uploader_name FROM photos p LEFT JOIN users u ON u.id=p.uploaded_by WHERE p.owner_id=? ORDER BY p.created_at DESC,p.id DESC').all(owner);
   return {photos:photos.map(p=>({id:p.id,url:'/api/photos/'+p.id,name:p.uploader_name||'',canDelete:user.id===owner||user.id===p.uploaded_by,canSetAvatar:user.id===owner,isAvatar:row.avatar_photo_id===p.id})),mine:user.id===owner};
  }
- async function upload(owner,user,file){await seed(owner);if(!file?.body?.length)throw fail(400,'file_required');if(file.body.length>5*1024*1024)throw fail(413,'too_large');const ext=imageExt(file.body,file.filename);if(!ext)throw fail(400,'avatar_type');const p={id:randomUUID(),ext};await files.put(key(p),file.body);
+ async function upload(owner,user,file){await seed(owner);if(!file?.body?.length)throw fail(400,'file_required');if(file.body.length>3*1024*1024)throw fail(413,'too_large');const ext=imageExt(file.body,file.filename);if(!ext)throw fail(400,'avatar_type');const p={id:randomUUID(),ext};await files.put(key(p),file.body);
   try{await db.prepare('INSERT INTO photos (id,owner_id,uploaded_by,ext,created_at) VALUES (?,?,?,?,?)').run(p.id,owner,user.id,ext,new Date().toISOString());}catch(e){await files.delete(key(p));throw e;}return await list(owner,user);
  }
  async function photo(id){const p=await db.prepare('SELECT * FROM photos WHERE id = ?').get(id);if(!p)throw fail(404,'not_found');return p;}

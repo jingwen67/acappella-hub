@@ -712,6 +712,9 @@
         <li data-i18n="step3">投票和乐谱用的是同一个账号。</li>
       </ol>
       <form id="auth-form" class="panel stack">
+        <label id="invitation-field" hidden><span>邀请码 / Invitation code</span>
+          <input name="invitationCode" autocomplete="off" spellcheck="false" maxlength="80">
+        </label>
         <label><span data-i18n="name">名字</span>
           <input name="name" autocomplete="username" maxlength="20" required spellcheck="false">
         </label>
@@ -1248,7 +1251,7 @@
         not_candidate: '这个人没有参选',
         bad_reaction: '请选择好听！或我再听听',
         not_found: '找不到页面',
-        too_large: '上传总大小不能超过 20 MB',
+        too_large: '每次上传总大小不能超过 4 MB',
         bad_json: '请求格式不对',
         server: '服务器出错了',
         offline: '连不上服务器',
@@ -1259,6 +1262,8 @@
         forbidden: '只有管理员或音乐总监可以做这个',
         admin_only: '只有管理员可以修改乐谱设置',
         grad_year: '毕业年份请填四位数字，比如 2027',
+        invite_required: '需要邀请码',
+        invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: '这张照片用不了，请从相册另选一张',
         not_arranger: '只有被指定为编曲者的人可以上传',
         user_missing: '找不到这个用户',
@@ -1305,7 +1310,7 @@
         not_candidate: 'That person isn’t running',
         bad_reaction: 'Choose Sounds great! or Not sure yet',
         not_found: 'Page not found',
-        too_large: 'Uploads must total less than 20 MB',
+        too_large: 'Uploads must total less than 4 MB',
         bad_json: 'That request could not be read',
         server: 'Something went wrong on the server',
         offline: 'Can’t reach the server',
@@ -1316,6 +1321,8 @@
         forbidden: 'Only an admin or music director can do that',
         admin_only: 'Only an admin can change the score settings',
         grad_year: 'Use a four-digit graduation year, for example 2027',
+        invite_required: 'An invitation code is required',
+        invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: 'Couldn’t use that photo. Choose another one from your library.',
         not_arranger: 'Only an assigned arranger can upload',
         user_missing: 'That person was not found',
@@ -1454,6 +1461,8 @@
     function showAuth() {
       stopPolling();
       galleryCache.clear();
+      invitationList = null;
+      issuedInvitation = null;
       latest = null;
       view = 'hub';
       window.history.replaceState({view: 'hub'}, '', '/');
@@ -2037,6 +2046,39 @@
       );
     }
 
+
+    let invitationList = null;
+    let invitationLoading = false;
+    let issuedInvitation = null;
+    async function refreshInvitations() {
+      if (invitationLoading) return;
+      invitationLoading = true;
+      const viewer = latest?.user?.id;
+      try { const result = await api('/api/admin/invitations'); if(latest?.user?.id === viewer) invitationList = result; }
+      catch (error) { if(latest?.user?.id === viewer) invitationList = {error:error.message}; }
+      finally { invitationLoading=false; if(latest?.user?.isAdmin) renderRoster(latest); }
+    }
+    function invitationPanel() {
+      const panel=el('section',{class:'panel stack'},
+        el('h2',{},pair('邀请成员','Invite members')),
+        el('p',{class:'hint'},pair('邀请码一次有效，7 天后过期。只发给社团成员。','Each code works once and expires in 7 days. Share only with club members.')),
+        el('button',{class:'nav-btn',type:'button',onclick:async event=>{
+          event.currentTarget.disabled=true;
+          try { issuedInvitation=await api('/api/admin/invitations',{method:'POST',body:'{}'});await refreshInvitations(); }
+          catch(error){showBanner(error.message);event.currentTarget.disabled=false;}
+        }},pair('生成邀请码','Create invitation')));
+      if(issuedInvitation)panel.append(el('label',{},pair('新邀请码（请复制保存）','New code (copy and save)'),el('input',{value:issuedInvitation.code,readonly:true,onclick:event=>event.currentTarget.select()})));
+      if(!invitationList){refreshInvitations();return panel;}
+      if(invitationList.error){panel.append(el('p',{class:'hint'},invitationList.error),el('button',{type:'button',class:'nav-btn',onclick:refreshInvitations},pair('重试','Retry')));return panel;}
+      for(const invite of invitationList.invitations){
+        const active=!invite.revoked&&!invite.used_at&&Date.parse(invite.expires_at)>Date.now();
+        const row=el('div',{class:'person-row'},el('span',{class:'hint'},new Date(invite.created_at).toLocaleDateString()+' · '+(invite.used_at?'已使用 / Used':invite.revoked?'已撤销 / Revoked':active?'有效 / Active':'已过期 / Expired')));
+        if(active)row.append(el('button',{type:'button',class:'nav-btn',onclick:async()=>{try{invitationList=await api('/api/admin/invitations/'+invite.id+'/revoke',{method:'POST',body:'{}'});if(issuedInvitation?.id===invite.id)issuedInvitation=null;if(latest)renderRoster(latest);}catch(error){showBanner(error.message);}}},pair('撤销','Revoke')));
+        panel.append(row);
+      }
+      return panel;
+    }
+
     function renderRoster(data) {
       if (editingRoster) freezeRender = true;
       const manage = canManage(data.user);
@@ -2057,6 +2099,7 @@
       );
       roster.replaceChildren(
         ...(bar ? [bar] : []),
+        ...(data.user.isAdmin ? [invitationPanel()] : []),
         group('Active', people.filter((person) => !personIsAlumni(person))),
         group('Alumni', people.filter((person) => personIsAlumni(person))),
       );
@@ -2124,7 +2167,7 @@
     async function prepareAvatar(file) {
       const type = (file.type || '').toLowerCase();
       const direct = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type);
-      if (direct && file.size <= 4 * 1024 * 1024) return file;
+      if (direct && file.size <= 3 * 1024 * 1024) return file;
       const bitmap = await createImageBitmap(file).catch(() => null);
       if (!bitmap) throw new Error(errors.en.avatar_type);
       const max = 1200;
@@ -2177,7 +2220,7 @@
           galleryCache.set(owner,data);if(latest&&profileId===owner)renderProfile(latest);
         }catch(error){showBanner(error.message);button.disabled=false;}
       }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));
-      box.append(upload,el('p',{class:'hint'},pair('JPG、PNG、WebP 或 GIF，每张小于 5 MB。','JPG, PNG, WebP, or GIF, under 5 MB per photo.')));
+      box.append(upload,el('p',{class:'hint'},pair('JPG、PNG、WebP 或 GIF，每张小于 3 MB。','JPG, PNG, WebP, or GIF, under 3 MB per photo.')));
       if(!album){box.append(el('p',{class:'hint'},pair('正在加载…','Loading…')));loadGallery(owner);return box;}
       if(album.error){box.append(el('p',{class:'hint'},album.error),el('button',{class:'nav-btn',type:'button',onclick:()=>loadGallery(owner)},pair('重试','Retry')));return box;}
       const grid=el('div',{class:'photo-grid'});
@@ -2485,6 +2528,8 @@
       authSwitch.replaceChildren(t(registering ? 'switchToLogin' : 'switchToRegister'));
       password.autocomplete = registering ? 'new-password' : 'current-password';
       passwordHint.hidden = !registering;
+      document.querySelector('#invitation-field').hidden = !registering;
+      authForm.elements.invitationCode.required = registering;
     }
 
     authSwitch.addEventListener('click', () => {
@@ -2497,6 +2542,7 @@
       const body = JSON.stringify({
         name: new FormData(authForm).get('name'),
         password: new FormData(authForm).get('password'),
+        invitationCode: new FormData(authForm).get('invitationCode'),
       });
       run(() => api(mode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body }));
     });

@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+import {createDatabase} from '../vercel/database.js';
+import {createInvitations} from '../vercel/invitations.js';
+import worker from '../dist/vercel-worker.mjs';
+const postgres=new PGlite();
+await postgres.exec(fs.readFileSync('vercel/schema.sql','utf8'));
+const query=async(sql,args=[])=>{const r=await postgres.query(sql,args);return {rows:r.rows,rowCount:r.affectedRows??r.rows.length};};
+const pool={query,connect:async()=>({query,release(){}})};
+const files=new Map();
+const storage={async get(key){const v=files.get(key);return v?{async arrayBuffer(){return v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)},async text(){return v.toString()},async json(){return JSON.parse(v.toString())}}:null},async put(key,value){files.set(key,Buffer.from(typeof value==='string'?value:await new Response(value).arrayBuffer()))},async delete(key){files.delete(key)}};
+const env={DB:createDatabase(pool),FILES:storage,ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',INVITE_REQUIRED:true,invitations:createInvitations(pool)};
+const mf={dispatchFetch:(url,options)=>worker.fetch(new Request(url,options),env),getR2Bucket:async()=>storage,dispose:async()=>postgres.close()};
+try {
+ const cookies={};
+ async function api(path, who='',body=undefined,status=200){
+  if(path==='/api/register'&&status===201&&!body.invitationCode)body={...body,invitationCode:(await api('/api/admin/invitations','admin',{},201)).code};
+  const headers={};if(who&&cookies[who])headers.Cookie=cookies[who];if(body!==undefined)headers['Content-Type']='application/json';
+  const res=await mf.dispatchFetch('https://hub.test'+path,{method:body!==undefined?'POST':'GET',headers,body:body!==undefined?JSON.stringify(body):undefined});
+  const raw=await res.text();assert.equal(res.status,status,`${path}: ${raw}`);const set=res.headers.get('set-cookie');if(set&&who)cookies[who]=set.split(';')[0];return raw?JSON.parse(raw):null;
+ }
+ const home=await mf.dispatchFetch('https://hub.test/');assert.equal(home.status,200);assert.match(await home.text(),/solo|阿卡贝拉/i);
+ await api('/api/state','',undefined,401);
+ const admin=await api('/api/login','admin',{name:'admin',password:'test-admin-password'});assert.equal(admin.user.isAdmin,true);
+ const md=await api('/api/register','md',{name:'Jingwen',password:'abc12345'},201);
+ const member=await api('/api/register','member',{name:'Singer',password:'abc12345'},201);
+ await api('/api/register','duplicate',{name:'Jingwen',password:'abc12345'},409);
+ await api('/api/login','bad',{name:'Jingwen',password:'wrong'},401);
+ await api(`/api/admin/users/${md.user.id}`,'admin',{musicDirector:true,arranger:true});
+ await api('/api/phases','member',{title:'Love Yourself',arrangerId:md.user.id},403);
+ const round=await api('/api/phases','md',{title:'Love Yourself',arrangerId:md.user.id},201);assert.equal(round.phase.title,'Love Yourself');
+ const phaseId=round.phase.id;
+ await api(`/api/phases/${phaseId}/candidacy`,'member',{join:true});
+ await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'like'});
+ let state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,1);
+ state=await api('/api/state','member');assert.equal(state.phase.candidates[0].likes,undefined);
+ await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'again'});
+ state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,0);assert.equal(state.phase.candidates[0].again,1);
+ await api(`/api/phases/${phaseId}/close`,'member',{},403);
+ await api('/api/profile','member',{fullName:'Singer Zhang',voicePart:'Alto',school:'Columbia',gradYear:'2027',funFact:'Loves music'});
+ const form=new FormData();form.set('avatar',new Blob([fs.readFileSync('public/icon-192.png')],{type:'image/png'}),'avatar.png');
+ const uploadRequest=new Request('https://hub.test/api/profile/avatar',{method:'POST',body:form});
+ let r=await mf.dispatchFetch(uploadRequest.url,{method:'POST',headers:{Cookie:cookies.member,'Content-Type':uploadRequest.headers.get('content-type')},body:await uploadRequest.arrayBuffer()});assert.equal(r.status,200,await r.text());
+ r=await mf.dispatchFetch(`https://hub.test/api/avatars/${member.user.id}`,{headers:{Cookie:cookies.md}});assert.equal(r.status,200);assert.equal((await r.arrayBuffer()).byteLength,fs.statSync('public/icon-192.png').size);
+
+ // Photo gallery: legacy preservation, cross-member upload, ownership checks, selection and deletion.
+ const outsider=await api('/api/register','outsider',{name:'Other singer',password:'abc12345'},201);
+ const albumPath='/api/profiles/'+member.user.id+'/photos';
+ await api(albumPath,'',undefined,401);
+ let album=await api(albumPath,'md');assert.equal(album.photos.length,1);const legacy=album.photos[0];assert.equal(legacy.isAvatar,true);
+ async function uploadPhoto(who,bytes=fs.readFileSync('public/icon-192.png'),type='image/png',filename='photo.png',status=201){
+  const form=new FormData();form.set('photo',new Blob([bytes],{type}),filename);
+  const req=new Request('https://hub.test'+albumPath,{method:'POST',body:form});
+  const r=await mf.dispatchFetch(req.url,{method:'POST',headers:{Cookie:cookies[who],'Content-Type':req.headers.get('content-type')},body:await req.arrayBuffer()});
+  const body=await r.json();assert.equal(r.status,status,JSON.stringify(body));return body;
+ }
+ album=await uploadPhoto('md');const added=album.photos.find(p=>p.id!==legacy.id);assert.equal(added.name,'Jingwen');assert.equal(added.canDelete,true);assert.equal(added.canSetAvatar,false);
+ await uploadPhoto('md',Buffer.from('not an image'),'image/png','photo.png',400);
+ await api('/api/photos/'+added.id+'/avatar','md',{},403);
+ await api('/api/photos/'+added.id+'/delete','outsider',{},403);
+ await api('/api/photos/'+legacy.id+'/delete','md',{},403);
+ await api('/api/photos/'+added.id+'/avatar','member',{});
+ album=await api(albumPath,'member');assert.equal(album.photos.find(p=>p.id===added.id).isAvatar,true);assert.equal(album.photos.every(p=>p.canDelete&&p.canSetAvatar),true);
+ r=await mf.dispatchFetch('https://hub.test/api/photos/'+added.id,{headers:{Cookie:cookies.outsider}});assert.equal(r.status,200);assert.equal(r.headers.get('content-type'),'image/png');
+ await api('/api/photos/'+added.id+'/delete','md',{});
+ state=await api('/api/state','member');assert.equal(state.profile.avatar,'');
+ album=await api(albumPath,'member');assert.equal(album.photos.length,1);
+ await api('/api/photos/'+legacy.id+'/avatar','member',{});
+ await api('/api/photos/'+legacy.id+'/delete','member',{});
+ album=await api(albumPath,'member');assert.equal(album.photos.length,0);
+
+ await api(`/api/phases/${phaseId}/close`,'md',{});
+ state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,1);
+ await api('/api/google/settings','member',{clientId:'x'},403);
+ await api('/api/google/settings','admin',{clientId:'test.apps.googleusercontent.com',clientSecret:'test-secret',spreadsheet:'',parentFolder:''});
+ r=await mf.dispatchFetch('https://hub.test/api/google/connect',{headers:{Cookie:cookies.admin},redirect:'manual'});assert.equal(r.status,302);assert.equal(new URL(r.headers.get('location')).searchParams.get('redirect_uri'),'https://hub.test/api/google/callback');
+ await api(`/api/phases/${phaseId}/delete`,'admin',{});
+ album=await uploadPhoto('md');const cleanupPhoto=album.photos[0];
+ await api(`/api/admin/users/${member.user.id}/delete`,'admin',{});
+ await api('/api/photos/'+cleanupPhoto.id,'md',undefined,404);
+ const files=await mf.getR2Bucket('FILES');assert.equal(await files.get('photos/'+cleanupPhoto.id+'.png'),null);
+ state=await api('/api/state','md');assert.equal(state.members.some(x=>x.id===member.user.id),false);
+ await api('/api/register','blocked',{name:'Uninvited',password:'abc12345'},403);
+ await api('/api/admin/invitations','md',{},403);
+ const invite=await api('/api/admin/invitations','admin',{},201);
+ await api('/api/register','invited',{name:'Invited',password:'abc12345',invitationCode:invite.code},201);
+ await api('/api/register','reused',{name:'Reused',password:'abc12345',invitationCode:invite.code},403);
+ const revoked=await api('/api/admin/invitations','admin',{},201);
+ await api('/api/admin/invitations/'+revoked.id+'/revoke','admin',{});
+ await api('/api/register','revoked',{name:'Revoked',password:'abc12345',invitationCode:revoked.code},403);
+ const expired=await api('/api/admin/invitations','admin',{},201);
+ await query('UPDATE cucac.invitations SET expires_at=$1 WHERE id=$2',['2000-01-01',expired.id]);
+ await api('/api/register','expired',{name:'Expired',password:'abc12345',invitationCode:expired.code},403);
+ const reusable=await api('/api/admin/invitations','admin',{},201);
+ await assert.rejects(env.invitations.register({code:reusable.code,name:'Jingwen',passwordHash:'test',createdAt:new Date().toISOString()}),e=>e.message==='name_taken');
+ await api('/api/register','retry',{name:'Retry',password:'abc12345',invitationCode:reusable.code},201);
+ await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
+ await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
+ assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
+ assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,10);
+ console.log('PASS: PostgreSQL adapter, invite-required registration, single-use/expiry/revocation/rollback, case-insensitive login, private schema; Worker runtime, registration/login, roles, shared votes, result visibility, profile/avatar, gallery permissions and cleanup, history, deletion, Google redirect/config.');
+} finally {await mf.dispose();}

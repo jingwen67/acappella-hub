@@ -1,3 +1,5 @@
+> **独立 Vercel 分支 / Independent Vercel branch:** [部署指南 / Deployment guide](VERCEL_SETUP.md)。原 Sites 继续运行，数据尚未迁移。 / Sites remains live; data has not been migrated.
+
 # A Cappella Hub · CUCAC 使用指南
 
 **中文** | [English](README.en.md)

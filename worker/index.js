@@ -522,6 +522,15 @@ export default {
       }
       throw fail(405, 'not_found');
     }
+        if (pathname === '/api/admin/invitations' && env.invitations) {
+          const user = await requireAdmin(req);
+          if (req.method === 'GET') { send(res, 200, await env.invitations.list()); return; }
+          if (req.method === 'POST') { send(res, 201, await env.invitations.create(user)); return; }
+        }
+        const revokeInvite = pathname.match(/^\/api\/admin\/invitations\/([a-f0-9]+)\/revoke$/);
+        if (req.method === 'POST' && revokeInvite && env.invitations) {
+          await requireAdmin(req); await env.invitations.revoke(revokeInvite[1]); send(res, 200, await env.invitations.list()); return;
+        }
         if (req.method === 'GET' && pathname === '/api/state') {
           send(res, 200, await stateFor(await requireUser(req)));
           return;
@@ -534,7 +543,10 @@ export default {
           if (problem) throw fail(400, problem);
           if (await statements.userByName.get(name)) throw fail(409, 'name_taken');
           const createdAt = now();
-          const result = await statements.insertUser.run(name, await hashPassword(body.password), createdAt);
+          const passwordHash = await hashPassword(body.password);
+          const result = env.INVITE_REQUIRED
+            ? await env.invitations.register({code:body.invitationCode, name, passwordHash, createdAt})
+            : await statements.insertUser.run(name, passwordHash, createdAt);
           const user = {
             id: Number(result.lastInsertRowid),
             name
@@ -952,7 +964,7 @@ export default {
         if (req.method === 'POST' && pathname === '/api/scores/edit') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const parts = parseMultipart(await readRaw(req, 20 * 1024 * 1024), req.headers['content-type']);
+          const parts = parseMultipart(await readRaw(req, 4 * 1024 * 1024), req.headers['content-type']);
           const field = name => {
             const part = parts.find(item => item.name === name && !item.filename);
             return part ? part.body.toString('utf8') : '';
@@ -1061,7 +1073,7 @@ export default {
         if (req.method === 'POST' && pathname === '/api/scores') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const parts = parseMultipart(await readRaw(req, 20 * 1024 * 1024), req.headers['content-type']);
+          const parts = parseMultipart(await readRaw(req, 4 * 1024 * 1024), req.headers['content-type']);
           const field = name => {
             const part = parts.find(item => item.name === name && !item.filename);
             return part ? part.body.toString('utf8') : '';

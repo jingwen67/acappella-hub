@@ -6,7 +6,9 @@
     "start": "node server.js",
     "build:hosted": "node scripts/build-hosted.mjs",
     "check:hosted": "node scripts/check-hosted.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "check:vercel": "node scripts/check-vercel.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -16,11 +18,14 @@
     "@babel/parser": "^8.0.6",
     "@babel/traverse": "^8.0.6",
     "@babel/types": "^8.0.6",
+    "@electric-sql/pglite": "^0.5.8",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",
     "miniflare": "^4.20260730.0"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.3"
+    "@supabase/supabase-js": "^2.117.3",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1"
   }
 }
