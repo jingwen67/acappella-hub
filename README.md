@@ -13,7 +13,7 @@ CU Chinese A Cappella 的成员资料、乐谱库和 Solo 投票工具。投票�
 ### 在手机上使用：添加到主屏幕
 
 1. 用手机浏览器打开 [A Cappella Hub](https://acappella-hub.elenazhang0607.chatgpt.site)。
-2. **iPhone：** 用 Safari 打开，在分享菜单中选择 **添加到主屏幕 / Add to Home Screen**，再点击 **添加**。
+2. **iPhone：** 用 Safari 或 Chrome 打开，在分享菜单中选择 **添加到主屏幕 / Add to Home Screen**，再点击 **添加**。
 3. **其他手机：** 在浏览器菜单中寻找 **添加到主屏幕 / Add to Home Screen** 或安装选项；是否显示及具体名称取决于浏览器。
 4. 添加完成后，从手机主屏幕上的 **CUCAC** 图标打开，并登录自己的账号。
 
