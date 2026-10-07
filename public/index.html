@@ -12,7 +12,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="icon" href="/icon-192.png?v=2" type="image/png">
-  <title>阿卡贝拉 / A Cappella</title>
+  <title>哥大中文阿卡贝拉｜CUCAC</title>
   <style>
     :root {
       color-scheme: light;
@@ -676,7 +676,7 @@
 
     <section id="auth" hidden>
       <p class="kicker">CU Chinese A Cappella</p>
-      <h1 data-i18n="hubTitle">阿卡贝拉</h1>
+      <h1 data-i18n="hubTitle">哥大中文阿卡贝拉</h1>
       <ol class="steps">
         <li data-i18n="step1">用自己的名字注册一个账号。</li>
         <li data-i18n="step2">主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。</li>
@@ -699,7 +699,7 @@
       <header class="top">
         <div>
           <p class="kicker">CU Chinese A Cappella</p>
-          <h1 data-i18n="hubTitle">阿卡贝拉</h1>
+          <h1 data-i18n="hubTitle">哥大中文阿卡贝拉</h1>
         </div>
         <div class="who">
           <button id="hub-logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
@@ -917,7 +917,7 @@
 
     const copy = {
       zh: {
-        hubTitle: '阿卡贝拉',
+        hubTitle: '哥大中文阿卡贝拉',
         membersButton: '全体成员',
         myProfile: '我的资料',
         fullName: '英文全名',
@@ -1060,7 +1060,7 @@
         smallSong: '小歌',
       },
       en: {
-        hubTitle: 'A Cappella',
+        hubTitle: 'CUCAC',
         membersButton: 'All members',
         myProfile: 'My profile',
         fullName: 'English full name',
@@ -1328,7 +1328,7 @@
       : startParams.get('google') === 'error'
         ? 'google_auth'
         : '';
-    if (startParams.toString()) history.replaceState({}, '', '/');
+    if (startParams.toString()) window.history.replaceState({}, '', '/' + (view === 'scores' ? '#scores' : location.hash));
     let mode = 'login';
     let pollTimer = null;
     let snapshot = '';
@@ -1367,7 +1367,7 @@
 
     function applyStatic() {
       document.documentElement.lang = 'zh-Hans';
-      document.title = both('hubTitle');
+      document.title = '哥大中文阿卡贝拉｜CUCAC';
       for (const node of document.querySelectorAll('[data-i18n]')) node.replaceChildren(t(node.dataset.i18n));
       loading.replaceChildren(t('loading'));
     }
@@ -1424,7 +1424,9 @@
 
     function showAuth() {
       stopPolling();
+      latest = null;
       view = 'hub';
+      window.history.replaceState({view: 'hub'}, '', '/');
       loading.hidden = true;
       auth.hidden = false;
       hub.hidden = true;
@@ -1434,8 +1436,12 @@
       scores.hidden = true;
     }
 
-    function showView(next) {
-      view = next;
+    function showView(next, { record = true } = {}) {
+      view = ['hub', 'members', 'profile', 'poll', 'scores'].includes(next) ? next : 'hub';
+      const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : '');
+      const state = { view, profileId, profileFrom };
+      if (record && location.hash !== fragment) window.history.pushState(state, '', '/' + fragment);
+      else if (record) window.history.replaceState(state, '', '/' + fragment);
       hub.hidden = view !== 'hub';
       members.hidden = view !== 'members';
       profile.hidden = view !== 'profile';
@@ -1445,6 +1451,25 @@
 
     let profileId = null;
     let profileFrom = 'hub';
+
+    function restoreNavigation() {
+      const [route, id] = location.hash.slice(1).split('/');
+      view = ['members', 'profile', 'poll', 'scores'].includes(route) ? route : 'hub';
+      profileId = id && /^\d+$/.test(id) ? Number(id) : null;
+      profileFrom = window.history.state?.profileFrom || 'members';
+      if (latest && auth.hidden) {
+        if (view === 'profile') {
+          profileId ??= latest.user.id;
+          renderProfile(latest);
+        }
+        showView(view, { record: false });
+        if (view === 'scores') ensureBrowse(latest.library?.semesters || []);
+      }
+    }
+    restoreNavigation();
+    window.history.replaceState({view, profileId, profileFrom}, '', location.href);
+    window.addEventListener('popstate', restoreNavigation);
+    window.addEventListener('hashchange', restoreNavigation);
 
     function openProfile(id, from) {
       profileId = id;
@@ -1465,8 +1490,9 @@
       latest = data;
       loading.hidden = true;
       auth.hidden = true;
+      if (view === 'profile') profileId ??= data.user.id;
       render(data);
-      showView(view);
+      showView(view, { record: false });
       if (pendingBanner) {
         showBanner(errorText(pendingBanner));
         pendingBanner = '';
