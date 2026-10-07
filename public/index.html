@@ -1,0 +1,2700 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3ecdf">
+  <meta name="robots" content="noindex">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="A Cappella">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/icon-192.png" type="image/png">
+  <title>阿卡贝拉 / A Cappella</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3ecdf;
+      --card: #fffaf3;
+      --ink: #241c16;
+      --muted: #6e6256;
+      --line: #e4d8c8;
+      --like: #8f2d2a;
+      --again: #1f4d45;
+      --soft: #f8e6e1;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background:
+        radial-gradient(900px 280px at 50% -40px, #efe2cf 0%, transparent 70%),
+        var(--paper);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+      line-height: 1.45;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    button, input { font: inherit; color: inherit; }
+
+    button { cursor: pointer; touch-action: manipulation; }
+
+    :focus-visible {
+      outline: 2px solid var(--like);
+      outline-offset: 2px;
+    }
+
+    main {
+      width: min(100% - 32px, 34rem);
+      margin: 0 auto;
+      padding: max(28px, env(safe-area-inset-top)) 0 max(64px, calc(32px + env(safe-area-inset-bottom)));
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 { font-family: "Iowan Old Style", Palatino, "Songti SC", serif; font-weight: 600; }
+
+    h1 { margin: 2px 0 0; font-size: 2rem; letter-spacing: -0.02em; }
+
+    h2 { margin: 0; font-size: 1.45rem; }
+
+    h3 { margin: 0; font-size: 1.25rem; overflow-wrap: anywhere; }
+
+    .banner {
+      width: min(100% - 32px, 34rem);
+      margin: 16px auto 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--soft);
+      color: #6d221c;
+      white-space: pre-line;
+    }
+
+    .panel, .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 1px 0 rgba(36, 28, 22, 0.04);
+    }
+
+    .panel { margin-top: 22px; }
+
+    .stack { display: grid; gap: 14px; }
+
+    .hint, .meta, .mine, .steps { color: var(--muted); }
+
+    .hint, .meta, .mine { margin: 0; }
+
+    .steps { margin: 8px 0 0; padding-left: 1.2rem; }
+
+    .steps li + li { margin-top: 4px; }
+
+    label { display: grid; gap: 6px; font-size: 0.92rem; }
+
+    input, select, textarea {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 16px;
+    }
+
+    .install { margin-top: 8px; }
+
+    .install p:first-child {
+      margin: 0;
+      font-family: "Iowan Old Style", Palatino, "Songti SC", serif;
+      font-size: 1.25rem;
+    }
+
+    .primary, .ghost, .choice {
+      min-height: 58px;
+      border-radius: 12px;
+    }
+
+    .primary, .ghost { width: 100%; }
+
+    a.primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      margin: 0 0 8px;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .who .nav-btn { margin: 0; }
+
+    .hub-actions {
+      display: grid;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .hub-card {
+      min-height: 96px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      text-align: left;
+      box-shadow: 0 1px 0 rgba(36, 28, 22, 0.04);
+    }
+
+    button.hub-card .pair { align-items: flex-start; }
+
+    button.hub-card .pair .zh {
+      font-family: "Iowan Old Style", Palatino, "Songti SC", serif;
+      font-size: 1.45rem;
+    }
+
+    button.hub-card .pair .en { color: var(--muted); opacity: 1; }
+
+    .primary {
+      border: 0;
+      background: var(--ink);
+      color: #f6f0e6;
+    }
+
+    .ghost {
+      border: 1px solid #d9cbb8;
+      background: transparent;
+    }
+
+    .quiet {
+      display: block;
+      margin: 4px auto 0;
+      padding: 8px;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .pair {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      line-height: 1.2;
+    }
+
+    .pair .en {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 450;
+    }
+
+    button .pair { align-items: center; }
+
+    button .pair .en { color: inherit; opacity: 0.72; }
+
+    h1 .pair .en {
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+      font-size: 1rem;
+    }
+
+    h2 .pair .en { font-size: 0.82rem; }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .who {
+      display: grid;
+      justify-items: end;
+      gap: 2px;
+      color: var(--muted);
+    }
+
+    .who .quiet { margin: 0; }
+
+    .cards { display: grid; gap: 10px; margin-top: 4px; }
+
+    .person {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .you {
+      flex: none;
+      color: var(--like);
+      font-size: 0.82rem;
+    }
+
+    .counts {
+      display: flex;
+      gap: 14px;
+      margin: 8px 0 0;
+    }
+
+    .counts strong { font-size: 1.15rem; }
+
+    .kinds {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .kinds legend { padding: 0; font-size: 0.92rem; }
+
+    .kinds label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .kinds input {
+      width: 1.15rem;
+      min-height: 1.15rem;
+      padding: 0;
+    }
+
+    .picker { display: grid; gap: 6px; font-size: 0.92rem; }
+
+    .picker-button {
+      width: 100%;
+      min-height: 48px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      text-align: left;
+    }
+
+    .picker-menu {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    #arranger-list {
+      display: grid;
+      gap: 2px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    #arranger-list label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+    }
+
+    #arranger-list input {
+      width: 1.15rem;
+      min-height: 1.15rem;
+      padding: 0;
+    }
+
+    .picker-add {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .picker-add .ghost {
+      width: auto;
+      padding: 0 14px;
+    }
+
+    .votes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .choice {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      padding: 0 10px;
+      line-height: 1.2;
+    }
+
+    .choice.is-like[aria-pressed="true"] {
+      border-color: var(--like);
+      background: var(--like);
+      color: #fffaf3;
+    }
+
+    .choice.is-again[aria-pressed="true"] {
+      border-color: var(--again);
+      background: var(--again);
+      color: #f3f7f4;
+    }
+
+    .card.is-me { border-color: #e2c2b8; }
+
+    .confirm {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+
+    .confirm .votes { margin-top: 0; }
+
+    .history { display: grid; gap: 10px; margin-top: 28px; }
+
+    #score-browse { margin-top: 8px; }
+
+    .semester-link {
+      font-family: "Iowan Old Style", Palatino, "Songti SC", serif;
+      font-size: 1.45rem;
+      color: var(--like);
+    }
+
+    .score-link {
+      display: block;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .score-link:first-child { border-top: 0; padding-top: 0; }
+
+    #upload-heading { margin-top: 28px; font-size: 1.35rem; }
+
+    .field-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .field-head .quiet { width: auto; margin: 0; padding: 0; text-align: right; }
+
+    .field-head > span .pair,
+    .picker-button .pair { align-items: flex-start; text-align: left; }
+
+    .field-head .quiet .pair { align-items: flex-end; }
+
+    .song-field { display: grid; gap: 6px; font-size: 0.92rem; }
+
+    #edit-songs button {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 12px 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+    }
+
+    #edit-songs button:first-child { border-top: 0; padding-top: 0; }
+
+    .existing-file {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .existing-file .quiet { width: auto; margin: 0; }
+
+    .existing-file.removing span { color: var(--muted); text-decoration: line-through; }
+
+    #score-setup { display: grid; gap: 12px; margin-top: 22px; }
+
+    .history h2 { font-size: 1.2rem; }
+
+    .person-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .person-row:first-of-type { border-top: 0; padding-top: 0; }
+
+    .person-row .quiet { width: auto; margin: 0; }
+
+    .role-tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-left: auto;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .roles-edit { align-items: flex-start; }
+
+    .roles-edit .role-tags {
+      flex: 1 1 100%;
+      margin-left: 0;
+      justify-content: flex-start;
+    }
+
+    .status-switch {
+      display: flex;
+      flex: 1 1 100%;
+      gap: 8px;
+    }
+
+    .role-tags + .status-switch,
+    .status-switch + .account-edit,
+    .role-tags + .account-edit {
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .account-edit {
+      display: grid;
+      flex: 1 1 100%;
+      gap: 10px;
+    }
+
+    .status-choice {
+      min-height: 36px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: transparent;
+    }
+
+    .status-choice[aria-pressed="true"] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #f6f0e6;
+    }
+
+    .role-tags .meta { align-self: center; }
+
+    .name-hit {
+      width: auto;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .row-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1 1 100%;
+      width: 100%;
+      min-height: 44px;
+      padding: 2px 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+    }
+
+    .row-caret {
+      width: 0.5rem;
+      height: 0.5rem;
+      margin-right: 4px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg) translateY(-2px);
+      flex: none;
+    }
+
+    .row-toggle[aria-expanded="true"] .row-caret {
+      transform: rotate(-135deg) translateY(-2px);
+    }
+
+    .avatar {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #e7dccb;
+    }
+
+    .avatar-empty {
+      display: grid;
+      place-items: center;
+      font-family: "Iowan Old Style", Palatino, "Songti SC", serif;
+      font-size: 2rem;
+      color: var(--ink);
+    }
+
+    .profile-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 8px 0 18px;
+    }
+
+    .role-sign {
+      display: inline-flex;
+      align-items: center;
+      flex: none;
+      min-height: 36px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #f6f0e6;
+      font-size: 0.85rem;
+    }
+
+    button.role-sign[aria-pressed="false"] {
+      border-color: #d9cbb8;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .role-sign .pair .en { color: inherit; opacity: 0.72; }
+
+    .roster-label { margin: 14px 0 0; font-size: 1.2rem; }
+
+    .roster-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .roster-action {
+      width: auto;
+      min-height: 48px;
+      padding: 8px 16px;
+    }
+
+    .toggle {
+      flex: none;
+      min-height: 52px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid #d9cbb8;
+      background: transparent;
+    }
+
+    .toggle[aria-pressed="true"] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #f6f0e6;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 1.5rem 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 8px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .result-row:first-of-type { border-top: 0; padding-top: 0; }
+
+    .rank { color: var(--muted); }
+
+    #loading { color: var(--muted); }
+
+    @media (hover: hover) {
+      .primary:hover { background: #3a2e25; }
+      .choice:hover { background: rgba(36, 28, 22, 0.04); }
+      .choice[aria-pressed="true"]:hover { background: inherit; }
+      .choice.is-like[aria-pressed="true"]:hover { background: var(--like); }
+      .choice.is-again[aria-pressed="true"]:hover { background: var(--again); }
+    }
+  </style>
+</head>
+<body>
+  <p id="banner" class="banner" hidden></p>
+  <main>
+    <aside id="install" class="panel install" hidden>
+      <p data-i18n="installTitle">加到主屏幕</p>
+      <p class="hint" data-i18n="installHint">在 Safari 点底部分享按钮，选择「添加到主屏幕」。之后从主屏幕打开，就像一个 App。</p>
+      <button id="install-dismiss" class="quiet" type="button" data-i18n="installDismiss">知道了</button>
+    </aside>
+    <p id="loading">正在打开…</p>
+
+    <section id="auth" hidden>
+      <p class="kicker">CU Chinese A Cappella</p>
+      <h1 data-i18n="hubTitle">阿卡贝拉</h1>
+      <ol class="steps">
+        <li data-i18n="step1">用自己的名字注册一个账号。</li>
+        <li data-i18n="step2">主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。</li>
+        <li data-i18n="step3">投票和乐谱用的是同一个账号。</li>
+      </ol>
+      <form id="auth-form" class="panel stack">
+        <label><span data-i18n="name">名字</span>
+          <input name="name" autocomplete="username" maxlength="20" required spellcheck="false">
+        </label>
+        <label><span data-i18n="password">密码</span>
+          <input id="password" name="password" type="password" autocomplete="current-password" minlength="4" maxlength="72" required>
+        </label>
+        <p id="password-hint" class="hint" data-i18n="passwordHint" hidden>至少 4 位，自己记得住就行。</p>
+        <button id="auth-submit" class="primary" type="submit">登录</button>
+        <button id="auth-switch" class="quiet" type="button">第一次来？注册</button>
+      </form>
+    </section>
+
+    <section id="hub" hidden>
+      <header class="top">
+        <div>
+          <p class="kicker">CU Chinese A Cappella</p>
+          <h1 data-i18n="hubTitle">阿卡贝拉</h1>
+        </div>
+        <div class="who">
+          <button id="hub-logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
+          <span id="hub-me"></span>
+        </div>
+      </header>
+      <div class="hub-actions">
+        <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
+        <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
+        <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">查看/上传乐谱</button>
+        <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">Solo 投票</button>
+      </div>
+    </section>
+
+    <section id="profile" hidden>
+      <header class="top">
+        <div>
+          <button id="profile-back" class="nav-btn" type="button">Back</button>
+          <p class="kicker">CU Chinese A Cappella</p>
+          <h1 id="profile-title">My profile</h1>
+        </div>
+        <div class="who">
+          <button id="profile-logout" class="nav-btn" type="button">Log out</button>
+          <span id="profile-me"></span>
+        </div>
+      </header>
+      <div id="profile-body"></div>
+    </section>
+
+    <section id="members" hidden>
+      <header class="top">
+        <div>
+          <button id="members-back" class="nav-btn" type="button" data-i18n="back">返回</button>
+          <p class="kicker">CU Chinese A Cappella</p>
+          <h1 data-i18n="membersTitle">全体成员</h1>
+        </div>
+        <div class="who">
+          <button id="members-logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
+          <span id="members-me"></span>
+        </div>
+      </header>
+      <div id="roster" class="history"></div>
+    </section>
+
+    <section id="app" hidden>
+      <header class="top">
+        <div>
+          <button id="poll-back" class="nav-btn" type="button" data-i18n="back">返回</button>
+          <p class="kicker">CU Chinese A Cappella</p>
+          <h1 data-i18n="title">Solo 投票</h1>
+        </div>
+        <div class="who">
+          <button id="logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
+          <span id="me"></span>
+        </div>
+      </header>
+      <div id="round"></div>
+      <div id="history"></div>
+      <div id="admin"></div>
+    </section>
+
+    <section id="scores" hidden>
+      <header class="top">
+        <div>
+          <button id="scores-back" class="nav-btn" type="button" data-i18n="back">返回</button>
+          <p class="kicker">CU Chinese A Cappella</p>
+          <h1 data-i18n="scoresTitle">查看/上传乐谱</h1>
+        </div>
+        <div class="who">
+          <button id="scores-logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
+          <span id="scores-me"></span>
+        </div>
+      </header>
+      <h2 data-i18n="browseTitle">查看乐谱</h2>
+      <div id="score-browse" class="stack">
+        <label><span data-i18n="semester">学期</span>
+          <select id="browse-semester"></select>
+        </label>
+        <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
+        <div id="browse-folders"></div>
+      </div>
+      <h2 id="upload-heading" data-i18n="uploadTitle" hidden>上传乐谱</h2>
+      <p id="scores-wait" class="hint" hidden></p>
+      <form id="score-form" class="panel stack" hidden>
+        <div class="song-field">
+          <div class="field-head">
+            <span data-i18n="songName">曲名</span>
+            <button id="edit-song" class="quiet" type="button" data-i18n="editSong">修改已经上传过的曲目</button>
+          </div>
+          <input name="title" maxlength="80" required>
+        </div>
+        <div id="edit-picker" class="stack" hidden>
+          <p class="hint" data-i18n="editPick">在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。</p>
+          <label><span data-i18n="semester">学期</span>
+            <select id="edit-semester"></select>
+          </label>
+          <div id="edit-songs"></div>
+        </div>
+        <div class="picker">
+          <span data-i18n="arranger">编曲者</span>
+          <button id="arranger-button" class="picker-button" type="button"></button>
+          <div id="arranger-menu" class="picker-menu" hidden>
+            <div id="arranger-list"></div>
+            <div class="picker-add">
+              <input id="new-arranger" maxlength="60" autocomplete="off">
+              <button id="add-arranger" class="ghost" type="button" data-i18n="addArranger">添加</button>
+            </div>
+          </div>
+          <p class="hint" data-i18n="arrangerHint">可以多选。名单里没有的话，输入名字再点添加。</p>
+        </div>
+        <label><span data-i18n="semester">学期</span>
+          <select id="semester-select" name="semesterId" required></select>
+        </label>
+        <fieldset class="kinds">
+          <legend data-i18n="kind">性质</legend>
+          <label><input type="checkbox" name="kind" value="all"> <span data-i18n="allMembers">大歌</span></label>
+          <label><input type="checkbox" name="kind" value="group"> <span data-i18n="smallGroup">小组</span></label>
+        </fieldset>
+        <p class="hint" data-i18n="kindHint">可以同时选两项。</p>
+        <label><span data-i18n="scoreFile">文件</span>
+          <input name="files" type="file" multiple>
+        </label>
+        <label><span data-i18n="scoreFolder">文件夹</span>
+          <input name="folder" type="file" webkitdirectory directory multiple>
+        </label>
+        <div id="existing-files" hidden></div>
+        <p class="hint" data-i18n="uploadHint">文件会放进这个学期下面、以曲名为名字的文件夹。</p>
+        <button id="cancel-edit" class="ghost" type="button" hidden data-i18n="cancelEditSong">取消修改</button>
+        <button id="upload-submit" class="primary" type="submit" data-i18n="uploadScore">上传</button>
+      </form>
+      <div id="score-setup" hidden>
+        <h2 data-i18n="libraryAdmin">乐谱设置</h2>
+        <p id="google-status" class="hint"></p>
+        <form id="google-form" class="panel stack">
+          <label><span data-i18n="clientId">OAuth 客户端 ID</span>
+            <input name="clientId" autocomplete="off" spellcheck="false">
+          </label>
+          <label><span data-i18n="clientSecret">OAuth 客户端密钥</span>
+            <input name="clientSecret" type="password" autocomplete="new-password">
+          </label>
+          <label><span data-i18n="spreadsheet">Google 表格链接</span>
+            <input name="spreadsheet" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/...">
+          </label>
+          <label><span data-i18n="parentFolder">大文件夹链接</span>
+            <input name="parentFolder" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/...">
+          </label>
+          <p class="hint" data-i18n="setupHint">在运行这个程序的电脑上打开 http://127.0.0.1:4173。Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 http://127.0.0.1:4173/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。</p>
+          <button class="primary" type="submit" data-i18n="saveSetup">保存设置</button>
+        </form>
+        <div id="google-connect" class="panel stack"></div>
+        <form id="semester-form" class="panel stack">
+          <h3 data-i18n="semesters">学期</h3>
+          <p class="hint" data-i18n="semesterHint">填写学期名称，比如「2026 Fall」。会在大文件夹下面自动建一个同名文件夹。</p>
+          <label><span data-i18n="semesterName">学期名称</span>
+            <input name="label" maxlength="40" required placeholder="2026 Fall">
+          </label>
+          <button class="primary" type="submit" data-i18n="addSemester">添加学期</button>
+        </form>
+        <div id="semester-list"></div>
+      </div>
+    </section>
+  </main>
+  <noscript>需要打开 JavaScript 才能投票。 JavaScript is required to vote.</noscript>
+  <script>
+    const loading = document.querySelector('#loading');
+    const auth = document.querySelector('#auth');
+    const hub = document.querySelector('#hub');
+    const members = document.querySelector('#members');
+    const profile = document.querySelector('#profile');
+    const profileBody = document.querySelector('#profile-body');
+    const profileTitle = document.querySelector('#profile-title');
+    const profileMe = document.querySelector('#profile-me');
+    const app = document.querySelector('#app');
+    const scores = document.querySelector('#scores');
+    const banner = document.querySelector('#banner');
+    const authForm = document.querySelector('#auth-form');
+    const authSubmit = document.querySelector('#auth-submit');
+    const authSwitch = document.querySelector('#auth-switch');
+    const password = document.querySelector('#password');
+    const passwordHint = document.querySelector('#password-hint');
+    const me = document.querySelector('#me');
+    const hubMe = document.querySelector('#hub-me');
+    const membersMe = document.querySelector('#members-me');
+    const scoresMe = document.querySelector('#scores-me');
+    const roster = document.querySelector('#roster');
+    const scoreForm = document.querySelector('#score-form');
+    const scoresWait = document.querySelector('#scores-wait');
+    const browseSemesterSelect = document.querySelector('#browse-semester');
+    const browseSemesterLink = document.querySelector('#browse-semester-link');
+    const browseFolders = document.querySelector('#browse-folders');
+    const uploadHeading = document.querySelector('#upload-heading');
+    const editSongButton = document.querySelector('#edit-song');
+    const editPicker = document.querySelector('#edit-picker');
+    const editSemesterSelect = document.querySelector('#edit-semester');
+    const editSongs = document.querySelector('#edit-songs');
+    const songTitle = scoreForm.elements.title;
+    const existingFiles = document.querySelector('#existing-files');
+    const cancelEdit = document.querySelector('#cancel-edit');
+    const uploadSubmit = document.querySelector('#upload-submit');
+    const semesterSelect = document.querySelector('#semester-select');
+    const arrangerButton = document.querySelector('#arranger-button');
+    const arrangerMenu = document.querySelector('#arranger-menu');
+    const arrangerList = document.querySelector('#arranger-list');
+    const newArranger = document.querySelector('#new-arranger');
+    let pendingArranger = '';
+    const scoreSetup = document.querySelector('#score-setup');
+    const googleStatus = document.querySelector('#google-status');
+    const googleForm = document.querySelector('#google-form');
+    const googleConnect = document.querySelector('#google-connect');
+    const semesterForm = document.querySelector('#semester-form');
+    const semesterList = document.querySelector('#semester-list');
+    const admin = document.querySelector('#admin');
+    const round = document.querySelector('#round');
+    const history = document.querySelector('#history');
+
+    const copy = {
+      zh: {
+        hubTitle: '阿卡贝拉',
+        membersButton: '全体成员',
+        myProfile: '我的资料',
+        fullName: '英文全名',
+        pronouns: '代词',
+        position: '职位',
+        voicePart: '声部',
+        school: '学校',
+        gradYear: '毕业年份',
+        program: '项目',
+        funFact: '趣事',
+        favoriteFood: '喜欢的食物',
+        photo: '头像',
+        saveProfile: '保存资料',
+        profileMissing: '还没填写资料',
+        noProfile: '这个人还没填写资料。',
+        membersTitle: '全体成员',
+        noneYet: '还没有人',
+        editRoles: '编辑',
+        saveRoles: '保存',
+        cancelEdit: '取消',
+        rosterHint: '这里是所有注册过的成员。',
+        rosterAssignHint: '管理员指定音乐总监和编曲者。音乐总监也可以指定编曲者。只有编曲者可以上传乐谱。',
+        musicDirector: '音乐总监',
+        notMusicDirector: '非总监',
+        arrangerRole: '编曲者',
+        notArrangerRole: '非编曲',
+        pollButton: 'Solo 投票',
+        scoresButton: '查看/上传乐谱',
+        scoresTitle: '查看/上传乐谱',
+        browseTitle: '查看乐谱',
+        uploadTitle: '上传乐谱',
+        editSong: '修改已经上传过的曲目',
+        editPick: '在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。',
+        searchSong: '输入曲名搜索',
+        noSearch: '没有找到这首。',
+        cancelEditSong: '取消修改',
+        saveSong: '保存修改',
+        existingFiles: '已有文件',
+        removeFile: '删除',
+        undoRemove: '撤销',
+        noExistingFiles: '这个文件夹里还没有文件。',
+        back: '返回',
+        title: 'Solo 投票',
+        language: '语言',
+        loading: '正在打开…',
+        step1: '用自己的名字注册一个账号。',
+        step2: '主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。',
+        step3: '投票和乐谱用的是同一个账号。',
+        name: '名字',
+        password: '密码',
+        passwordHint: '至少 4 位，自己记得住就行。',
+        login: '登录',
+        registerEnter: '注册并进入',
+        switchToRegister: '第一次来？注册',
+        switchToLogin: '已有账号？登录',
+        logout: '退出',
+        you: '你',
+        like: '好听！',
+        listenAgain: '我再听听',
+        mineLike: '你的选择：好听！',
+        mineAgain: '你的选择：我再听听',
+        mineNone: '你还没表态',
+        idleTitle: '这一轮还没开始',
+        pollArranger: '这次的编曲者',
+        noPollArranger: '还没有编曲者。先在全体成员里指定一位。',
+        thisRound: '这一轮投票',
+        passwordHidden: '已保存的密码无法查看。在这里填写就会换成新密码。',
+        newPassword: '新密码',
+        deleteMember: '删除成员',
+        deleteMemberHint: '删掉后不能恢复。这个账号不能再登录，报名和投票也会一起消失。',
+        adminTitle: '管理',
+        adminBadge: '管理员',
+        rounds: '投票轮次',
+        noRounds: '还没有投票。',
+        openStatus: '进行中',
+        closedStatus: '已结束',
+        deleteRound: '删除',
+        deleteHint: '删掉后不能恢复。这一轮的报名和投票都会一起消失。',
+        confirmDelete: '确定删除',
+        roundName: '这一轮叫什么',
+        roundPlaceholder: '10 月第一次 solo',
+        start: '开始投票',
+        voteHintLike: '好听！= TA 很好听，可以当 solo。',
+        voteHintAgain: '我再听听 = 我不确定 TA 是否合适，想再听听别人。',
+        installTitle: '加到主屏幕',
+        installHint: '在 Safari 点底部分享按钮，选择「添加到主屏幕」。之后从主屏幕打开，就像一个 App。',
+        installDismiss: '知道了',
+        joined: '你已参选。',
+        withdraw: '取消参选',
+        withdrawHint: '取消后，大家对你的投票会清掉。',
+        confirmWithdraw: '确定取消',
+        neverMind: '再想想',
+        run: '我要参选',
+        nobody: '还没有人参选。',
+        close: '结束本轮',
+        closeHint: '结束后不能再报名，也不能改票。',
+        confirmClose: '确定结束',
+        history: '以前的结果',
+        noCandidates: '这一轮没有人参选。',
+        songName: '曲名',
+        arranger: '编曲者',
+        arrangerPick: '选择编曲者',
+        arrangerHint: '可以多选。名单里没有的话，输入名字再点添加。',
+        addArranger: '添加',
+        newArrangerPlace: '新的名字',
+        kind: '性质',
+        kindHint: '可以同时选两项。',
+        allMembers: '大歌',
+        smallGroup: '小组',
+        semester: '学期',
+        scoreFile: '文件',
+        scoreFolder: '文件夹',
+        uploadHint: '文件会放进这个学期下面、以曲名为名字的文件夹。',
+        uploadScore: '上传',
+        libraryClosed: '管理员还没设置好乐谱库。',
+        setupFirst: '还不能上传。先连上 Google，填好表格和大文件夹，再添加至少一个学期。',
+        libraryAdmin: '乐谱设置',
+        clientId: 'OAuth 客户端 ID',
+        clientSecret: 'OAuth 客户端密钥',
+        spreadsheet: 'Google 表格链接',
+        parentFolder: '大文件夹链接',
+        setupHint: '在运行这个程序的电脑上打开 http://127.0.0.1:4173 。Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 http://127.0.0.1:4173/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。',
+        saveSetup: '保存设置',
+        secretKept: '已保存。留空则不修改。',
+        connectGoogle: '连接 Google 账号',
+        disconnectGoogle: '断开 Google',
+        connectHere: '请在运行这个程序的电脑上打开 http://127.0.0.1:4173 ，再连接 Google。',
+        connectedAs: '已连接',
+        notConnected: '还没有连接 Google。',
+        semesters: '学期',
+        semesterHint: '填写学期名称，比如「2026 Fall」。会在大文件夹下面自动建一个同名文件夹。',
+        semesterName: '学期名称',
+        folderUrl: '文件夹链接',
+        addSemester: '添加学期',
+        noSemesters: '还没有学期。',
+        removeSemester: '删除',
+        noFolders: '这个学期里还没有乐谱。',
+        openFile: '打开文件',
+        bigSong: '大歌',
+        smallSong: '小歌',
+      },
+      en: {
+        hubTitle: 'A Cappella',
+        membersButton: 'All members',
+        myProfile: 'My profile',
+        fullName: 'English full name',
+        pronouns: 'Pronouns',
+        position: 'Position',
+        voicePart: 'Voice part',
+        school: 'School',
+        gradYear: 'Graduation year',
+        program: 'Program',
+        funFact: 'Fun fact',
+        favoriteFood: 'Favorite food',
+        photo: 'Photo',
+        saveProfile: 'Save profile',
+        profileMissing: 'No profile yet',
+        noProfile: 'This person has not filled in a profile.',
+        membersTitle: 'All members',
+        noneYet: 'No one yet',
+        editRoles: 'Edit',
+        saveRoles: 'Save',
+        cancelEdit: 'Cancel',
+        rosterHint: 'Everyone who has registered.',
+        rosterAssignHint: 'An admin assigns the music director and arrangers. A music director can also assign arrangers. Only an arranger can upload scores.',
+        musicDirector: 'Music Director',
+        notMusicDirector: 'Not a director',
+        arrangerRole: 'Arranger',
+        notArrangerRole: 'Not an arranger',
+        pollButton: 'Solo vote',
+        scoresButton: 'View / upload scores',
+        scoresTitle: 'View / upload scores',
+        browseTitle: 'View scores',
+        uploadTitle: 'Upload a score',
+        editSong: 'Edit an uploaded song',
+        editPick: 'Type in the song title to search. After you choose one, you can change the details, upload new files, or remove old ones. Nothing changes until you save.',
+        searchSong: 'Type a song title to search',
+        noSearch: 'No song with that name.',
+        cancelEditSong: 'Cancel edit',
+        saveSong: 'Save changes',
+        existingFiles: 'Files already there',
+        removeFile: 'Remove',
+        undoRemove: 'Undo',
+        noExistingFiles: 'This folder has no files yet.',
+        back: 'Back',
+        title: 'Solo vote',
+        language: 'Language',
+        loading: 'Opening…',
+        step1: 'Register with your own name.',
+        step2: 'From the home page, open the member list, view or upload scores, or Solo vote.',
+        step3: 'Voting and scores use the same account.',
+        name: 'Name',
+        password: 'Password',
+        passwordHint: 'At least 4 characters. Something you’ll remember.',
+        login: 'Log in',
+        registerEnter: 'Create account',
+        switchToRegister: 'First time? Register',
+        switchToLogin: 'Already have an account? Log in',
+        logout: 'Log out',
+        you: 'You',
+        like: 'Sounds great!',
+        listenAgain: 'Not sure yet',
+        mineLike: 'Your pick: Sounds great!',
+        mineAgain: 'Your pick: Not sure yet',
+        mineNone: 'You haven’t voted yet',
+        idleTitle: 'No round yet',
+        pollArranger: 'Arranger for this round',
+        noPollArranger: 'No arranger yet. Assign one from All members first.',
+        thisRound: 'This round',
+        passwordHidden: 'The saved password can’t be shown. Type a new one here to replace it.',
+        newPassword: 'New password',
+        deleteMember: 'Delete member',
+        deleteMemberHint: 'This cannot be undone. This account can’t log in, and their sign-ups and votes are removed.',
+        adminTitle: 'Admin',
+        adminBadge: 'Admin',
+        rounds: 'Rounds',
+        noRounds: 'No rounds yet.',
+        openStatus: 'Open',
+        closedStatus: 'Closed',
+        deleteRound: 'Delete',
+        deleteHint: 'This cannot be undone. Sign-ups and votes for this round will be removed.',
+        confirmDelete: 'Delete round',
+        roundName: 'Name this round',
+        roundPlaceholder: 'October solo 1',
+        start: 'Start voting',
+        voteHintLike: 'Sounds great! means they sound good enough for the solo.',
+        voteHintAgain: 'Not sure yet means you’re not sure they fit and want to hear the other singers.',
+        installTitle: 'Add to Home Screen',
+        installHint: 'In Safari, tap Share, then Add to Home Screen. It then opens like an app.',
+        installDismiss: 'Got it',
+        joined: 'You’re running.',
+        withdraw: 'Withdraw',
+        withdrawHint: 'Withdrawing clears the votes you received.',
+        confirmWithdraw: 'Withdraw',
+        neverMind: 'Never mind',
+        run: 'I’m running',
+        nobody: 'Nobody is running yet.',
+        close: 'Close this round',
+        closeHint: 'After it closes, nobody can join or change votes.',
+        confirmClose: 'Close round',
+        history: 'Past results',
+        noCandidates: 'Nobody ran this round.',
+        songName: 'Song Title',
+        arranger: 'Arranger',
+        arrangerPick: 'Choose arrangers',
+        arrangerHint: 'Select more than one. If the name is missing, type it and tap Add.',
+        addArranger: 'Add',
+        newArrangerPlace: 'New name',
+        kind: 'Type',
+        kindHint: 'You can select both.',
+        allMembers: 'All members',
+        smallGroup: 'Small group',
+        semester: 'Semester',
+        scoreFile: 'Files',
+        scoreFolder: 'Folder',
+        uploadHint: 'Files go into a folder named after the song, inside that semester.',
+        uploadScore: 'Upload',
+        libraryClosed: 'An admin still needs to set up the score library.',
+        setupFirst: 'Uploads aren’t open yet. Connect Google, set the sheet and parent folder, then add a semester.',
+        libraryAdmin: 'Score library',
+        clientId: 'OAuth client ID',
+        clientSecret: 'OAuth client secret',
+        spreadsheet: 'Google Sheet link',
+        parentFolder: 'Parent folder link',
+        setupHint: 'On the computer running this app, open http://127.0.0.1:4173. In Google Cloud, enable the Drive API and Sheets API, create a Web OAuth client, and set the redirect URI to http://127.0.0.1:4173/api/google/callback. Connect the club Google account once. The columns are 曲名Song Title, 编曲Arranger, 学期Semester, 性质Type, 链接Link. The link text is the song title and opens that song’s folder.',
+        saveSetup: 'Save settings',
+        secretKept: 'Saved. Leave blank to keep it.',
+        connectGoogle: 'Connect Google',
+        disconnectGoogle: 'Disconnect Google',
+        connectHere: 'Open http://127.0.0.1:4173 on the computer running this app, then connect Google.',
+        connectedAs: 'Connected',
+        notConnected: 'Google is not connected yet.',
+        semesters: 'Semesters',
+        semesterHint: 'Type a semester, for example “2026 Fall”. A folder with that name is created inside the parent folder.',
+        semesterName: 'Semester name',
+        folderUrl: 'Folder link',
+        addSemester: 'Add semester',
+        noSemesters: 'No semesters yet.',
+        removeSemester: 'Remove',
+        noFolders: 'No scores in this semester yet.',
+        openFile: 'Open file',
+        bigSong: 'Big song',
+        smallSong: 'Small song',
+      },
+    };
+
+    const errors = {
+      zh: {
+        login_required: '请先登录',
+        name_required: '请填写名字，最多 20 个字',
+        password_short: '密码至少 4 位',
+        password_long: '密码太长了',
+        name_taken: '这个名字已经注册过了',
+        bad_login: '名字或密码不对',
+        title_required: '给这一轮起个名字',
+        phase_open: '已经有一轮在进行',
+        phase_missing: '找不到这一轮',
+        phase_closed: '这一轮已经结束了',
+        not_candidate: '这个人没有参选',
+        bad_reaction: '请选择好听！或我再听听',
+        not_found: '找不到页面',
+        too_large: '请求太大',
+        bad_json: '请求格式不对',
+        server: '服务器出错了',
+        offline: '连不上服务器',
+        load_failed: '加载失败',
+        generic: '出错了',
+        cannot_start: '只有音乐总监可以发起投票',
+        poll_arranger_required: '请选择这次投票的编曲者',
+        forbidden: '只有管理员或音乐总监可以做这个',
+        admin_only: '只有管理员可以修改乐谱设置',
+        grad_year: '毕业年份请填四位数字，比如 2027',
+        avatar_type: '这张照片用不了，请从相册另选一张',
+        not_arranger: '只有被指定为编曲者的人可以上传',
+        user_missing: '找不到这个用户',
+        cannot_change_admin: '不能改管理员的权限',
+        song_required: '请填写曲名',
+        arranger_required: '请选择编曲者，可以多选',
+        kind_required: '请选择性质，可以同时选大歌和小组',
+        semester_required: '请填写学期名称',
+        semester_missing: '请选择学期',
+        semester_taken: '这个学期已经有了',
+        semester_used: '这个学期已经有乐谱，不能删除',
+        folder_invalid: '请粘贴 Google Drive 文件夹链接',
+        parent_missing: '请先填好大文件夹链接并保存',
+        folder_not_found: '找不到这个文件夹。请确认已连接的账号能打开它。',
+        not_a_folder: '这个链接不是文件夹',
+        file_required: '请选择文件或文件夹',
+        song_taken: '这个学期里已经有同名曲目',
+        file_type: '这个文件格式不支持。可以用 pdf、图片、mscz、musicxml、mxl。',
+        bad_upload: '文件没有传上来',
+        client_required: '请填写 OAuth 客户端 ID',
+        secret_required: '请填写 OAuth 客户端密钥',
+        sheet_invalid: '这个表格链接不对',
+        sheet_missing: '还没有填写 Google 表格',
+        sheet_headers: '表格第一行需要对上这些名字：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link',
+        google_disconnected: '还没有连上 Google',
+        google_auth: 'Google 连接失败了，请管理员重新连接',
+        google_forbidden: '连接的 Google 账号没有这个文件夹或表格的权限',
+        api_disabled: '这个 Google Cloud 项目还没启用 Drive API 和 Sheets API。请在创建 OAuth 客户端的那个项目里打开它们，等一两分钟再试。',
+        google_failed: 'Google 没有完成这次操作',
+        google_denied: '没有授权 Google',
+        connect_on_computer: '请在运行这个程序的电脑上打开 127.0.0.1 再连接 Google',
+      },
+      en: {
+        login_required: 'Please log in',
+        name_required: 'Enter a name, up to 20 characters',
+        password_short: 'Use at least 4 characters',
+        password_long: 'That password is too long',
+        name_taken: 'That name is already registered',
+        bad_login: 'Name or password is wrong',
+        title_required: 'Name this round',
+        phase_open: 'A round is already open',
+        phase_missing: 'That round was not found',
+        phase_closed: 'This round is already closed',
+        not_candidate: 'That person isn’t running',
+        bad_reaction: 'Choose Sounds great! or Not sure yet',
+        not_found: 'Page not found',
+        too_large: 'That request is too large',
+        bad_json: 'That request could not be read',
+        server: 'Something went wrong on the server',
+        offline: 'Can’t reach the server',
+        load_failed: 'Couldn’t load',
+        generic: 'Something went wrong',
+        cannot_start: 'Only a music director can start a round',
+        poll_arranger_required: 'Choose the arranger for this round',
+        forbidden: 'Only an admin or music director can do that',
+        admin_only: 'Only an admin can change the score settings',
+        grad_year: 'Use a four-digit graduation year, for example 2027',
+        avatar_type: 'Couldn’t use that photo. Choose another one from your library.',
+        not_arranger: 'Only an assigned arranger can upload',
+        user_missing: 'That person was not found',
+        cannot_change_admin: 'The admin’s permission can’t be changed',
+        song_required: 'Enter the song name',
+        arranger_required: 'Choose at least one arranger',
+        kind_required: 'Choose a type. You can select both.',
+        semester_required: 'Enter a semester name',
+        semester_missing: 'Choose a semester',
+        semester_taken: 'That semester already exists',
+        semester_used: 'That semester already has scores, so it can’t be removed',
+        folder_invalid: 'Paste a Google Drive folder link',
+        parent_missing: 'Save the parent folder link first',
+        folder_not_found: 'That folder was not found. The connected account needs access to it.',
+        not_a_folder: 'That link is not a folder',
+        file_required: 'Choose files or a folder',
+        song_taken: 'That semester already has a song with this name',
+        file_type: 'That file type is not supported. Use pdf, an image, mscz, musicxml, or mxl.',
+        bad_upload: 'The file did not upload',
+        client_required: 'Enter the OAuth client ID',
+        secret_required: 'Enter the OAuth client secret',
+        sheet_invalid: 'That spreadsheet link is not valid',
+        sheet_missing: 'No Google Sheet is set yet',
+        sheet_headers: 'The first row needs these names: 曲名Song Title, 编曲Arranger, 学期Semester, 性质Type, 链接Link',
+        google_disconnected: 'Google is not connected',
+        google_auth: 'Google connection failed. An admin needs to connect again.',
+        google_forbidden: 'The connected Google account cannot open that folder or sheet',
+        api_disabled: 'Drive API and Sheets API are not enabled on the Google Cloud project that owns this OAuth client. Enable them there, wait a minute, and try again.',
+        google_failed: 'Google did not finish that action',
+        google_denied: 'Google access was not granted',
+        connect_on_computer: 'Open 127.0.0.1 on the computer running this app, then connect Google',
+      },
+    };
+
+    const startParams = new URLSearchParams(location.search);
+    let view = startParams.get('scores') === '1' ? 'scores' : 'hub';
+    let pendingBanner = startParams.get('google') === 'denied'
+      ? 'google_denied'
+      : startParams.get('google') === 'error'
+        ? 'google_auth'
+        : '';
+    if (startParams.toString()) history.replaceState({}, '', '/');
+    let mode = 'login';
+    let pollTimer = null;
+    let snapshot = '';
+    let latest = null;
+    let busy = false;
+    let freezeRender = false;
+
+    function both(key) {
+      const zh = copy.zh[key];
+      const en = copy.en[key];
+      if (!en || en === zh) return zh || key;
+      return `${zh} / ${en}`;
+    }
+
+    function pair(zh, en) {
+      if (!en || en === zh) return document.createTextNode(zh || '');
+      return el('span', { class: 'pair' },
+        el('span', { class: 'zh', lang: 'zh-Hans' }, zh),
+        el('span', { class: 'en', lang: 'en' }, en),
+      );
+    }
+
+    function t(key) {
+      return pair(copy.zh[key], copy.en[key]);
+    }
+
+    function en(key) {
+      return copy.en[key] || key;
+    }
+
+    function errorText(code) {
+      const zh = errors.zh[code] || errors.zh.generic;
+      const en = errors.en[code] || errors.en.generic;
+      return `${zh}\n${en}`;
+    }
+
+    function applyStatic() {
+      document.documentElement.lang = 'zh-Hans';
+      document.title = both('hubTitle');
+      for (const node of document.querySelectorAll('[data-i18n]')) node.replaceChildren(t(node.dataset.i18n));
+      loading.replaceChildren(t('loading'));
+    }
+
+    function el(tag, attrs, ...children) {
+      const node = document.createElement(tag);
+      for (const [key, value] of Object.entries(attrs || {})) {
+        if (key === 'class') node.className = value;
+        else if (key === 'hidden') node.hidden = Boolean(value);
+        else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
+        else if (value === true) node.setAttribute(key, '');
+        else if (value !== false && value != null) node.setAttribute(key, String(value));
+      }
+      for (const child of children.flat()) {
+        if (child == null || child === false) continue;
+        node.append(child.nodeType ? child : document.createTextNode(String(child)));
+      }
+      return node;
+    }
+
+    function showBanner(message) {
+      banner.hidden = false;
+      banner.textContent = message;
+    }
+
+    function clearBanner() {
+      banner.hidden = true;
+      banner.textContent = '';
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errorText(data.error));
+      return data;
+    }
+
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(() => {
+        if (!busy) refresh();
+      }, 4000);
+    }
+
+    function stopPolling() {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    function showAuth() {
+      stopPolling();
+      view = 'hub';
+      loading.hidden = true;
+      auth.hidden = false;
+      hub.hidden = true;
+      members.hidden = true;
+      profile.hidden = true;
+      app.hidden = true;
+      scores.hidden = true;
+    }
+
+    function showView(next) {
+      view = next;
+      hub.hidden = view !== 'hub';
+      members.hidden = view !== 'members';
+      profile.hidden = view !== 'profile';
+      app.hidden = view !== 'poll';
+      scores.hidden = view !== 'scores';
+    }
+
+    let profileId = null;
+    let profileFrom = 'hub';
+
+    function openProfile(id, from) {
+      profileId = id;
+      profileFrom = from || 'members';
+      showView('profile');
+      if (latest) renderProfile(latest);
+    }
+
+    function canManage(user) {
+      return Boolean(user.isAdmin || user.isMd);
+    }
+
+    function whoLabel(user) {
+      return user.name;
+    }
+
+    function showApp(data) {
+      latest = data;
+      loading.hidden = true;
+      auth.hidden = true;
+      render(data);
+      showView(view);
+      if (pendingBanner) {
+        showBanner(errorText(pendingBanner));
+        pendingBanner = '';
+      }
+      startPolling();
+    }
+
+    async function refresh({ force = false } = {}) {
+      let res;
+      try {
+        res = await fetch('/api/state', { credentials: 'same-origin', cache: 'no-store' });
+      } catch {
+        showBanner(errorText('offline'));
+        return;
+      }
+      if (res.status === 401) {
+        showAuth();
+        return;
+      }
+      if (!res.ok) {
+        showBanner(errorText('load_failed'));
+        return;
+      }
+      const data = await res.json();
+      const next = JSON.stringify(data);
+      const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+      if (!force && (freezeRender || typing || next === snapshot)) return;
+      snapshot = next;
+      clearBanner();
+      showApp(data);
+    }
+
+    async function run(fn) {
+      if (busy) return;
+      busy = true;
+      clearBanner();
+      try {
+        const data = await fn();
+        if (data && data.user) {
+          snapshot = JSON.stringify(data);
+          freezeRender = false;
+          showApp(data);
+        }
+      } catch (error) {
+        showBanner(error.message);
+      } finally {
+        busy = false;
+      }
+    }
+
+    function mineLabel(mine) {
+      if (mine === 'like') return t('mineLike');
+      if (mine === 'again') return t('mineAgain');
+      return t('mineNone');
+    }
+
+    function countSpan(n, kind) {
+      const zh = kind === 'like' ? '好听' : '再听听';
+      const en = kind === 'like' ? 'sounds great' : 'not sure yet';
+      return el('span', {}, el('strong', {}, n), ` ${zh} / ${en}`);
+    }
+
+    function scoreLine(likes, again) {
+      return pair(
+        `${likes} 好听 · ${again} 再听听`,
+        `${likes} sounds great · ${again} not sure yet`,
+      );
+    }
+
+    function runningLine(count, name, arranger) {
+      const running = count === 1 ? '1 person running' : `${count} people running`;
+      const zhArranger = arranger ? ` · 编曲者 ${arranger}` : '';
+      const enArranger = arranger ? ` · Arranger ${arranger}` : '';
+      return pair(
+        `进行中 · ${count} 人参选 · 由 ${name} 开启${zhArranger}`,
+        `Open · ${running} · opened by ${name}${enArranger}`,
+      );
+    }
+
+    function formatTime(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return '';
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      return `${date.getMonth() + 1}/${date.getDate()} ${hour}:${minute}`;
+    }
+
+    function ranks(candidates) {
+      let last = '';
+      let rank = 0;
+      return candidates.map((candidate, index) => {
+        const score = `${candidate.likes}:${candidate.again}`;
+        if (score !== last) {
+          rank = index + 1;
+          last = score;
+        }
+        return { ...candidate, rank };
+      });
+    }
+
+    function candidateCard(phase, candidate) {
+      const choose = (reaction) => () => {
+        const next = candidate.mine === reaction ? null : reaction;
+        run(() => api(`/api/phases/${phase.id}/vote`, {
+          method: 'POST',
+          body: JSON.stringify({ candidateId: candidate.id, reaction: next }),
+        }));
+      };
+
+      return el('article', { class: candidate.isMe ? 'card is-me' : 'card' },
+        el('div', { class: 'person' },
+          el('h3', {}, candidate.name),
+          candidate.isMe ? el('span', { class: 'you' }, both('you')) : null,
+        ),
+        phase.canSeeResults
+          ? el('p', { class: 'counts' },
+              countSpan(candidate.likes, 'like'),
+              countSpan(candidate.again, 'again'),
+            )
+          : null,
+        el('p', { class: 'mine' }, mineLabel(candidate.mine)),
+        el('div', { class: 'votes' },
+          el('button', {
+            type: 'button',
+            class: 'choice is-like',
+            'aria-pressed': candidate.mine === 'like' ? 'true' : 'false',
+            onclick: choose('like'),
+          }, t('like')),
+          el('button', {
+            type: 'button',
+            class: 'choice is-again',
+            'aria-pressed': candidate.mine === 'again' ? 'true' : 'false',
+            onclick: choose('again'),
+          }, t('listenAgain')),
+        ),
+      );
+    }
+
+    function renderRound(data) {
+      round.replaceChildren();
+      round.className = 'history';
+      const phase = data.phase;
+      if (!phase) {
+        const arrangers = (data.members || []).filter((person) => person.isArranger && !person.isAlumni);
+        const block = [el('h2', {}, t('idleTitle'))];
+        if (data.user.isMd && !arrangers.length) block.push(el('p', { class: 'hint' }, t('noPollArranger')));
+        if (data.user.isMd && arrangers.length) block.push(el('form', {
+            class: 'stack',
+            onsubmit: (event) => {
+              event.preventDefault();
+              const form = new FormData(event.target);
+              run(() => api('/api/phases', {
+                method: 'POST',
+                body: JSON.stringify({
+                  title: form.get('title'),
+                  arrangerId: Number(form.get('arrangerId')),
+                }),
+              }));
+            },
+          },
+            el('label', {}, t('roundName'),
+              el('input', { name: 'title', maxlength: '40', required: true, placeholder: both('roundPlaceholder') }),
+            ),
+            el('label', {}, t('pollArranger'),
+              el('select', { name: 'arrangerId', required: true },
+                arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
+              ),
+            ),
+            el('button', { class: 'primary', type: 'submit' }, t('start')),
+          ));
+        round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, block));
+        return;
+      }
+
+      const count = phase.candidates.length;
+      const children = [
+        el('h2', {}, phase.title),
+        el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
+        el('p', { class: 'hint' }, t('voteHintLike')),
+        el('p', { class: 'hint' }, t('voteHintAgain')),
+      ];
+
+      if (phase.iAmCandidate) {
+        children.push(el('p', { class: 'mine' }, t('joined')));
+        children.push(el('button', {
+          type: 'button',
+          class: 'quiet',
+          onclick: () => {
+            freezeRender = true;
+            const box = round.querySelector('.confirm');
+            if (box) box.hidden = false;
+          },
+        }, t('withdraw')));
+        children.push(el('div', { class: 'confirm', hidden: true },
+          el('p', { class: 'hint' }, t('withdrawHint')),
+          el('div', { class: 'votes' },
+            el('button', {
+              type: 'button',
+              class: 'ghost',
+              onclick: () => run(() => api(`/api/phases/${phase.id}/candidacy`, {
+                method: 'POST',
+                body: JSON.stringify({ join: false }),
+              })),
+            }, t('confirmWithdraw')),
+            el('button', {
+              type: 'button',
+              class: 'ghost',
+              onclick: () => {
+                freezeRender = false;
+                const box = round.querySelector('.confirm');
+                if (box) box.hidden = true;
+              },
+            }, t('neverMind')),
+          ),
+        ));
+      } else {
+        children.push(el('button', {
+          type: 'button',
+          class: 'primary',
+          onclick: () => run(() => api(`/api/phases/${phase.id}/candidacy`, {
+            method: 'POST',
+            body: JSON.stringify({ join: true }),
+          })),
+        }, t('run')));
+      }
+
+      if (!count) {
+        children.push(el('p', { class: 'hint' }, t('nobody')));
+      } else {
+        children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
+      }
+
+      children.push(el('button', {
+        type: 'button',
+        class: 'quiet',
+        onclick: () => {
+          freezeRender = true;
+          const boxes = round.querySelectorAll('.confirm');
+          const box = boxes[boxes.length - 1];
+          if (box) box.hidden = false;
+        },
+      }, t('close')));
+      children.push(el('div', { class: 'confirm', hidden: true },
+        el('p', { class: 'hint' }, t('closeHint')),
+        el('div', { class: 'votes' },
+          el('button', {
+            type: 'button',
+            class: 'ghost',
+            onclick: () => run(() => api(`/api/phases/${phase.id}/close`, { method: 'POST', body: '{}' })),
+          }, t('confirmClose')),
+          el('button', {
+            type: 'button',
+            class: 'ghost',
+            onclick: () => {
+              freezeRender = false;
+              const boxes = round.querySelectorAll('.confirm');
+              const box = boxes[boxes.length - 1];
+              if (box) box.hidden = true;
+            },
+          }, t('neverMind')),
+        ),
+      ));
+
+      round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, children));
+    }
+
+    function renderHistory(rounds) {
+      history.replaceChildren();
+      if (!rounds.length) return;
+      history.className = 'history';
+      history.append(el('h2', {}, t('history')));
+      for (const item of rounds) {
+        const when = formatTime(item.closedAt);
+        const rows = item.candidates.length
+          ? ranks(item.candidates).map((candidate) => el('div', { class: 'result-row' },
+              el('span', { class: 'rank' }, candidate.rank),
+              el('span', {}, candidate.name),
+              el('span', { class: 'meta' }, scoreLine(candidate.likes, candidate.again)),
+            ))
+          : [el('p', { class: 'hint' }, t('noCandidates'))];
+        history.append(el('section', { class: 'card' },
+          el('h3', {}, item.title),
+          when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
+          item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
+          ...rows,
+        ));
+      }
+    }
+
+    let editingRoster = false;
+    let roleDraft = null;
+    let expandedMember = null;
+
+    function beginRosterEdit() {
+      if (!latest) return;
+      editingRoster = true;
+      expandedMember = null;
+      roleDraft = new Map((latest.members || []).map((person) => [person.id, {
+        musicDirector: Boolean(person.isMd),
+        arranger: Boolean(person.isArranger),
+        alumni: Boolean(person.isAlumni),
+        president: Boolean(person.isPresident),
+        vicePresident: Boolean(person.isVicePresident),
+        secretary: Boolean(person.isSecretary),
+        treasurer: Boolean(person.isTreasurer),
+        mediaChair: Boolean(person.isMedia),
+        name: person.name,
+        password: '',
+      }]));
+      freezeRender = true;
+      renderRoster(latest);
+    }
+
+    function cancelRosterEdit() {
+      editingRoster = false;
+      roleDraft = null;
+      expandedMember = null;
+      freezeRender = false;
+      if (latest) renderRoster(latest);
+    }
+
+    function saveRosterEdit() {
+      const jobs = [];
+      for (const person of latest?.members || []) {
+        const draft = roleDraft?.get(person.id);
+        if (!draft) continue;
+        const body = {};
+        const adminFields = [
+          ['musicDirector', 'isMd'],
+          ['alumni', 'isAlumni'],
+          ['president', 'isPresident'],
+          ['vicePresident', 'isVicePresident'],
+          ['secretary', 'isSecretary'],
+          ['treasurer', 'isTreasurer'],
+          ['mediaChair', 'isMedia'],
+        ];
+        if (latest?.user?.isAdmin) {
+          for (const [key, flag] of adminFields) {
+            if (draft[key] !== Boolean(person[flag])) body[key] = draft[key];
+          }
+        }
+        if (draft.arranger !== Boolean(person.isArranger)) body.arranger = draft.arranger;
+        if (Object.keys(body).length) jobs.push({ id: person.id, path: '', body });
+        if (latest?.user?.isAdmin) {
+          const password = String(draft.password || '');
+          const name = String(draft.name || '').trim();
+          if (name && (name !== person.name || password)) {
+            jobs.push({
+              id: person.id,
+              path: '/account',
+              body: password ? { name, password } : { name },
+            });
+          }
+        }
+      }
+      editingRoster = false;
+      roleDraft = null;
+      expandedMember = null;
+      freezeRender = false;
+      if (!jobs.length) {
+        if (latest) renderRoster(latest);
+        return;
+      }
+      run(async () => {
+        let data;
+        for (const job of jobs) {
+          data = await api(`/api/admin/users/${job.id}${job.path}`, {
+            method: 'POST',
+            body: JSON.stringify(job.body),
+          });
+        }
+        return data;
+      });
+    }
+
+    function roleMark(label) {
+      return el('span', { class: 'role-sign' }, label);
+    }
+
+    function roleChoice(person, field, label) {
+      const on = Boolean(roleDraft?.get(person.id)?.[field]);
+      return el('button', {
+        type: 'button',
+        class: 'role-sign',
+        'aria-pressed': on ? 'true' : 'false',
+        onclick: () => {
+          const draft = roleDraft?.get(person.id);
+          if (!draft) return;
+          draft[field] = !draft[field];
+          if (latest) renderRoster(latest);
+        },
+      }, label);
+    }
+
+    const rosterRoles = [
+      ['isMd', 'musicDirector', 'Music Director', true],
+      ['isArranger', 'arranger', 'Arranger', false],
+      ['isPresident', 'president', 'President', true],
+      ['isVicePresident', 'vicePresident', 'Vice President', true],
+      ['isSecretary', 'secretary', 'Secretary', true],
+      ['isTreasurer', 'treasurer', 'Treasurer', true],
+      ['isMedia', 'mediaChair', 'Media Chair', true],
+    ];
+
+    function personIsAlumni(person) {
+      if (editingRoster && roleDraft?.has(person.id)) return Boolean(roleDraft.get(person.id).alumni);
+      return Boolean(person.isAlumni);
+    }
+
+    function statusSwitch(person) {
+      const alumni = Boolean(roleDraft?.get(person.id)?.alumni);
+      const choice = (label, on, next) => el('button', {
+        type: 'button',
+        class: 'status-choice',
+        'aria-pressed': on ? 'true' : 'false',
+        onclick: () => {
+          const draft = roleDraft?.get(person.id);
+          if (!draft || draft.alumni === next) return;
+          draft.alumni = next;
+          if (latest) renderRoster(latest);
+        },
+      }, label);
+      return el('div', { class: 'status-switch' },
+        choice('Active', !alumni, false),
+        choice('Alumni', alumni, true),
+      );
+    }
+
+    function accountEditor(person) {
+      const draft = roleDraft?.get(person.id);
+      if (!draft) return null;
+      return el('div', { class: 'account-edit' },
+        el('p', { class: 'hint' }, t('passwordHidden')),
+        el('label', {}, t('name'),
+          el('input', {
+            value: draft.name,
+            maxlength: '20',
+            autocomplete: 'off',
+            oninput: (event) => { draft.name = event.target.value; },
+          }),
+        ),
+        el('label', {}, t('newPassword'),
+          el('input', {
+            type: 'text',
+            value: draft.password,
+            maxlength: '72',
+            autocomplete: 'off',
+            placeholder: both('passwordHint'),
+            oninput: (event) => { draft.password = event.target.value; },
+          }),
+        ),
+        el('button', {
+          type: 'button',
+          class: 'quiet',
+          onclick: (event) => {
+            const box = event.currentTarget.nextElementSibling;
+            if (box) box.hidden = false;
+          },
+        }, t('deleteMember')),
+        el('div', { class: 'confirm', hidden: true },
+          el('p', { class: 'hint' }, t('deleteMemberHint')),
+          el('div', { class: 'votes' },
+            el('button', {
+              type: 'button',
+              class: 'ghost',
+              onclick: () => run(() => api(`/api/admin/users/${person.id}/delete`, { method: 'POST', body: '{}' })),
+            }, t('confirmDelete')),
+            el('button', {
+              type: 'button',
+              class: 'ghost',
+              onclick: (event) => {
+                event.currentTarget.closest('.confirm').hidden = true;
+              },
+            }, t('neverMind')),
+          ),
+        ),
+      );
+    }
+
+    function memberRow(person, user) {
+      const tags = [];
+      const editing = canManage(user) && editingRoster;
+      const alumni = personIsAlumni(person);
+      const canExpand = editing && (user.isAdmin || !alumni);
+      const open = canExpand && expandedMember === person.id;
+      if (!alumni) {
+        for (const [flag, field, label, adminOnly] of rosterRoles) {
+          if (open && (!adminOnly || user.isAdmin)) tags.push(roleChoice(person, field, label));
+          else if (!editing && person[flag]) tags.push(roleMark(label));
+        }
+      }
+      const display = person.fullName || person.name;
+      const name = canExpand
+        ? el('button', {
+            type: 'button',
+            class: 'row-toggle',
+            'aria-expanded': open ? 'true' : 'false',
+            onclick: () => {
+              expandedMember = open ? null : person.id;
+              if (latest) renderRoster(latest);
+            },
+          }, el('span', {}, display), el('span', { class: 'row-caret', 'aria-hidden': 'true' }))
+        : editing
+          ? el('span', {}, display)
+          : el('button', { type: 'button', class: 'name-hit', onclick: () => openProfile(person.id, 'members') }, display);
+      return el('div', { class: open ? 'person-row roles-edit' : 'person-row' },
+        name,
+        tags.length ? el('div', { class: 'role-tags' }, tags) : null,
+        open && user.isAdmin ? statusSwitch(person) : null,
+        open && user.isAdmin ? accountEditor(person) : null,
+      );
+    }
+
+    function renderRoster(data) {
+      if (editingRoster) freezeRender = true;
+      const manage = canManage(data.user);
+      const people = data.members || [];
+      const bar = !manage ? null : editingRoster
+        ? el('div', { class: 'roster-bar' },
+            el('button', { type: 'button', class: 'ghost roster-action', onclick: cancelRosterEdit }, t('cancelEdit')),
+            el('button', { type: 'button', class: 'primary roster-action', onclick: saveRosterEdit }, t('saveRoles')),
+          )
+        : el('div', { class: 'roster-bar' },
+            el('button', { type: 'button', class: 'ghost roster-action', onclick: beginRosterEdit }, t('editRoles')),
+          );
+      const group = (title, rows) => el('section', { class: 'stack' },
+        el('h2', { class: 'roster-label' }, title),
+        el('div', { class: 'card stack' }, rows.length
+          ? rows.map((person) => memberRow(person, data.user))
+          : [el('p', { class: 'hint' }, t('noneYet'))]),
+      );
+      roster.replaceChildren(
+        bar,
+        group('Active', people.filter((person) => !personIsAlumni(person))),
+        group('Alumni', people.filter((person) => personIsAlumni(person))),
+      );
+    }
+
+    function renderAdmin(data) {
+      admin.replaceChildren();
+      if (!canManage(data.user) || !data.admin) {
+        admin.className = '';
+        return;
+      }
+      admin.className = 'history';
+      const rounds = data.admin.rounds.length
+        ? data.admin.rounds.map((item) => {
+            const status = both(item.status === 'open' ? 'openStatus' : 'closedStatus');
+            return el('div', { class: 'stack' },
+              el('div', { class: 'person-row' },
+                el('span', {}, item.title, el('span', { class: 'meta' }, ` · ${status} · ${item.openedBy}`)),
+                el('button', {
+                  type: 'button',
+                  class: 'quiet',
+                  onclick: (event) => {
+                    freezeRender = true;
+                    const box = event.currentTarget.parentElement.nextElementSibling;
+                    if (box) box.hidden = false;
+                  },
+                }, t('deleteRound')),
+              ),
+              el('div', { class: 'confirm', hidden: true },
+                el('p', { class: 'hint' }, t('deleteHint')),
+                el('div', { class: 'votes' },
+                  el('button', {
+                    type: 'button',
+                    class: 'ghost',
+                    onclick: () => run(() => api(`/api/phases/${item.id}/delete`, { method: 'POST', body: '{}' })),
+                  }, t('confirmDelete')),
+                  el('button', {
+                    type: 'button',
+                    class: 'ghost',
+                    onclick: (event) => {
+                      freezeRender = false;
+                      event.currentTarget.closest('.confirm').hidden = true;
+                    },
+                  }, t('neverMind')),
+                ),
+              ),
+            );
+          })
+        : [el('p', { class: 'hint' }, t('noRounds'))];
+      admin.append(
+        el('h2', {}, t('adminTitle')),
+        el('section', { class: 'card stack' },
+          el('h3', {}, t('rounds')),
+          ...rounds,
+        ),
+      );
+    }
+
+    function avatarNode(person) {
+      if (person.avatar) return el('img', { class: 'avatar', src: person.avatar, alt: '' });
+      const letter = (person.fullName || person.name || '?').trim().slice(0, 1).toUpperCase();
+      return el('div', { class: 'avatar avatar-empty', 'aria-hidden': 'true' }, letter);
+    }
+
+    async function prepareAvatar(file) {
+      const type = (file.type || '').toLowerCase();
+      const direct = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type);
+      if (direct && file.size <= 4 * 1024 * 1024) return file;
+      const bitmap = await createImageBitmap(file).catch(() => null);
+      if (!bitmap) throw new Error(errors.en.avatar_type);
+      const max = 1200;
+      const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+      if (!blob) throw new Error(errors.en.avatar_type);
+      return new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+    }
+
+    function profileField(key, name, value, max) {
+      if (name === 'funFact') {
+        const box = el('textarea', { name, maxlength: String(max), rows: '3' });
+        box.value = value || '';
+        return el('label', {}, el('span', {}, en(key)), box);
+      }
+      return el('label', {}, el('span', {}, en(key)),
+        el('input', {
+          name,
+          value: value || '',
+          maxlength: String(max),
+          autocomplete: 'off',
+          placeholder: name === 'gradYear' ? '2027' : (name === 'pronouns' ? 'she/her' : ''),
+        }),
+      );
+    }
+
+    function renderProfile(data) {
+      if (!profileBody) return;
+      const person = profileId === data.user.id
+        ? data.profile
+        : (data.members || []).find((item) => item.id === profileId);
+      if (!person) {
+        profileTitle.textContent = en('profileMissing');
+        profileBody.replaceChildren(el('p', { class: 'hint' }, en('profileMissing')));
+        return;
+      }
+      const mine = person.id === data.user.id;
+      if (mine) profileTitle.textContent = en('myProfile');
+      else profileTitle.textContent = person.fullName || person.name;
+      const head = el('div', { class: 'profile-top' }, avatarNode(person));
+      if (!mine) {
+        const facts = [
+          ['pronouns', person.pronouns],
+          ['voicePart', person.voicePart],
+          ['school', person.school],
+          ['gradYear', person.gradYear],
+          ['program', person.program],
+          ['funFact', person.funFact],
+          ['favoriteFood', person.favoriteFood],
+        ].filter(([, value]) => value);
+        profileBody.replaceChildren(
+          head,
+          facts.length
+            ? el('section', { class: 'card stack' }, facts.map(([key, value]) => el('p', {},
+                el('span', { class: 'meta' }, en(key)),
+                el('br'),
+                value,
+              )))
+            : el('p', { class: 'hint' }, en('noProfile')),
+        );
+        return;
+      }
+      profileBody.replaceChildren(
+        head,
+        el('form', {
+          class: 'panel stack',
+          onsubmit: (event) => {
+            event.preventDefault();
+            const form = event.target;
+            run(async () => {
+              const file = form.elements.avatar.files?.[0];
+              if (file) {
+                const photo = await prepareAvatar(file);
+                const body = new FormData();
+                body.set('avatar', photo);
+                const res = await fetch('/api/profile/avatar', { method: 'POST', credentials: 'same-origin', body });
+                const uploaded = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(errors.en[uploaded.error] || errors.en.generic);
+              }
+              return api('/api/profile', {
+                method: 'POST',
+                body: JSON.stringify({
+                  fullName: form.elements.fullName.value,
+                  pronouns: form.elements.pronouns.value,
+                  voicePart: form.elements.voicePart.value,
+                  school: form.elements.school.value,
+                  gradYear: form.elements.gradYear.value,
+                  program: form.elements.program.value,
+                  funFact: form.elements.funFact.value,
+                  favoriteFood: form.elements.favoriteFood.value,
+                }),
+              });
+            });
+          },
+        },
+          profileField('fullName', 'fullName', person.fullName, 80),
+          profileField('pronouns', 'pronouns', person.pronouns, 40),
+          profileField('voicePart', 'voicePart', person.voicePart, 40),
+          profileField('school', 'school', person.school, 80),
+          profileField('gradYear', 'gradYear', person.gradYear, 4),
+          profileField('program', 'program', person.program, 80),
+          profileField('funFact', 'funFact', person.funFact, 240),
+          profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
+          el('label', {},
+            el('span', {}, en('photo')),
+            el('input', { name: 'avatar', type: 'file', accept: 'image/*' }),
+          ),
+          el('button', { class: 'primary', type: 'submit' }, en('saveProfile')),
+        ),
+      );
+    }
+
+    function render(data) {
+      const label = whoLabel(data.user);
+      me.textContent = label;
+      hubMe.textContent = label;
+      membersMe.textContent = label;
+      profileMe.textContent = label;
+      scoresMe.textContent = label;
+      renderProfile(data);
+      renderRoster(data);
+      renderAdmin(data);
+      renderRound(data);
+      renderHistory(data.history);
+      renderScores(data);
+    }
+
+    function kindLine(value) {
+      const names = {
+        all: 'allMembers',
+        group: 'smallGroup',
+        big: 'allMembers',
+        small: 'smallGroup',
+      };
+      return String(value || '').split(',').filter(Boolean).map((item) => both(names[item] || 'allMembers')).join(', ');
+    }
+
+    function updateArrangerButton() {
+      const names = [...arrangerList.querySelectorAll('input:checked')].map((input) => input.value);
+      if (!names.length) arrangerButton.replaceChildren(t('arrangerPick'));
+      else arrangerButton.textContent = names.join(', ');
+    }
+
+    function renderArrangers(arrangers) {
+      const wanted = new Set(
+        [...arrangerList.querySelectorAll('input:checked')].map((input) => input.value.toLowerCase()),
+      );
+      if (pendingArranger) wanted.add(pendingArranger.toLowerCase());
+      arrangerList.replaceChildren(...(arrangers || []).map((item) => {
+        const box = el('input', { type: 'checkbox', name: 'arranger', value: item.name });
+        if (wanted.has(item.name.toLowerCase())) box.checked = true;
+        return el('label', {}, box, item.name);
+      }));
+      if (pendingArranger && (arrangers || []).some((item) => item.name.toLowerCase() === pendingArranger.toLowerCase())) {
+        newArranger.value = '';
+        pendingArranger = '';
+        arrangerMenu.hidden = false;
+      }
+      newArranger.placeholder = both('newArrangerPlace');
+      updateArrangerButton();
+    }
+
+    let browseSemester = '';
+    let browseCache = null;
+    let browseError = '';
+    let browseLoadingId = '';
+
+    function renderBrowse(loading) {
+      const semesters = latest?.library?.semesters || [];
+      const current = browseSemesterSelect.value;
+      browseSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
+      if (semesters.some((item) => String(item.id) === (browseSemester || current))) {
+        browseSemesterSelect.value = browseSemester || current;
+      }
+      if (!semesters.length) {
+        browseSemesterLink.hidden = true;
+        browseFolders.replaceChildren(el('p', { class: 'hint' }, t('noSemesters')));
+        return;
+      }
+      if (loading) {
+        browseSemesterLink.hidden = true;
+        browseFolders.replaceChildren(el('p', { class: 'hint' }, t('loading')));
+        return;
+      }
+      if (browseError) {
+        browseSemesterLink.hidden = true;
+        browseFolders.replaceChildren(el('p', { class: 'hint' }, browseError));
+        return;
+      }
+      if (!browseCache) return;
+      browseSemesterLink.hidden = false;
+      browseSemesterLink.href = browseCache.url;
+      browseSemesterLink.textContent = browseCache.label;
+      browseFolders.replaceChildren(browseCache.folders.length
+        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('a', {
+            class: 'score-link',
+            href: item.url,
+            target: '_blank',
+            rel: 'noopener',
+          }, item.name)))
+        : el('p', { class: 'hint' }, t('noFolders')));
+    }
+
+    async function ensureBrowse(semesters) {
+      if (view !== 'scores') return;
+      if (!semesters.length) {
+        browseCache = null;
+        browseError = '';
+        renderBrowse();
+        return;
+      }
+      if (!semesters.some((item) => String(item.id) === browseSemester)) browseSemester = String(semesters[0].id);
+      if (browseCache && String(browseCache.id) === browseSemester) {
+        renderBrowse();
+        return;
+      }
+      if (browseLoadingId === browseSemester) {
+        renderBrowse(true);
+        return;
+      }
+      const requested = browseSemester;
+      browseLoadingId = requested;
+      browseError = '';
+      browseCache = null;
+      renderBrowse(true);
+      try {
+        const data = await api(`/api/library/folders?semesterId=${requested}`);
+        if (browseSemester !== requested) return;
+        browseCache = data;
+        browseError = '';
+      } catch (error) {
+        if (browseSemester !== requested) return;
+        browseCache = null;
+        browseError = error.message;
+      } finally {
+        if (browseLoadingId === requested) browseLoadingId = '';
+      }
+      renderBrowse();
+    }
+
+    function renderScores(data) {
+      const library = data.library || { ready: false, semesters: [], setup: null, arrangers: [] };
+      const upload = Boolean(data.user.isArranger);
+      scoreForm.hidden = !upload || !library.ready;
+      uploadHeading.hidden = !upload;
+      const showWait = upload && !library.ready;
+      scoresWait.hidden = !showWait;
+      if (showWait) scoresWait.replaceChildren(t(data.user.isAdmin ? 'setupFirst' : 'libraryClosed'));
+      ensureBrowse(library.semesters);
+      syncEditChrome();
+      const currentSemester = semesterSelect.value;
+      semesterSelect.replaceChildren(...library.semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
+      if (library.semesters.some((item) => String(item.id) === currentSemester)) semesterSelect.value = currentSemester;
+      renderArrangers(library.arrangers);
+
+      scoreSetup.hidden = !data.user.isAdmin || !library.setup;
+      if (!library.setup) return;
+      const setup = library.setup;
+      googleStatus.replaceChildren(setup.connected
+        ? el('span', {}, `${both('connectedAs')}${setup.email ? ` · ${setup.email}` : ''}`)
+        : t('notConnected'));
+      const clientInput = googleForm.elements.clientId;
+      const sheetInput = googleForm.elements.spreadsheet;
+      if (clientInput && !clientInput.value && setup.clientId) clientInput.value = setup.clientId;
+      if (sheetInput && !sheetInput.value && setup.spreadsheetId) {
+        sheetInput.value = `https://docs.google.com/spreadsheets/d/${setup.spreadsheetId}/edit`;
+      }
+      const parentInput = googleForm.elements.parentFolder;
+      if (parentInput && !parentInput.value && setup.parentFolderId) {
+        parentInput.value = `https://drive.google.com/drive/folders/${setup.parentFolderId}`;
+      }
+      googleForm.elements.clientSecret.placeholder = setup.hasClient ? both('secretKept') : '';
+      const localHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+      googleConnect.replaceChildren();
+      if (setup.connected) {
+        googleConnect.append(el('button', {
+          type: 'button',
+          class: 'quiet',
+          onclick: () => run(() => api('/api/google/disconnect', { method: 'POST', body: '{}' })),
+        }, t('disconnectGoogle')));
+      } else if (setup.hasClient && localHost) {
+        googleConnect.append(el('a', { class: 'primary', href: '/api/google/connect' }, t('connectGoogle')));
+      } else if (setup.hasClient) {
+        googleConnect.append(el('p', { class: 'hint' }, t('connectHere')));
+      }
+      googleConnect.hidden = googleConnect.childElementCount === 0;
+      semesterList.replaceChildren(library.semesters.length
+        ? el('section', { class: 'card' }, library.semesters.map((item) => el('div', { class: 'person-row' },
+            el('span', {}, item.label),
+            el('button', {
+              type: 'button',
+              class: 'quiet',
+              onclick: () => run(() => api(`/api/semesters/${item.id}/delete`, { method: 'POST', body: '{}' })),
+            }, t('removeSemester')),
+          )))
+        : el('p', { class: 'hint' }, t('noSemesters')));
+    }
+
+    function updateAuthMode() {
+      const registering = mode === 'register';
+      authSubmit.replaceChildren(t(registering ? 'registerEnter' : 'login'));
+      authSwitch.replaceChildren(t(registering ? 'switchToLogin' : 'switchToRegister'));
+      password.autocomplete = registering ? 'new-password' : 'current-password';
+      passwordHint.hidden = !registering;
+    }
+
+    authSwitch.addEventListener('click', () => {
+      mode = mode === 'login' ? 'register' : 'login';
+      updateAuthMode();
+    });
+
+    authForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const body = JSON.stringify({
+        name: new FormData(authForm).get('name'),
+        password: new FormData(authForm).get('password'),
+      });
+      run(() => api(mode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body }));
+    });
+
+    async function logout() {
+      clearBanner();
+      try {
+        await api('/api/logout', { method: 'POST', body: '{}' });
+        snapshot = '';
+        freezeRender = false;
+        showAuth();
+      } catch (error) {
+        showBanner(error.message);
+      }
+    }
+
+    for (const button of document.querySelectorAll('#logout, #hub-logout, #members-logout, #profile-logout, #scores-logout')) {
+      button.addEventListener('click', logout);
+    }
+
+    document.querySelector('#open-profile').addEventListener('click', () => openProfile(latest?.user?.id, 'hub'));
+    document.querySelector('#profile-back').addEventListener('click', () => showView(profileFrom));
+    document.querySelector('#open-members').addEventListener('click', () => showView('members'));
+    document.querySelector('#members-back').addEventListener('click', () => showView('hub'));
+    document.querySelector('#open-poll').addEventListener('click', () => showView('poll'));
+    document.querySelector('#poll-back').addEventListener('click', () => showView('hub'));
+    document.querySelector('#open-scores').addEventListener('click', () => {
+      showView('scores');
+      ensureBrowse(latest?.library?.semesters || []);
+    });
+    browseSemesterSelect.addEventListener('change', () => {
+      browseSemester = browseSemesterSelect.value;
+      browseCache = null;
+      browseError = '';
+      ensureBrowse(latest?.library?.semesters || []);
+    });
+    document.querySelector('#scores-back').addEventListener('click', () => showView('hub'));
+
+    arrangerButton.addEventListener('click', () => {
+      arrangerMenu.hidden = !arrangerMenu.hidden;
+    });
+    arrangerList.addEventListener('change', updateArrangerButton);
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.picker')) arrangerMenu.hidden = true;
+    });
+    document.querySelector('#add-arranger').addEventListener('click', () => {
+      const name = newArranger.value.trim();
+      if (!name) return;
+      pendingArranger = name;
+      run(() => api('/api/arrangers', { method: 'POST', body: JSON.stringify({ name }) }));
+    });
+    newArranger.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      document.querySelector('#add-arranger').click();
+    });
+
+    let editingSong = null;
+    let editingFiles = [];
+    let removedFiles = new Set();
+    let editSemester = '';
+    let editCache = null;
+    let editError = '';
+    let editLoadingId = '';
+
+    function syncEditChrome() {
+      uploadSubmit.replaceChildren(t(editingSong ? 'saveSong' : 'uploadScore'));
+      cancelEdit.hidden = !editingSong;
+      existingFiles.hidden = !editingSong;
+    }
+
+    function renderExistingFiles() {
+      existingFiles.replaceChildren(el('p', { class: 'hint' }, t('existingFiles')));
+      if (!editingFiles.length) {
+        existingFiles.append(el('p', { class: 'hint' }, t('noExistingFiles')));
+        return;
+      }
+      existingFiles.append(el('div', { class: 'card' }, editingFiles.map((file) => {
+        const removing = removedFiles.has(file.id);
+        return el('div', { class: removing ? 'existing-file removing' : 'existing-file' },
+          el('span', {}, file.name),
+          el('button', {
+            type: 'button',
+            class: 'quiet',
+            onclick: () => {
+              if (removedFiles.has(file.id)) removedFiles.delete(file.id);
+              else removedFiles.add(file.id);
+              renderExistingFiles();
+            },
+          }, t(removing ? 'undoRemove' : 'removeFile')),
+        );
+      })));
+    }
+
+    function clearSongEdit() {
+      editingSong = null;
+      editingFiles = [];
+      removedFiles = new Set();
+      existingFiles.replaceChildren();
+      editPicker.hidden = true;
+      syncSongSearch();
+      scoreForm.reset();
+      updateArrangerButton();
+      syncEditChrome();
+      freezeRender = false;
+    }
+
+    function renderEditSongs(loading) {
+      const semesters = latest?.library?.semesters || [];
+      const current = editSemesterSelect.value;
+      editSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
+      if (semesters.some((item) => String(item.id) === (editSemester || current))) {
+        editSemesterSelect.value = editSemester || current;
+      }
+      if (!semesters.length) {
+        editSongs.replaceChildren(el('p', { class: 'hint' }, t('noSemesters')));
+        return;
+      }
+      if (loading) {
+        editSongs.replaceChildren(el('p', { class: 'hint' }, t('loading')));
+        return;
+      }
+      if (editError) {
+        editSongs.replaceChildren(el('p', { class: 'hint' }, editError));
+        return;
+      }
+      if (!editCache) return;
+      const query = songTitle.value.trim().toLowerCase();
+      const folders = editCache.folders.filter((item) => !query || item.name.toLowerCase().includes(query));
+      editSongs.replaceChildren(folders.length
+        ? el('div', { class: 'card' }, folders.map((item) => el('button', {
+            type: 'button',
+            class: 'score-link',
+            onclick: () => run(() => loadSongEdit(editCache.id, item.id)),
+          }, item.name)))
+        : el('p', { class: 'hint' }, t(query ? 'noSearch' : 'noFolders')));
+    }
+
+    async function ensureEditList(semesters) {
+      if (!semesters.length) {
+        editCache = null;
+        editError = '';
+        renderEditSongs();
+        return;
+      }
+      if (!semesters.some((item) => String(item.id) === editSemester)) editSemester = String(semesters[0].id);
+      if (editCache && String(editCache.id) === editSemester) {
+        renderEditSongs();
+        return;
+      }
+      if (editLoadingId === editSemester) {
+        renderEditSongs(true);
+        return;
+      }
+      const requested = editSemester;
+      editLoadingId = requested;
+      editError = '';
+      editCache = null;
+      renderEditSongs(true);
+      try {
+        const data = await api(`/api/library/folders?semesterId=${requested}`);
+        if (editSemester !== requested) return;
+        editCache = data;
+        editError = '';
+      } catch (error) {
+        if (editSemester !== requested) return;
+        editCache = null;
+        editError = error.message;
+      } finally {
+        if (editLoadingId === requested) editLoadingId = '';
+      }
+      renderEditSongs();
+    }
+
+    async function loadSongEdit(semesterId, folderId) {
+      const detail = await api(`/api/scores/folder?semesterId=${semesterId}&folderId=${encodeURIComponent(folderId)}`);
+      editingSong = { folderId: detail.folderId, sourceSemesterId: String(detail.semesterId) };
+      scoreForm.elements.title.value = detail.title;
+      if ([...semesterSelect.options].some((option) => option.value === String(detail.semesterId))) {
+        semesterSelect.value = String(detail.semesterId);
+      }
+      const wanted = new Set(detail.arrangers.map((name) => name.toLowerCase()));
+      for (const name of detail.arrangers) {
+        const found = [...arrangerList.querySelectorAll('input')].some((input) => input.value.toLowerCase() === name.toLowerCase());
+        if (found) continue;
+        const box = el('input', { type: 'checkbox', name: 'arranger', value: name });
+        arrangerList.append(el('label', {}, box, name));
+      }
+      for (const input of arrangerList.querySelectorAll('input[name="arranger"]')) {
+        input.checked = wanted.has(input.value.toLowerCase());
+      }
+      updateArrangerButton();
+      for (const input of scoreForm.querySelectorAll('input[name="kind"]')) {
+        input.checked = detail.kinds.includes(input.value);
+      }
+      editingFiles = detail.files || [];
+      removedFiles = new Set();
+      renderExistingFiles();
+      editPicker.hidden = true;
+      syncSongSearch();
+      syncEditChrome();
+      freezeRender = true;
+      return null;
+    }
+
+    function syncSongSearch() {
+      songTitle.placeholder = editPicker.hidden ? '' : both('searchSong');
+    }
+
+    editSongButton.addEventListener('click', () => {
+      editPicker.hidden = !editPicker.hidden;
+      syncSongSearch();
+      if (editPicker.hidden) return;
+      songTitle.focus();
+      ensureEditList(latest?.library?.semesters || []);
+    });
+    editSemesterSelect.addEventListener('change', () => {
+      editSemester = editSemesterSelect.value;
+      editCache = null;
+      editError = '';
+      ensureEditList(latest?.library?.semesters || []);
+    });
+    songTitle.addEventListener('input', () => {
+      if (!editPicker.hidden) renderEditSongs();
+    });
+    songTitle.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !editPicker.hidden) event.preventDefault();
+    });
+    cancelEdit.addEventListener('click', clearSongEdit);
+
+    scoreForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const body = new FormData(scoreForm);
+      if (!body.getAll('arranger').length) {
+        showBanner(errorText('arranger_required'));
+        return;
+      }
+      if (!body.getAll('kind').length) {
+        showBanner(errorText('kind_required'));
+        return;
+      }
+      const fileCount = (scoreForm.elements.files.files?.length || 0) + (scoreForm.elements.folder.files?.length || 0);
+      if (!editingSong && !fileCount) {
+        showBanner(errorText('file_required'));
+        return;
+      }
+      if (editingSong) {
+        body.set('folderId', editingSong.folderId);
+        body.set('sourceSemesterId', editingSong.sourceSemesterId);
+        for (const id of removedFiles) body.append('delete', id);
+      }
+      run(async () => {
+        const res = await fetch(editingSong ? '/api/scores/edit' : '/api/scores', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(errorText(data.error));
+        editingSong = null;
+        editingFiles = [];
+        removedFiles = new Set();
+        existingFiles.replaceChildren();
+        editPicker.hidden = true;
+        syncSongSearch();
+        scoreForm.reset();
+        return data;
+      });
+    });
+
+    googleForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const form = new FormData(googleForm);
+      run(() => api('/api/google/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId: form.get('clientId'),
+          clientSecret: form.get('clientSecret'),
+          spreadsheet: form.get('spreadsheet'),
+          parentFolder: form.get('parentFolder'),
+        }),
+      }));
+    });
+
+    semesterForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const form = new FormData(semesterForm);
+      run(async () => {
+        const data = await api('/api/semesters', {
+          method: 'POST',
+          body: JSON.stringify({ label: form.get('label') }),
+        });
+        semesterForm.reset();
+        return data;
+      });
+    });
+
+    const install = document.querySelector('#install');
+    const phone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+    if (phone && !standalone && localStorage.getItem('solo-install-hide') !== '1') install.hidden = false;
+    document.querySelector('#install-dismiss').addEventListener('click', () => {
+      localStorage.setItem('solo-install-hide', '1');
+      install.hidden = true;
+    });
+
+    applyStatic();
+    updateAuthMode();
+    refresh();
+  </script>
+</body>
+</html>
