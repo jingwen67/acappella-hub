@@ -10,6 +10,7 @@ const root = import.meta.dirname;
 const port = Number(process.env.PORT) || 4173;
 const page = readFileSync(join(root, 'public', 'index.html'));
 const assets = {
+  '/guide.html': ['text/html; charset=utf-8', readFileSync(join(root, 'public', 'guide.html'))],
   '/manifest.webmanifest': ['application/manifest+json; charset=utf-8', readFileSync(join(root, 'public', 'manifest.webmanifest'))],
   '/apple-touch-icon.png': ['image/png', readFileSync(join(root, 'public', 'apple-touch-icon.png'))],
   '/icon-192.png': ['image/png', readFileSync(join(root, 'public', 'icon-192.png'))],

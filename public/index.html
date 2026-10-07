@@ -659,9 +659,12 @@
       .choice.is-like[aria-pressed="true"]:hover { background: var(--like); }
       .choice.is-again[aria-pressed="true"]:hover { background: var(--again); }
     }
+    .global-guide { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 100; padding: 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--again); font-size: 14px; font-weight: 600; text-decoration: none; box-shadow: 0 3px 12px #241c1610; white-space: nowrap; }
+    body > main { padding-top: max(76px, calc(60px + env(safe-area-inset-top))); }
   </style>
 </head>
 <body>
+  <a class="global-guide" href="/guide.html" aria-label="使用指南 / User guide">Guide · 使用指南</a>
   <p id="banner" class="banner" hidden></p>
   <main>
     <aside id="install" class="panel install" hidden>
