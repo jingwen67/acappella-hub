@@ -154,7 +154,10 @@
       text-decoration: none;
     }
 
-    .who .nav-btn { margin: 0; }
+    .who .nav-btn { margin: 0; order: 2; min-height: 32px; padding: 3px 8px; border-color: transparent; font-size: 14px; color: var(--muted); }
+    .who .account-mini { order: 1; display: grid; justify-items: end; gap: 4px; max-width: 140px; text-align: right; overflow-wrap: anywhere; font-size: 14px; }
+    .who .account-mini .avatar { width: 32px; height: 32px; font-size: 16px; }
+
 
     .hub-actions {
       display: grid;
@@ -2213,11 +2216,11 @@
 
     function render(data) {
       const label = whoLabel(data.user);
-      me.textContent = label;
-      hubMe.textContent = label;
-      membersMe.textContent = label;
-      profileMe.textContent = label;
-      scoresMe.textContent = label;
+      const person = { ...data.user, ...data.profile };
+      for (const node of [me, hubMe, membersMe, profileMe, scoresMe]) {
+        node.classList.add('account-mini');
+        node.replaceChildren(avatarNode(person), el('span', {}, label));
+      }
       renderProfile(data);
       renderRoster(data);
       renderAdmin(data);
