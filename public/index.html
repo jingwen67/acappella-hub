@@ -843,7 +843,7 @@
           <label><span data-i18n="parentFolder">大文件夹链接</span>
             <input name="parentFolder" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/...">
           </label>
-          <p class="hint" data-i18n="setupHint">在运行这个程序的电脑上打开 http://127.0.0.1:4173。Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 http://127.0.0.1:4173/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。</p>
+          <p class="hint" data-i18n="setupHint">Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 https://acappella-hub.elenazhang0607.chatgpt.site/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。</p>
           <button class="primary" type="submit" data-i18n="saveSetup">保存设置</button>
         </form>
         <div id="google-connect" class="panel stack"></div>
@@ -1036,12 +1036,12 @@
         clientSecret: 'OAuth 客户端密钥',
         spreadsheet: 'Google 表格链接',
         parentFolder: '大文件夹链接',
-        setupHint: '在运行这个程序的电脑上打开 http://127.0.0.1:4173 。Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 http://127.0.0.1:4173/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。',
+        setupHint: 'Google Cloud 里启用 Drive API 和 Sheets API，创建一个网页应用 OAuth 客户端，回调地址填 https://acappella-hub.elenazhang0607.chatgpt.site/api/google/callback 。用社团的 Google 账号连接一次。表格列是：曲名Song Title、编曲Arranger、学期Semester、性质Type、链接Link。链接文字是曲名，点开会打开曲名文件夹。',
         saveSetup: '保存设置',
         secretKept: '已保存。留空则不修改。',
         connectGoogle: '连接 Google 账号',
         disconnectGoogle: '断开 Google',
-        connectHere: '请在运行这个程序的电脑上打开 http://127.0.0.1:4173 ，再连接 Google。',
+        connectHere: '请通过 HTTPS 打开网站，再连接 Google。',
         connectedAs: '已连接',
         notConnected: '还没有连接 Google。',
         semesters: '学期',
@@ -1179,12 +1179,12 @@
         clientSecret: 'OAuth client secret',
         spreadsheet: 'Google Sheet link',
         parentFolder: 'Parent folder link',
-        setupHint: 'On the computer running this app, open http://127.0.0.1:4173. In Google Cloud, enable the Drive API and Sheets API, create a Web OAuth client, and set the redirect URI to http://127.0.0.1:4173/api/google/callback. Connect the club Google account once. The columns are 曲名Song Title, 编曲Arranger, 学期Semester, 性质Type, 链接Link. The link text is the song title and opens that song’s folder.',
+        setupHint: 'In Google Cloud, enable the Drive API and Sheets API, create a Web OAuth client, and set the redirect URI to https://acappella-hub.elenazhang0607.chatgpt.site/api/google/callback. Connect the club Google account once. The columns are 曲名Song Title, 编曲Arranger, 学期Semester, 性质Type, 链接Link. The link text is the song title and opens that song’s folder.',
         saveSetup: 'Save settings',
         secretKept: 'Saved. Leave blank to keep it.',
         connectGoogle: 'Connect Google',
         disconnectGoogle: 'Disconnect Google',
-        connectHere: 'Open http://127.0.0.1:4173 on the computer running this app, then connect Google.',
+        connectHere: 'Open the website over HTTPS, then connect Google.',
         connectedAs: 'Connected',
         notConnected: 'Google is not connected yet.',
         semesters: 'Semesters',
@@ -1216,7 +1216,7 @@
         not_candidate: '这个人没有参选',
         bad_reaction: '请选择好听！或我再听听',
         not_found: '找不到页面',
-        too_large: '请求太大',
+        too_large: '上传总大小不能超过 20 MB',
         bad_json: '请求格式不对',
         server: '服务器出错了',
         offline: '连不上服务器',
@@ -1273,7 +1273,7 @@
         not_candidate: 'That person isn’t running',
         bad_reaction: 'Choose Sounds great! or Not sure yet',
         not_found: 'Page not found',
-        too_large: 'That request is too large',
+        too_large: 'Uploads must total less than 20 MB',
         bad_json: 'That request could not be read',
         server: 'Something went wrong on the server',
         offline: 'Can’t reach the server',
@@ -2342,7 +2342,7 @@
         parentInput.value = `https://drive.google.com/drive/folders/${setup.parentFolderId}`;
       }
       googleForm.elements.clientSecret.placeholder = setup.hasClient ? both('secretKept') : '';
-      const localHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+      const localHost = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       googleConnect.replaceChildren();
       if (setup.connected) {
         googleConnect.append(el('button', {
@@ -2696,5 +2696,12 @@
     updateAuthMode();
     refresh();
   </script>
+<script>
+if (document.modelContext?.registerTool) {
+ const lifecycle = new AbortController();
+ Promise.resolve(document.modelContext.registerTool({name:'get_acappella_hub_state',title:'Read A Cappella Hub',description:'Read the signed-in member profile, current voting round, and score library.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},async execute(input){if(!input||Object.keys(input).length)throw new Error('No input fields are accepted');const response=await fetch('/api/state',{credentials:'same-origin',cache:'no-store'});const state=await response.json();if(!response.ok)throw new Error(state.error||'State unavailable');return state;}},{signal:lifecycle.signal})).catch(()=>{});
+ window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
+}
+</script>
 </body>
 </html>
