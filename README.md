@@ -158,11 +158,26 @@ Music Director 也可进入成员列表指定 Arranger，但不能指定 Music D
 
 **结束**会保留历史结果；**删除**会移除整个轮次及其参选、投票记录。请用结束来保存正式选拔结果。
 
-### 3. 首次连接 Google 乐谱库
+## 常见问题
+
+| 情况 | 怎么处理 |
+| --- | --- |
+| 不知道该打开哪个链接 | 使用 README 顶部的 **网站入口**。GitHub 链接是代码仓库，`localhost` 是开发者本机地址。 |
+| 注册提示名字已存在 | 尝试用原账号登录；忘记密码则联系管理员，不必重复注册。 |
+| 我是 MD，但看不到上传表单 | 上传还需要 Arranger 角色，且管理员已配置 Google 乐谱库。 |
+| 乐谱库提示尚未设置好 | 请管理员完成 Google 连接、设置索引表和大文件夹，并添加学期。 |
+| 没有可以选择的轮次编曲者 | 先给至少一位 Active 成员指定 Arranger。 |
+| 我看不到汇总票数 | 普通成员只看自己的选择。汇总结果仅供 MD 和该轮指定的 Arranger 查看。 |
+| 没有进行中的投票 | 等待 MD 开启；已有轮次必须先结束，才能开启下一轮。 |
+| 上传失败或请求太大 | 检查整个请求是否小于 20 MB、角色权限和 Google 连接是否有效。 |
+| Drive 提示没有权限 | 确认 Google 登录账号及文件夹共享权限；网站账号不会替代 Google 权限。 |
+| 投票或资料没有立即更新 | 确认操作成功，再稍等几秒；页面会定期刷新数据，必要时手动刷新。 |
+
+## 首次连接 Google 乐谱库
 
 这部分只需管理员设置，普通成员不用逐个授权 Google API。
 
-#### 准备共享文件夹和索引表
+### 准备共享文件夹和索引表
 
 1. 在 Google Drive 准备社团乐谱的大文件夹，复制文件夹链接。
 2. 准备一份 Google Sheets 索引表，复制表格链接。
@@ -175,7 +190,7 @@ Music Director 也可进入成员列表指定 Arranger，但不能指定 Music D
 
 如果第一行为空，首次成功上传会自动写入这些表头。使用完整的五列表头有助于确保索引信息齐全。
 
-#### 创建 Google OAuth 客户端
+### 创建 Google OAuth 客户端
 
 1. 打开 [Google Cloud Console](https://console.cloud.google.com/)，选择或创建社团使用的项目。
 2. 启用 **Google Drive API** 和 **Google Sheets API**。
@@ -191,7 +206,7 @@ https://acappella-hub.elenazhang0607.chatgpt.site/api/google/callback
 
 Google 官方参考：[启用 Workspace APIs](https://developers.google.com/workspace/guides/enable-apis) · [Web Server OAuth 设置](https://developers.google.com/identity/protocols/oauth2/web-server)。
 
-#### 在网站中完成连接
+### 在网站中完成连接
 
 1. 用 `admin` 登录网站，进入 **查看/上传乐谱 → 乐谱设置**。
 2. 填写 Client ID、Client Secret、索引表链接和大文件夹链接。
@@ -203,22 +218,10 @@ Google 官方参考：[启用 Workspace APIs](https://developers.google.com/work
 
 连接成功、索引表已设置并且至少有一个学期后，上传入口才可用。网站连接 Google 不会自动授予成员 Drive 文件访问权限；请另外设置社团文件夹的共享范围。
 
-## 常见问题
+### Tips
 
-| 情况 | 怎么处理 |
-| --- | --- |
-| 不知道该打开哪个链接 | 使用 README 顶部的 **网站入口**。GitHub 链接是代码仓库，`localhost` 是开发者本机地址。 |
-| 注册提示名字已存在 | 尝试用原账号登录；忘记密码则联系管理员，不必重复注册。 |
-| 我是 MD，但看不到上传表单 | 上传还需要 Arranger 角色，且管理员已配置 Google 乐谱库。 |
-| 乐谱库提示尚未设置好 | 请管理员完成 Google 连接、设置索引表和大文件夹，并添加学期。 |
-| 没有可以选择的轮次编曲者 | 先给至少一位 Active 成员指定 Arranger。 |
-| 我看不到汇总票数 | 普通成员只看自己的选择。汇总结果仅供 MD 和该轮指定的 Arranger 查看。 |
-| 没有进行中的投票 | 等待 MD 开启；已有轮次必须先结束，才能开启下一轮。 |
-| 上传失败或请求太大 | 检查整个请求是否小于 20 MB、角色权限和 Google 连接是否有效。 |
-| Drive 提示没有权限 | 确认 Google 登录账号及文件夹共享权限；网站账号不会替代 Google 权限。 |
-| Google 显示 `redirect_uri_mismatch` | 检查 OAuth 客户端中的回调地址是否与上面的完整 HTTPS 地址一致。 |
-| Google 连接失效 | 管理员重新连接，并检查 Google 项目的受众、测试用户和授权状态。 |
-| 投票或资料没有立即更新 | 确认操作成功，再稍等几秒；页面会定期刷新数据，必要时手动刷新。 |
+- **Google 显示 `redirect_uri_mismatch`：** 检查 OAuth 客户端中的回调地址是否与上面的完整 HTTPS 地址一致。
+- **Google 连接失效：** 管理员重新连接，并检查 Google 项目的受众、测试用户和授权状态。
 
 ## 以后修改网站
 
