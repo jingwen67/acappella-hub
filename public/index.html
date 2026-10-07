@@ -1460,6 +1460,8 @@
 
     function showAuth() {
       stopPolling();
+      profileEditing = false;
+      profileDraft = null;
       galleryCache.clear();
       invitationList = null;
       issuedInvitation = null;
@@ -1488,6 +1490,8 @@
       scores.hidden = view !== 'scores';
     }
 
+    let profileEditing = false;
+    let profileDraft = null;
     let profileId = null;
     let profileFrom = 'hub';
 
@@ -1511,6 +1515,8 @@
     window.addEventListener('hashchange', restoreNavigation);
 
     function openProfile(id, from) {
+      profileEditing = false;
+      profileDraft = null;
       galleryCache.delete(id);
       profileId = id;
       profileFrom = from || 'members';
@@ -2263,6 +2269,7 @@
 
     function renderProfile(data) {
       if (!profileBody) return;
+      if(profileEditing){const form=profileBody.querySelector("form");if(form)profileDraft=Object.fromEntries(new FormData(form));}
       const person = profileId === data.user.id
         ? data.profile
         : (data.members || []).find((item) => item.id === profileId);
@@ -2305,8 +2312,11 @@
           onsubmit: (event) => {
             event.preventDefault();
             const form = event.target;
+            if(!profileEditing){profileEditing=true;profileDraft=null;renderProfile(latest);profileBody.querySelector('[name="fullName"]')?.focus();return;}
+            if(busy)return;
+            const button=form.querySelector('button[type="submit"]');button.disabled=true;
             run(async () => {
-              return api('/api/profile', {
+              try { const result = await api('/api/profile', {
                 method: 'POST',
                 body: JSON.stringify({
                   fullName: form.elements.fullName.value,
@@ -2319,6 +2329,8 @@
                   favoriteFood: form.elements.favoriteFood.value,
                 }),
               });
+              profileEditing=false;profileDraft=null;return result;
+              } finally {button.disabled=false;} 
             });
           },
         },
@@ -2330,10 +2342,14 @@
           profileField('program', 'program', person.program, 80),
           profileField('funFact', 'funFact', person.funFact, 240),
           profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
-          el('button', { class: 'primary', type: 'submit' }, en('saveProfile')),
+          el('button', { class: 'primary', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit')),
         ),
         galleryNode(person, mine),
       );
+      for(const field of profileBody.querySelectorAll('form input, form textarea')){
+        field.readOnly=!profileEditing;
+        if(profileEditing&&profileDraft&&Object.hasOwn(profileDraft,field.name))field.value=profileDraft[field.name];
+      }
     }
 
     function render(data) {
