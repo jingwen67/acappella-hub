@@ -146,3 +146,6 @@ ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON SCHEMA cucac FROM anon; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON SCHEMA cucac FROM authenticated; END IF; END $$;
+
+ALTER TABLE cucac.invitations ADD COLUMN IF NOT EXISTS is_shared integer NOT NULL DEFAULT 0 CHECK (is_shared IN (0,1));
+ALTER TABLE cucac.invitations ADD COLUMN IF NOT EXISTS use_count integer NOT NULL DEFAULT 0 CHECK (use_count >= 0);

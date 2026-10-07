@@ -38,9 +38,9 @@ After the first deployment provides a domain, set `PUBLIC_ORIGIN` to that domain
 
 ## 3. 邀请成员 / Invite members
 
-用 `admin` 登录 → 全体成员 → 生成邀请码。把邀请码私下发给一位成员：每个码只能注册一次，7 天后到期，可以提前撤销。成员注册后，日常直接用名字和密码登录，不需要再次输入邀请码。
+用 `admin` 登录 → 全体成员 → 生成邀请码。把邀请码私下发给一位成员：新生成的码可以发给全团多人注册，7 天后到期，可以提前撤销；已有一次性码保持原规则。成员注册后，日常直接用名字和密码登录，不需要再次输入邀请码。
 
-Log in as `admin`, open Members, and create an invitation. Each code works once, expires after seven days, and can be revoked. Members then log in normally with their name and password.
+Log in as `admin`, open Members, and create an invitation. New codes support multiple registrations, expire after seven days, and can be revoked. Existing single-use codes keep their original rules. Members then log in normally with their name and password.
 
 ## 4. Google 乐谱库 / Google score library
 

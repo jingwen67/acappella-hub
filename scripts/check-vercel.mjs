@@ -85,7 +85,12 @@ try {
  await api('/api/admin/invitations','md',{},403);
  const invite=await api('/api/admin/invitations','admin',{},201);
  await api('/api/register','invited',{name:'Invited',password:'abc12345',invitationCode:invite.code},201);
- await api('/api/register','reused',{name:'Reused',password:'abc12345',invitationCode:invite.code},403);
+ await api('/api/register','reused',{name:'Reused',password:'abc12345',invitationCode:invite.code},201);
+ assert.equal((await query('SELECT use_count FROM cucac.invitations WHERE id=$1',[invite.id])).rows[0].use_count,2);
+ const single=await api('/api/admin/invitations','admin',{},201);
+ await query('UPDATE cucac.invitations SET is_shared=0 WHERE id=$1',[single.id]);
+ await api('/api/register','single',{name:'Single',password:'abc12345',invitationCode:single.code},201);
+ await api('/api/register','single2',{name:'Single2',password:'abc12345',invitationCode:single.code},403);
  const revoked=await api('/api/admin/invitations','admin',{},201);
  await api('/api/admin/invitations/'+revoked.id+'/revoke','admin',{});
  await api('/api/register','revoked',{name:'Revoked',password:'abc12345',invitationCode:revoked.code},403);

@@ -2061,7 +2061,7 @@
     function invitationPanel() {
       const panel=el('section',{class:'panel stack'},
         el('h2',{},pair('邀请成员','Invite members')),
-        el('p',{class:'hint'},pair('邀请码一次有效，7 天后过期。只发给社团成员。','Each code works once and expires in 7 days. Share only with club members.')),
+        el('p',{class:'hint'},pair('新邀请码可供全团多人注册，7 天后过期，可随时撤销。只发内部群。','New codes can be shared with the whole club, expire in 7 days, and can be revoked. Share only internally.')),
         el('button',{class:'nav-btn',type:'button',onclick:async event=>{
           event.currentTarget.disabled=true;
           try { issuedInvitation=await api('/api/admin/invitations',{method:'POST',body:'{}'});await refreshInvitations(); }
@@ -2071,8 +2071,8 @@
       if(!invitationList){refreshInvitations();return panel;}
       if(invitationList.error){panel.append(el('p',{class:'hint'},invitationList.error),el('button',{type:'button',class:'nav-btn',onclick:refreshInvitations},pair('重试','Retry')));return panel;}
       for(const invite of invitationList.invitations){
-        const active=!invite.revoked&&!invite.used_at&&Date.parse(invite.expires_at)>Date.now();
-        const row=el('div',{class:'person-row'},el('span',{class:'hint'},new Date(invite.created_at).toLocaleDateString()+' · '+(invite.used_at?'已使用 / Used':invite.revoked?'已撤销 / Revoked':active?'有效 / Active':'已过期 / Expired')));
+        const active=!invite.revoked&&(invite.is_shared||!invite.used_at)&&Date.parse(invite.expires_at)>Date.now();
+        const row=el('div',{class:'person-row'},el('span',{class:'hint'},new Date(invite.created_at).toLocaleDateString()+' · '+(invite.revoked?'已撤销 / Revoked':active?'有效 / Active':invite.used_at&&!invite.is_shared?'已使用 / Used':'已过期 / Expired')+' · '+(invite.is_shared?'全团共用 / Shared':'一次性 / Single-use')+' · '+(invite.use_count||0)+' 次注册 / registrations'));
         if(active)row.append(el('button',{type:'button',class:'nav-btn',onclick:async()=>{try{invitationList=await api('/api/admin/invitations/'+invite.id+'/revoke',{method:'POST',body:'{}'});if(issuedInvitation?.id===invite.id)issuedInvitation=null;if(latest)renderRoster(latest);}catch(error){showBanner(error.message);}}},pair('撤销','Revoke')));
         panel.append(row);
       }
