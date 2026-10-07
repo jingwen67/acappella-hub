@@ -12,7 +12,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="icon" href="/icon-192.png?v=2" type="image/png">
-  <title>哥大中文阿卡贝拉｜CUCAC</title>
+  <title>哥大中文阿卡贝拉｜CUCAC·Hub</title>
   <style>
     :root {
       color-scheme: light;
@@ -679,7 +679,7 @@
 
     <section id="auth" hidden>
       <p class="kicker">CU Chinese A Cappella</p>
-      <h1 data-i18n="hubTitle">哥大中文阿卡贝拉</h1>
+      <h1>哥大中文阿卡贝拉·Hub</h1>
       <ol class="steps">
         <li data-i18n="step1">用自己的名字注册一个账号。</li>
         <li data-i18n="step2">主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。</li>
@@ -1370,7 +1370,7 @@
 
     function applyStatic() {
       document.documentElement.lang = 'zh-Hans';
-      document.title = '哥大中文阿卡贝拉｜CUCAC';
+      document.title = '哥大中文阿卡贝拉｜CUCAC·Hub';
       for (const node of document.querySelectorAll('[data-i18n]')) node.replaceChildren(t(node.dataset.i18n));
       loading.replaceChildren(t('loading'));
     }
