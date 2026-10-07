@@ -2166,8 +2166,7 @@
     function galleryNode(person, mine) {
       const owner=person.id, album=galleryCache.get(owner);
       const box=el('section',{class:'panel stack gallery-panel'},
-        el('h2',{},pair('相册','Photo gallery')),
-        el('p',{class:'hint'},pair('大家都可以上传 TA 的照片。本人可删除任何照片并选择头像，上传者可删除自己上传的照片。','Anyone can add photos of this member. The owner can delete any photo and choose an avatar; uploaders can delete their own photos.')));
+        el('h2',{},pair('相册','Photo gallery')));
       const input=el('input',{type:'file',accept:'image/*','aria-label':'上传照片 / Upload photo'});
       const upload=el('form',{class:'stack',onsubmit:async event=>{
         event.preventDefault(); const file=input.files?.[0]; if(!file)return;
@@ -2245,7 +2244,6 @@
         ].filter(([, value]) => value);
         profileBody.replaceChildren(
           head,
-          galleryNode(person, mine),
           facts.length
             ? el('section', { class: 'card stack' }, facts.map(([key, value]) => el('p', {},
                 el('span', { class: 'meta' }, en(key)),
@@ -2253,12 +2251,12 @@
                 value,
               )))
             : el('p', { class: 'hint' }, en('noProfile')),
+          galleryNode(person, mine),
         );
         return;
       }
       profileBody.replaceChildren(
         head,
-        galleryNode(person, mine),
         el('form', {
           class: 'panel stack',
           onsubmit: (event) => {
@@ -2291,6 +2289,7 @@
           profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
           el('button', { class: 'primary', type: 'submit' }, en('saveProfile')),
         ),
+        galleryNode(person, mine),
       );
     }
 
