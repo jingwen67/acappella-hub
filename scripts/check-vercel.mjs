@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
 import {createDatabase} from '../vercel/database.js';
+import {createVoting} from '../vercel/voting.js';
 import {createInvitations} from '../vercel/invitations.js';
 import worker from '../dist/vercel-worker.mjs';
 const postgres=new PGlite();
@@ -10,7 +11,7 @@ const query=async(sql,args=[])=>{const r=await postgres.query(sql,args);return {
 const pool={query,connect:async()=>({query,release(){}})};
 const files=new Map();
 const storage={async get(key){const v=files.get(key);return v?{async arrayBuffer(){return v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)},async text(){return v.toString()},async json(){return JSON.parse(v.toString())}}:null},async put(key,value){files.set(key,Buffer.from(typeof value==='string'?value:await new Response(value).arrayBuffer()))},async delete(key){files.delete(key)}};
-const env={DB:createDatabase(pool),FILES:storage,ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',INVITE_REQUIRED:true,invitations:createInvitations(pool)};
+const env={DB:createDatabase(pool),FILES:storage,ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',INVITE_REQUIRED:true,invitations:createInvitations(pool),voting:createVoting(pool)};
 const mf={dispatchFetch:(url,options)=>worker.fetch(new Request(url,options),env),getR2Bucket:async()=>storage,dispose:async()=>postgres.close()};
 try {
  const cookies={};
@@ -29,14 +30,16 @@ try {
  await api('/api/login','bad',{name:'Jingwen',password:'wrong'},401);
  await api(`/api/admin/users/${md.user.id}`,'admin',{musicDirector:true,arranger:true});
  await api('/api/phases','member',{title:'Love Yourself',arrangerId:md.user.id},403);
- const round=await api('/api/phases','md',{title:'Love Yourself',arrangerId:md.user.id},201);assert.equal(round.phase.title,'Love Yourself');
+ const round=await api('/api/phases','md',{title:'Love Yourself',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself');
  const phaseId=round.phase.id;
  await api(`/api/phases/${phaseId}/candidacy`,'member',{join:true});
+ await api(`/api/phases/${phaseId}/candidacy`,'md',{join:true});
+ await api(`/api/phases/${phaseId}/start`,'md',{});
  await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'like'});
- let state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,1);
+ let state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,undefined);
  state=await api('/api/state','member');assert.equal(state.phase.candidates[0].likes,undefined);
  await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'again'});
- state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,0);assert.equal(state.phase.candidates[0].again,1);
+ state=await api('/api/state','md');assert.equal(state.phase.candidates.find(c=>c.id===member.user.id).mine,'again');
  await api(`/api/phases/${phaseId}/close`,'member',{},403);
  await api('/api/profile','member',{fullName:'Singer Zhang',voicePart:'Alto',school:'Columbia',gradYear:'2027',funFact:'Loves music'});
  const form=new FormData();form.set('avatar',new Blob([fs.readFileSync('public/icon-192.png')],{type:'image/png'}),'avatar.png');
@@ -71,7 +74,7 @@ try {
  album=await api(albumPath,'member');assert.equal(album.photos.length,0);
 
  await api(`/api/phases/${phaseId}/close`,'md',{});
- state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,1);
+ state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,undefined);
  await api('/api/google/settings','member',{clientId:'x'},403);
  await api('/api/google/settings','admin',{clientId:'test.apps.googleusercontent.com',clientSecret:'test-secret',spreadsheet:'',parentFolder:''});
  r=await mf.dispatchFetch('https://hub.test/api/google/connect',{headers:{Cookie:cookies.admin},redirect:'manual'});assert.equal(r.status,302);assert.equal(new URL(r.headers.get('location')).searchParams.get('redirect_uri'),'https://hub.test/api/google/callback');
@@ -104,5 +107,47 @@ try {
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
  assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,10);
+
+ // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
+ let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);
+ let vid=v.phase.id;assert.equal(v.phase.votingMode,'default');assert.equal(v.phase.started,false);
+ await api(`/api/phases/${vid}/candidacy`,'md',{join:true});
+ await api(`/api/phases/${vid}/candidacy`,'outsider',{join:true});
+ await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);
+ await api(`/api/phases/${vid}/start`,'outsider',{},403);
+ v=await api(`/api/phases/${vid}/start`,'md',{});assert.equal(v.phase.registrationLocked,true);
+ await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'like'});
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'},400);
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:null});
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'});
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'again'},400);
+ await api(`/api/phases/${vid}/close`,'md',{});
+ // Five singers: initial random order persists and late registrations append.
+ v=await api('/api/phases','md',{title:'Shared ranks',arrangerId:md.user.id},201);vid=v.phase.id;
+ for(const who of ['md','outsider','retry'])await api(`/api/phases/${vid}/candidacy`,who,{join:true});
+ v=await api(`/api/phases/${vid}/start`,'md',{});const order=v.phase.candidates.map(c=>c.id);
+ assert.deepEqual([...order].sort((a,b)=>a-b),[md.user.id,outsider.user.id,(await api('/api/state','retry')).user.id].sort((a,b)=>a-b));
+ assert.deepEqual((await api('/api/state','md')).phase.candidates.map(c=>c.id),order);
+ v=await api(`/api/phases/${vid}/candidacy`,'invited',{join:true});const fourth=v.user.id;
+ assert.deepEqual(v.phase.candidates.slice(0,3).map(c=>c.id),order);assert.equal(v.phase.candidates.at(-1).id,fourth);
+ v=await api(`/api/phases/${vid}/candidacy`,'single',{join:true});const fifth=v.user.id;
+ const ids=v.phase.candidates.map(c=>c.id);
+ await api(`/api/phases/${vid}/vote`,'md',{candidateId:ids[0],reaction:'like'});
+ await api(`/api/phases/${vid}/vote`,'md',{candidateId:ids[1],reaction:'like'});
+ await api(`/api/phases/${vid}/vote`,'md',{candidateId:ids[2],reaction:'like'},400);
+ // Fixture for two ties at each of ranks 1 and 2, plus one lower rank.
+ await query('DELETE FROM cucac.votes WHERE phase_id=$1',[vid]);
+ const voterIds=(await query('SELECT id FROM cucac.users ORDER BY id')).rows.map(r=>r.id);
+ for(let ci=0;ci<5;ci++)for(let j=0;j<[3,3,2,2,1][ci];j++)await query('INSERT INTO cucac.votes(phase_id,voter_id,candidate_id,reaction) VALUES($1,$2,$3,$4)',[vid,voterIds[j],ids[ci],'like']);
+ v=await api(`/api/phases/${vid}/close`,'md',{});
+ let results=v.history.find(r=>r.id===vid);assert.equal(results.candidates.length,4);assert.deepEqual(results.candidates.map(c=>c.rank),[1,1,2,2]);
+ for(const c of results.candidates){assert.equal(c.likes,undefined);assert.equal(c.again,undefined);assert.equal(c.mine,undefined);}
+ let adminResults=(await api('/api/state','admin')).history.find(r=>r.id===vid);assert.equal(adminResults.candidates.length,5);assert.deepEqual(adminResults.candidates.map(c=>c.likes),[3,3,2,2,1]);
+ assert.equal((await api('/api/state','outsider')).history.find(r=>r.id===vid).candidates.length,4);
+ await api(`/api/phases/${vid}/reveal`,'outsider',{},403);
+ await api(`/api/phases/${vid}/reveal`,'md',{});
+ results=(await api('/api/state','outsider')).history.find(r=>r.id===vid);assert.equal(results.candidates.length,5);assert.equal(results.candidates.at(-1).rank,3);assert.equal(results.candidates.at(-1).likes,undefined);
+ console.log('PASS: default voting limits, start permissions, locked two-singer registration, persistent shuffled order, late appends, dense ties, admin-only counts, MD reveal, and private result API.');
  console.log('PASS: PostgreSQL adapter, invite-required registration, single-use/expiry/revocation/rollback, case-insensitive login, private schema; Worker runtime, registration/login, roles, shared votes, result visibility, profile/avatar, gallery permissions and cleanup, history, deletion, Google redirect/config.');
 } finally {await mf.dispose();}

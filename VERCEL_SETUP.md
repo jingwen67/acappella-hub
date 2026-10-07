@@ -69,3 +69,9 @@ npm run check:vercel
 测试使用内存中的 PostgreSQL 引擎，覆盖邀请码、权限、投票、资料、相册和 Google 回调。真实 Supabase Storage 和 Vercel 部署仍需要云端检查。
 
 Tests use an embedded PostgreSQL engine. Live Supabase Storage and Vercel deployment need a separate cloud check.
+
+## Solo 投票 / Solo voting
+
+新轮次默认使用「默认投票」：两人场每人一票，开始后锁定报名；三人及以上每人最多两票。也可选择「点赞投票」，保留好听/再听听。MD 点击开始后，原参选人随机排序，后来的人排在后面。结果按支持票排序，普通成员看到第1、2名的所有并列者；MD可逐名揭晓，只有admin看全部票数。
+
+New rounds default to Default voting: one choice for two candidates (registration locks at start), or two choices for three or more. Like voting retains both feedback buttons. Starting shuffles existing candidates; later entries append. Members see all ties at ranks 1 and 2; the MD can reveal further ranks; counts remain admin-only.

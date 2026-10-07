@@ -1249,6 +1249,13 @@
         phase_missing: '找不到这一轮',
         phase_closed: '这一轮已经结束了',
         not_candidate: '这个人没有参选',
+        vote_limit: '已达到本轮投票上限，请先取消一个选择',
+        voting_not_started: 'MD 尚未开始投票',
+        need_two_candidates: '至少两位参选人才能开始',
+        registration_locked: '两人场开始后已锁定报名',
+        withdraw_locked: '请联系 MD 处理退选，避免已有选票失效',
+        voting_started: '投票已经开始',
+        phase_not_closed: '结束投票后才能揭晓排名',
         bad_reaction: '请选择好听！或我再听听',
         not_found: '找不到页面',
         too_large: '每次上传总大小不能超过 4 MB',
@@ -1308,6 +1315,13 @@
         phase_missing: 'That round was not found',
         phase_closed: 'This round is already closed',
         not_candidate: 'That person isn’t running',
+        vote_limit: 'Vote limit reached. Unselect a singer first.',
+        voting_not_started: 'The MD has not started voting yet.',
+        need_two_candidates: 'At least two candidates are required.',
+        registration_locked: 'Registration is locked for this two-candidate round.',
+        withdraw_locked: 'Contact the MD to withdraw without invalidating ballots.',
+        voting_started: 'Voting has already started.',
+        phase_not_closed: 'Close voting before revealing ranks.',
         bad_reaction: 'Choose Sounds great! or Not sure yet',
         not_found: 'Page not found',
         too_large: 'Uploads must total less than 4 MB',
@@ -1659,17 +1673,19 @@
               countSpan(candidate.again, 'again'),
             )
           : null,
-        el('p', { class: 'mine' }, mineLabel(candidate.mine)),
+        el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)),
         el('div', { class: 'votes' },
           el('button', {
             type: 'button',
             class: 'choice is-like',
+            disabled:!phase.started,
             'aria-pressed': candidate.mine === 'like' ? 'true' : 'false',
             onclick: choose('like'),
-          }, t('like')),
-          el('button', {
+          }, phase.votingMode==='default'?pair(candidate.mine?'取消选择':'投 TA',candidate.mine?'Unselect':'Vote'):t('like')),
+          phase.votingMode==='default'?null:el('button', {
             type: 'button',
             class: 'choice is-again',
+            disabled:!phase.started,
             'aria-pressed': candidate.mine === 'again' ? 'true' : 'false',
             onclick: choose('again'),
           }, t('listenAgain')),
@@ -1694,6 +1710,7 @@
                 method: 'POST',
                 body: JSON.stringify({
                   title: form.get('title'),
+                  votingMode:form.get('votingMode'),
                   arrangerId: Number(form.get('arrangerId')),
                 }),
               }));
@@ -1707,6 +1724,7 @@
                 arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
+            el('label',{},pair('投票机制','Voting mode'),el('select',{name:'votingMode'},el('option',{value:'default'},pair('默认投票','Default voting')),el('option',{value:'feedback'},pair('点赞投票','Like voting')))),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));
         round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, block));
@@ -1717,15 +1735,18 @@
       const children = [
         el('h2', {}, phase.title),
         el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
-        el('p', { class: 'hint' }, t('voteHintLike')),
-        el('p', { class: 'hint' }, t('voteHintAgain')),
+        el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
+        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始投票。','Registration is open. Waiting for the MD to start voting.')):null,
+        phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
+      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
         children.push(el('button', {
           type: 'button',
           class: 'quiet',
+          disabled:phase.registrationLocked||(phase.started&&phase.votingMode==='default'&&count<=3),
           onclick: () => {
             freezeRender = true;
             const box = round.querySelector('.confirm');
@@ -1754,7 +1775,7 @@
             }, t('neverMind')),
           ),
         ));
-      } else {
+      } else if(!phase.registrationLocked) {
         children.push(el('button', {
           type: 'button',
           class: 'primary',
@@ -1771,7 +1792,7 @@
         children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
       }
 
-      children.push(el('button', {
+      if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
         class: 'quiet',
         onclick: () => {
@@ -1813,10 +1834,10 @@
       for (const item of rounds) {
         const when = formatTime(item.closedAt);
         const rows = item.candidates.length
-          ? ranks(item.candidates).map((candidate) => el('div', { class: 'result-row' },
+          ? item.candidates.map((candidate) => el('div', { class: 'result-row' },
               el('span', { class: 'rank' }, candidate.rank),
               el('span', {}, candidate.name),
-              el('span', { class: 'meta' }, scoreLine(candidate.likes, candidate.again)),
+              item.canSeeResults?el('span', { class: 'meta' },item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null,
             ))
           : [el('p', { class: 'hint' }, t('noCandidates'))];
         history.append(el('section', { class: 'card' },
@@ -1824,6 +1845,7 @@
           when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
           item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
           ...rows,
+          item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
         ));
       }
     }

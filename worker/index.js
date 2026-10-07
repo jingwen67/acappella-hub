@@ -94,23 +94,23 @@ export default {
       insertSession: db.prepare(`INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)`),
       deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
       openPhase: db.prepare(`
-    SELECT p.id, p.title, p.status, p.created_by, p.arranger_id, p.created_at, p.closed_at,
+    SELECT p.voting_mode,p.started_at,p.registration_locked,p.candidate_order,p.revealed_ranks,p.id, p.title, p.status, p.created_by, p.arranger_id, p.created_at, p.closed_at,
       u.name AS opened_by, a.name AS arranger_name
     FROM phases p
     JOIN users u ON u.id = p.created_by
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'open'
   `),
-      phaseById: db.prepare(`SELECT id, status FROM phases WHERE id = ?`),
+      phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at) VALUES (?, 'open', ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode) VALUES (?, 'open', ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
-    WHERE p.status = 'closed' AND (? = 1 OR p.arranger_id = ?)
+    WHERE p.status = 'closed'
     ORDER BY p.id DESC
     LIMIT 12
   `),
@@ -351,31 +351,37 @@ export default {
           mine: row.mine
         };
         if (visible) {
-          candidate.likes = row.likes;
-          candidate.again = row.again;
+          candidate.likes = Number(row.likes);
+          candidate.again = Number(row.again);
         }
         return candidate;
       });
     }
     function byScore(a, b) {
-      return b.likes - a.likes || b.again - a.again || a.name.localeCompare(b.name, 'zh');
+      return b.likes - a.likes || a.name.localeCompare(b.name, 'zh');
     }
     function seesResults(account, phase) {
       if (!account || !phase) return false;
-      if (account.isMd) return true;
-      return Number(phase.arranger_id) === account.id;
+      return account.isAdmin;
     }
+    async function rankedResults(phase,account){
+      const all=(await loadCandidates(phase.id,account.id,true)).sort(byScore);
+      let rank=0,last=null;
+      const ranked=all.map(c=>{if(c.likes!==last){rank++;last=c.likes;}return {...c,rank};});
+      return ranked.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?c:{id:c.id,name:c.name,rank:c.rank,isMe:c.isMe});
+    }
+
     async function stateFor(user) {
       const account = asUser(await statements.account.get(user.id));
       if (!account) throw fail(401, 'login_required');
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
-      const history = await Promise.all((await statements.history.all(account.isMd ? 1 : 0, account.id)).map(async phase => ({
+      const history = await Promise.all((await statements.history.all()).map(async phase => ({
         id: phase.id,
         title: phase.title,
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        candidates: (await loadCandidates(phase.id, user.id, true)).sort(byScore)
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd||account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account)
       })));
       return {
         user: account,
@@ -383,11 +389,15 @@ export default {
           id: open.id,
           title: open.title,
           status: open.status,
+          votingMode:open.voting_mode,
+          started:Boolean(open.started_at),
+          registrationLocked:Boolean(open.registration_locked),
+          voteLimit:open.registration_locked?1:2,
           openedBy: open.opened_by,
           arranger: open.arranger_name || '',
           canSeeResults: openVisible,
           iAmCandidate: Boolean(await statements.isCandidate.get(open.id, user.id)),
-          candidates: await loadCandidates(open.id, user.id, openVisible)
+          candidates: (await loadCandidates(open.id, user.id, openVisible)).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
         } : null,
         history,
         profile: publicProfile(await statements.profileById.get(account.id)),
@@ -644,7 +654,8 @@ export default {
           }
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
           try {
-            await statements.insertPhase.run(title, user.id, arranger.id, now());
+            if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
+            await statements.insertPhase.run(title, user.id, arranger.id, now(),body.votingMode||'default');
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
@@ -751,10 +762,11 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
-        const action = pathname.match(/^\/api\/phases\/(\d+)\/(close|candidacy|vote)$/);
+        const action = pathname.match(/^\/api\/phases\/(\d+)\/(start|reveal|close|candidacy|vote)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);
+          if(env.voting){await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,await stateFor(user));return;}
           const phase = await statements.phaseById.get(phaseId);
           if (!phase) throw fail(404, 'phase_missing');
           if (phase.status !== 'open') throw fail(400, 'phase_closed');
