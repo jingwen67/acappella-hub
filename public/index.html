@@ -711,7 +711,7 @@
         <li data-i18n="step2">主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。</li>
         <li data-i18n="step3">投票和乐谱用的是同一个账号。</li>
       </ol>
-      <form id="auth-form" class="panel stack">
+      <form id="auth-form" class="panel stack" method="post" action="/api/login">
         <label id="invitation-field" hidden><span>邀请码 / Invitation code</span>
           <input name="invitationCode" autocomplete="off" spellcheck="false" maxlength="80">
         </label>
@@ -722,6 +722,8 @@
           <input id="password" name="password" type="password" autocomplete="current-password" minlength="4" maxlength="72" required>
         </label>
         <p id="password-hint" class="hint" data-i18n="passwordHint" hidden>至少 4 位，自己记得住就行。</p>
+        <label style="display:flex;align-items:center;gap:10px"><input id="remember-login" type="checkbox" style="width:auto;margin:0"><span data-i18n="rememberLogin">记住账号，并请求浏览器保存密码</span></label>
+        <p class="hint" data-i18n="rememberLoginHint">登录状态保留约 30 天。密码由浏览器管理，保存提示取决于浏览器设置。</p>
         <button id="auth-submit" class="primary" type="submit">登录</button>
         <button id="auth-switch" class="quiet" type="button">第一次来？注册</button>
       </form>
@@ -1001,6 +1003,8 @@
         name: '名字',
         password: '密码',
         passwordHint: '至少 4 位，自己记得住就行。',
+        rememberLogin:'记住账号，并请求浏览器保存密码',
+        rememberLoginHint:'登录状态保留约 30 天。密码由浏览器管理，保存提示取决于浏览器设置。',
         login: '登录',
         registerEnter: '注册并进入',
         switchToRegister: '第一次来？注册',
@@ -1144,6 +1148,8 @@
         name: 'Name',
         password: 'Password',
         passwordHint: 'At least 4 characters. Something you’ll remember.',
+        rememberLogin:'Remember my name and ask the browser to save my password',
+        rememberLoginHint:'Stay signed in for about 30 days. Your browser manages saved passwords; prompts depend on browser settings.',
         login: 'Log in',
         registerEnter: 'Create account',
         switchToRegister: 'First time? Register',
@@ -2575,6 +2581,9 @@
       updateAuthMode();
     });
 
+    const rememberLogin=document.querySelector('#remember-login');
+    try {const remembered=localStorage.getItem('cucac-login-name');if(remembered){authForm.elements.name.value=remembered;rememberLogin.checked=true;}}catch{}
+    rememberLogin.addEventListener('change',()=>{if(!rememberLogin.checked){try{localStorage.removeItem('cucac-login-name');}catch{}}});
     authForm.addEventListener('submit', (event) => {
       event.preventDefault();
       const body = JSON.stringify({
@@ -2582,7 +2591,18 @@
         password: new FormData(authForm).get('password'),
         invitationCode: new FormData(authForm).get('invitationCode'),
       });
-      run(() => api(mode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body }));
+      const endpoint=mode === 'register' ? '/api/register' : '/api/login';
+      const remember=rememberLogin.checked;
+      run(async()=>{
+        const result=await api(endpoint,{method:'POST',body});
+        const credentials=JSON.parse(body);
+        try{if(remember)localStorage.setItem('cucac-login-name',String(result.user.name));else localStorage.removeItem('cucac-login-name');}catch{}
+        if(remember&&'PasswordCredential' in window&&navigator.credentials?.store){
+          try{const credential=new PasswordCredential({id:result.user.name,password:credentials.password,name:result.user.name});Promise.resolve(navigator.credentials.store(credential)).catch(()=>{});}catch{}
+        }
+        password.value='';
+        return result;
+      });
     });
 
     async function logout() {
@@ -2591,6 +2611,8 @@
         await api('/api/logout', { method: 'POST', body: '{}' });
         snapshot = '';
         freezeRender = false;
+        password.value='';
+        try{authForm.elements.name.value=localStorage.getItem('cucac-login-name')||'';}catch{authForm.elements.name.value='';}
         showAuth();
       } catch (error) {
         showBanner(error.message);
