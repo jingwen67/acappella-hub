@@ -75,3 +75,7 @@ Tests use an embedded PostgreSQL engine. Live Supabase Storage and Vercel deploy
 新轮次默认使用「默认投票」：两人场每人一票，开始后锁定报名；三人及以上每人最多两票。也可选择「点赞投票」，保留好听/再听听。MD 点击开始后，原参选人随机排序，后来的人排在后面。结果按支持票排序，普通成员看到第1、2名的所有并列者；MD可逐名揭晓，只有admin看全部票数。
 
 New rounds default to Default voting: one choice for two candidates (registration locks at start), or two choices for three or more. Like voting retains both feedback buttons. Starting shuffles existing candidates; later entries append. Members see all ties at ranks 1 and 2; the MD can reveal further ranks; counts remain admin-only.
+
+## Duet voting
+
+The MD can select Duet · Pair Voting or Duet · Part Voting when opening a round. Pair Voting requires partner confirmation. Part Voting uses independent ballots and rankings for A and B. The additive upgrade SQL is in `vercel/duet-schema.sql`; new installations include it in `vercel/schema.sql`. Existing rounds default to Solo and keep their original votes. Run `npm run build:vercel`, `npm run check:vercel` and `node scripts/check-duet-ui.mjs` before deploying changes.

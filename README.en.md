@@ -30,7 +30,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 1. Open the **CUCAC** home screen icon or the website link above.
 2. Tap **第一次来？注册** (“First time? Register”) to create an account with your name, or sign in if you already have one.
 3. Fill in your information under **My profile**.
-4. From the home page, open **Members**, **Scores**, or **Solo voting**.
+4. From the home page, open **Members**, **Scores**, or **Solo / Duet voting**.
 
 ## Contents
 
@@ -94,36 +94,31 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 - Music Director, Arranger, and board position labels are assigned by an administrator or someone with the appropriate permission; you cannot assign them to yourself through your profile.
 
 <a id="voting"></a>
-### Solo Voting
+### Solo / Duet Voting
 
-#### Join a Round
+The MD chooses one of four methods when opening a round:
 
-1. Open **Solo voting** to see the current round’s song and arranger.
-2. Select the participation button to enter the solo selection. Your name will appear in the candidate list.
-3. To withdraw, select the withdrawal button and confirm. Withdrawing removes votes cast for you in this round.
-
-If no round is active, wait for a Music Director to open one. Only one round can be active at a time.
-
-#### Vote for Candidates
-
-Each candidate has two options:
-
- | Option | Meaning | 
+| Method | Registration and voting |
 | --- | --- |
- | Sounds great!** | You think they are a good fit for this song’s solo. | 
- | Not sure yet** | You are not sure yet and would like to hear other candidates. | 
+| **Solo · Default Voting** | Register individually. Choose one of two singers, or up to two of three or more. |
+| **Solo · Like Voting** | Register individually. Give each singer “sounds great” or “not sure yet” feedback. |
+| **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
+| **Duet · Part Voting** | Register for Part A or Part B, one part per person. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
-- You can give feedback on multiple candidates; you are not limited to one.
-- Each account can keep one choice per candidate. Selecting the other option replaces your previous choice.
-- Selecting an option you have already chosen cancels that choice.
-- Choices save automatically; no separate submission is needed. Your choices also appear when you sign in with the same account on another device.
-- You cannot change your votes after the round ends.
+1. Open **Solo / Duet voting** to see the song, arranger and voting method.
+2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Part Voting, choose your part. You may add an HTTPS audition link, such as a Google Drive recording; make sure members can open it.
+3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
+4. Select your favorites and click again to unselect. Choices save automatically and cannot be changed after the round closes.
 
-#### Who Can See Results?
+The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Part Voting needs at least one singer in each part before voting starts.
 
-Regular members can see their own choices but not aggregate vote counts. **Music Directors and the round’s assigned Arranger** can view the round’s totals. Eligible viewers can also access the relevant historical rounds; up to the 12 most recent completed rounds are shown.
+Starting with two soloists or two pairs locks registration. In Part Voting, each part starting with one or two singers locks separately. Larger groups allow later entries. After voting starts, withdrawal is disabled if it would leave fewer than three entries in a group, protecting existing ballots.
 
-Results help Music Directors and arrangers make their decision; the system does not automatically select the soloist. Being an administrator alone does not grant access to aggregate results.
+#### Results and History
+
+Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Part Voting ranks A and B separately. The MD can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
+
+Results help the MD and arranger decide; the system does not automatically choose the performers. The same singer may appear in multiple leading pairs.
 
 <a id="scores"></a>
 ### Browse Scores
@@ -216,7 +211,7 @@ Administrators can also change a regular member’s username, enter a new passwo
  | I am an MD but cannot upload | You also need the Arranger role, and the Google score library must be configured. | 
  | Score library is not configured | Ask an administrator to connect Google, set the index sheet and root folder, and add a semester. | 
  | No Arranger is available for a round | Assign the Arranger role to at least one Active member first. | 
- | I cannot see vote totals | Regular members see only their own choices. Totals are available to MDs and the round’s assigned Arranger. | 
+ | I cannot see vote totals | Regular members see only their own choices. Results show revealed ranks without aggregate counts. | 
  | No active round | Wait for an MD to open a round. An active round must end before the next can begin. | 
  | Upload fails or request is too large | Check that the total upload is under 20 MB, you have the required role, and the Google connection is valid. | 
  | Drive access is denied | Check your Google account and the folder’s sharing permissions. Website accounts do not replace Google permissions. | 

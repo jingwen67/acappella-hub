@@ -95,7 +95,7 @@ export default {
       insertSession: db.prepare(`INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)`),
       deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
       openPhase: db.prepare(`
-    SELECT p.voting_mode,p.started_at,p.registration_locked,p.candidate_order,p.revealed_ranks,p.id, p.title, p.status, p.created_by, p.arranger_id, p.created_at, p.closed_at,
+    SELECT p.poll_type,p.part_a,p.part_b,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
       u.name AS opened_by, a.name AS arranger_name
     FROM phases p
     JOIN users u ON u.id = p.created_by
@@ -104,11 +104,11 @@ export default {
   `),
       phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode) VALUES (?, 'open', ?, ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT p.poll_type,p.part_a,p.part_b,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'closed'
@@ -367,6 +367,7 @@ export default {
       return account.isAdmin;
     }
     async function rankedResults(phase,account){
+      if (phase.poll_type!=='solo') return (await env.voting.view(phase,account)).candidates;
       const all=(await loadCandidates(phase.id,account.id,true)).sort(byScore);
       let rank=0,last=null;
       const ranked=all.map(c=>{if(c.likes!==last){rank++;last=c.likes;}return {...c,rank};});
@@ -378,16 +379,18 @@ export default {
       if (!account) throw fail(401, 'login_required');
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
+      const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
       const history = await Promise.all((await statements.history.all()).map(async phase => ({
         id: phase.id,
         title: phase.title,
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account)
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b
       })));
       return {
         user: account,
         phase: open ? {
+          ...(openDuet||{}),
           id: open.id,
           title: open.title,
           status: open.status,
@@ -398,8 +401,9 @@ export default {
           openedBy: open.opened_by,
           arranger: open.arranger_name || '',
           canSeeResults: openVisible,
-          iAmCandidate: Boolean(await statements.isCandidate.get(open.id, user.id)),
-          candidates: (await loadCandidates(open.id, user.id, openVisible)).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
+          pollType:open.poll_type,
+          iAmCandidate: openDuet?openDuet.iAmCandidate:Boolean(await statements.isCandidate.get(open.id, user.id)),
+          candidates: openDuet?openDuet.candidates:(await loadCandidates(open.id, user.id, openVisible)).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
         } : null,
         history,
         profile: publicProfile(await statements.profileById.get(account.id)),
@@ -657,7 +661,9 @@ export default {
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
           try {
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
-            await statements.insertPhase.run(title, user.id, arranger.id, now(),body.votingMode||'default');
+            const pollType=body.pollType||'solo';
+            if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
+            await statements.insertPhase.run(title, user.id, arranger.id, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B');
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
@@ -770,7 +776,7 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
-        const action = pathname.match(/^\/api\/phases\/(\d+)\/(start|reveal|close|candidacy|vote)$/);
+        const action = pathname.match(/^\/api\/phases\/(\d+)\/(start|reveal|close|candidacy|vote|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);

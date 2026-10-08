@@ -1,6 +1,7 @@
 import {randomInt} from 'node:crypto';
+import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-export function createVoting(pool){return {async action(id,action,user,body={}){
+export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
  const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
@@ -10,6 +11,7 @@ export function createVoting(pool){return {async action(id,action,user,body={}){
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[id]);
  }else{
   if(p.status!=='open')throw fail(400,'phase_closed');
+  if(p.poll_type&&p.poll_type!=='solo'){await duetAction(c,p,action,user,body);}else{
   const candidates=(await c.query('SELECT user_id FROM cucac.candidacies WHERE phase_id=$1 ORDER BY created_at,user_id',[id])).rows.map(r=>r.user_id);
   if(action==='start'){
    if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
@@ -44,6 +46,7 @@ export function createVoting(pool){return {async action(id,action,user,body={}){
     await c.query('INSERT INTO cucac.votes(phase_id,voter_id,candidate_id,reaction) VALUES($1,$2,$3,$4) ON CONFLICT(phase_id,voter_id,candidate_id) DO UPDATE SET reaction=excluded.reaction',[id,user.id,candidate,body.reaction]);
    }
   }else throw fail(400,'bad_action');
+  }
  }
  await c.query('COMMIT');
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}

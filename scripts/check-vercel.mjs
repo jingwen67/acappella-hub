@@ -118,7 +118,7 @@ try {
  await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
- assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,10);
+ assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,12);
 
  // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
  let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);
@@ -165,6 +165,95 @@ try {
  await api(`/api/phases/${vid}/reveal`,'outsider',{},403);
  await api(`/api/phases/${vid}/reveal`,'md',{});
  results=(await api('/api/state','outsider')).history.find(r=>r.id===vid);assert.equal(results.candidates.length,5);assert.equal(results.candidates.at(-1).rank,3);assert.equal(results.candidates.at(-1).likes,undefined);
+ // Duet pair voting: invitations require the other member's confirmation.
+ let duet=await api('/api/phases','md',{title:'Two pairs',arrangerId:md.user.id,pollType:'pair'},201);
+ let did=duet.phase.id;
+ const users={md:md.user.id,outsider:outsider.user.id,retry:(await api('/api/state','retry')).user.id,invited:(await api('/api/state','invited')).user.id,single:(await api('/api/state','single')).user.id};
+ await api(`/api/phases/${did}/pair`,'md',{partnerId:users.md},400);
+ await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider,auditionUrl:'javascript:alert(1)'},400);
+ duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider,auditionUrl:'https://drive.google.com/test'});
+ assert.equal(duet.phase.candidates.length,0);assert.equal(duet.phase.pendingPairs.length,1);
+ assert.equal((await api('/api/state','retry')).phase.pendingPairs.length,0);
+ const first=duet.phase.pendingPairs[0].id;
+ await api(`/api/phases/${did}/pair`,'outsider',{partnerId:users.md},409);
+ await api(`/api/phases/${did}/confirm`,'md',{entryId:first},403);
+ await api(`/api/phases/${did}/confirm`,'retry',{entryId:first},403);
+ duet=await api(`/api/phases/${did}/confirm`,'outsider',{entryId:first});assert.equal(duet.phase.candidates.length,1);
+ await api(`/api/phases/${did}/start`,'md',{},400);
+ duet=await api(`/api/phases/${did}/pair`,'retry',{partnerId:users.invited});const second=duet.phase.pendingPairs[0].id;
+ await api(`/api/phases/${did}/confirm`,'invited',{entryId:second});
+ duet=await api(`/api/phases/${did}/pair`,'single',{partnerId:users.md});const pending=duet.phase.pendingPairs[0].id;
+ duet=await api(`/api/phases/${did}/start`,'md',{});assert.equal(duet.phase.registrationLocked,true);
+ await api(`/api/phases/${did}/confirm`,'md',{entryId:pending},403);
+ await api(`/api/phases/${did}/vote`,'single',{entryId:pending,reaction:'like'},400);
+ await api(`/api/phases/${did}/pair`,'single',{partnerId:users.invited},403);
+ await api(`/api/phases/${did}/vote`,'md',{entryId:first,reaction:'like'});
+ await api(`/api/phases/${did}/vote`,'md',{entryId:second,reaction:'like'},400);
+ await api(`/api/phases/${did}/vote`,'md',{entryId:first,reaction:null});
+ duet=await api(`/api/phases/${did}/vote`,'md',{entryId:second,reaction:'like'});assert.equal(duet.phase.candidates.find(e=>e.id===second).mine,'like');
+ assert.equal(duet.phase.candidates.find(e=>e.id===second).likes,undefined);
+ await api(`/api/phases/${did}/cancel`,'md',{entryId:first},403);
+ await api(`/api/phases/${did}/audition`,'retry',{entryId:first,auditionUrl:'https://example.org'},403);
+ await api(`/api/phases/${did}/close`,'md',{});
+ let duoHistory=(await api('/api/state','md')).history.find(h=>h.id===did);assert.equal(duoHistory.pollType,'pair');assert.equal(duoHistory.candidates.every(e=>e.likes===undefined&&e.mine===undefined),true);
+ assert.equal((await api('/api/state','admin')).history.find(h=>h.id===did).candidates[0].likes,1);
+ await api(`/api/phases/${did}/reveal`,'admin',{},403);
+ await api(`/api/phases/${did}/audition`,'md',{entryId:first,auditionUrl:'https://example.org'},400);
+
+ // Three-pair ballots permit two choices and append later confirmed pairs.
+ duet=await api('/api/phases','md',{title:'Open pairs',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;
+ const pairs=[];
+ for(const partner of ['outsider','retry','invited']){duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users[partner]});const entry=duet.phase.pendingPairs.find(e=>e.members.some(m=>m.id===users[partner]));pairs.push(entry.id);await api(`/api/phases/${did}/confirm`,partner,{entryId:entry.id});}
+ duet=await api(`/api/phases/${did}/start`,'md',{});const pairOrder=duet.phase.candidates.map(e=>e.id);assert.equal(duet.phase.registrationLocked,false);
+ await api(`/api/phases/${did}/vote`,'single',{entryId:pairs[0],reaction:'like'});
+ await api(`/api/phases/${did}/vote`,'single',{entryId:pairs[1],reaction:'like'});
+ await api(`/api/phases/${did}/vote`,'single',{entryId:pairs[2],reaction:'like'},400);
+ duet=await api(`/api/phases/${did}/pair`,'single',{partnerId:users.md});const late=duet.phase.pendingPairs[0].id;
+ duet=await api(`/api/phases/${did}/confirm`,'md',{entryId:late});assert.deepEqual(duet.phase.candidates.slice(0,3).map(e=>e.id),pairOrder);assert.equal(duet.phase.candidates.at(-1).id,late);
+ await api(`/api/phases/${did}/cancel`,'single',{entryId:late});
+ await api(`/api/phases/${did}/cancel`,'md',{entryId:pairs[0]},403);
+ await api(`/api/phases/${did}/close`,'md',{});
+
+ // Independent part ballots, custom labels, one-part registration and per-part ties.
+ const extra=await api('/api/register','sixth',{name:'Duet sixth',password:'abc12345'},201);users.sixth=extra.user.id;
+ duet=await api('/api/phases','md',{title:'Part voting',arrangerId:md.user.id,pollType:'parts',partA:'High voice',partB:'Low voice'},201);did=duet.phase.id;
+ assert.equal(duet.phase.partA,'High voice');assert.equal(duet.phase.partB,'Low voice');
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'A'});
+ await api(`/api/phases/${did}/start`,'md',{},400);
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'B'},409);
+ for(const who of ['outsider','retry'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'A'});
+ for(const who of ['invited','single','sixth'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'B'});
+ duet=await api(`/api/phases/${did}/start`,'md',{});
+ assert.deepEqual(duet.phase.voteLimits,{A:2,B:2});assert.deepEqual(duet.phase.partLocks,{A:false,B:false});
+ const aEntries=duet.phase.candidates.filter(e=>e.part==='A'),bEntries=duet.phase.candidates.filter(e=>e.part==='B');
+ for(const entry of [...aEntries.slice(0,2),...bEntries.slice(0,2)])await api(`/api/phases/${did}/vote`,'md',{entryId:entry.id,reaction:'like'});
+ await api(`/api/phases/${did}/vote`,'md',{entryId:aEntries[2].id,reaction:'like'},400);
+ await api(`/api/phases/${did}/vote`,'md',{entryId:bEntries[2].id,reaction:'like'},400);
+ await api(`/api/phases/${did}/cancel`,'md',{entryId:aEntries.find(e=>e.isMe).id},403);
+ await query('DELETE FROM cucac.duet_votes WHERE phase_id=$1',[did]);
+ for(const entries of [aEntries,bEntries])for(let i=0;i<3;i++)for(let j=0;j<(entries===bEntries?[3,2,2]:[3,2,1])[i];j++)await query('INSERT INTO cucac.duet_votes(phase_id,entry_id,voter_id) VALUES($1,$2,$3)',[did,entries[i].id,voterIds[j]]);
+ await api(`/api/phases/${did}/close`,'md',{});
+ duoHistory=(await api('/api/state','single')).history.find(h=>h.id===did);assert.deepEqual(duoHistory.candidates.map(e=>e.rank),[1,2,1,2,2]);assert.equal(duoHistory.candidates.every(e=>e.likes===undefined&&e.mine===undefined),true);
+ assert.equal((await api('/api/state','admin')).history.find(h=>h.id===did).candidates.length,6);
+ await api(`/api/phases/${did}/reveal`,'admin',{},403);
+ await api(`/api/phases/${did}/reveal`,'md',{});
+ assert.deepEqual((await api('/api/state','single')).history.find(h=>h.id===did).candidates.map(e=>e.rank),[1,2,3,1,2,2]);
+ await api(`/api/phases/${did}/delete`,'admin',{});
+ assert.equal((await query('SELECT count(*)::int AS n FROM cucac.duet_entries WHERE phase_id=$1',[did])).rows[0].n,0);
+ assert.equal((await query('SELECT count(*)::int AS n FROM cucac.duet_votes WHERE phase_id=$1',[did])).rows[0].n,0);
+
+ duet=await api('/api/phases','md',{title:'Small parts',arrangerId:md.user.id,pollType:'parts'},201);did=duet.phase.id;
+ for(const who of ['md','outsider'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'A'});
+ await api(`/api/phases/${did}/candidacy`,'single',{join:true,part:'B'});
+ duet=await api(`/api/phases/${did}/start`,'md',{});assert.deepEqual(duet.phase.voteLimits,{A:1,B:1});
+ await api(`/api/phases/${did}/candidacy`,'sixth',{join:true,part:'A'},403);
+ await api(`/api/phases/${did}/candidacy`,'sixth',{join:true,part:'B'},403);
+ const smallA=duet.phase.candidates.filter(e=>e.part==='A');
+ await api(`/api/phases/${did}/vote`,'sixth',{entryId:smallA[0].id,reaction:'like'});
+ await api(`/api/phases/${did}/vote`,'sixth',{entryId:smallA[1].id,reaction:'like'},400);
+ await api(`/api/phases/${did}/vote`,'sixth',{entryId:duet.phase.candidates.find(e=>e.part==='B').id,reaction:'like'});
+ console.log('PASS: pair confirmation, invitation ownership, shared singers, locked two-pair ballot, two-choice pair ballot, late confirmation order, per-part limits/ranks/privacy, MD reveal, audition URL validation and cascade cleanup.');
+
  console.log('PASS: default voting limits, start permissions, locked two-singer registration, persistent shuffled order, late appends, dense ties, admin-only counts, MD reveal, and private result API.');
  console.log('PASS: PostgreSQL adapter, invite-required registration, single-use/expiry/revocation/rollback, case-insensitive login, private schema; Worker runtime, registration/login, roles, shared votes, result visibility, profile/avatar, gallery permissions and cleanup, history, deletion, Google redirect/config.');
 } finally {await mf.dispose();}
