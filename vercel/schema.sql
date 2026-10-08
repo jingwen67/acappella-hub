@@ -157,3 +157,5 @@ ALTER TABLE cucac.phases ADD COLUMN IF NOT EXISTS candidate_order text NOT NULL 
 ALTER TABLE cucac.phases ADD COLUMN IF NOT EXISTS revealed_ranks integer NOT NULL DEFAULT 2 CHECK(revealed_ranks>=2);
 -- Existing rounds retain the old feedback mechanism and remain available for voting.
 UPDATE cucac.phases SET started_at=created_at WHERE voting_mode='feedback' AND started_at IS NULL;
+
+ALTER TABLE cucac.users ADD COLUMN IF NOT EXISTS is_crew integer NOT NULL DEFAULT 0 CHECK (is_crew IN (0,1));

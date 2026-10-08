@@ -29,6 +29,18 @@ try {
  await api('/api/register','duplicate',{name:'Jingwen',password:'abc12345'},409);
  await api('/api/login','bad',{name:'Jingwen',password:'wrong'},401);
  await api(`/api/admin/users/${md.user.id}`,'admin',{musicDirector:true,arranger:true});
+ // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.
+ await api(`/api/admin/users/${member.user.id}`,'member',{crew:true},403);
+ await api(`/api/admin/users/${member.user.id}`,'md',{crew:true},403);
+ let crewState=await api(`/api/admin/users/${member.user.id}`,'admin',{crew:true});
+ assert.equal(crewState.members.find(p=>p.id===member.user.id).isCrew,true);
+ await api(`/api/admin/users/${member.user.id}`,'admin',{crew:true,alumni:true},400);
+ crewState=await api(`/api/admin/users/${member.user.id}`,'admin',{alumni:true});
+ assert.equal(crewState.members.find(p=>p.id===member.user.id).isCrew,false);
+ assert.equal(crewState.members.find(p=>p.id===member.user.id).isAlumni,true);
+ crewState=await api(`/api/admin/users/${member.user.id}`,'admin',{crew:true});
+ assert.equal(crewState.members.find(p=>p.id===member.user.id).isAlumni,false);
+ await api(`/api/admin/users/${member.user.id}`,'admin',{crew:false});
  await api('/api/phases','member',{title:'Love Yourself',arrangerId:md.user.id},403);
  const round=await api('/api/phases','md',{title:'Love Yourself',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself');
  const phaseId=round.phase.id;

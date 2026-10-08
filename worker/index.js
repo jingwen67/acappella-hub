@@ -39,7 +39,7 @@ export default {
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ?
   `),
-      account: db.prepare(`SELECT id, name, is_admin, can_start, is_md, is_arranger, is_alumni FROM users WHERE id = ?`),
+      account: db.prepare(`SELECT id, name, is_admin, can_start, is_md, is_arranger, is_alumni, is_crew FROM users WHERE id = ?`),
       anyAdmin: db.prepare(`SELECT id FROM users WHERE is_admin = 1 LIMIT 1`),
       insertAdmin: db.prepare(`
     INSERT INTO users (name, password_hash, created_at, is_admin, can_start)
@@ -47,14 +47,14 @@ export default {
   `),
       listUsers: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
-      is_alumni, is_president, is_vp, is_secretary, is_treasurer, is_media,
+      is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
       full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
     FROM users
     WHERE is_admin = 0
   `),
       profileById: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
-      is_alumni, is_president, is_vp, is_secretary, is_treasurer, is_media,
+      is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
       full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
     FROM users
     WHERE id = ?
@@ -68,6 +68,7 @@ export default {
       setMusicDirector: db.prepare(`UPDATE users SET is_md = ? WHERE id = ? AND is_admin = 0`),
       setArranger: db.prepare(`UPDATE users SET is_arranger = ? WHERE id = ?`),
       setAlumni: db.prepare(`UPDATE users SET is_alumni = ? WHERE id = ? AND is_admin = 0`),
+      setCrew: db.prepare(`UPDATE users SET is_crew = ? WHERE id = ? AND is_admin = 0`),
       setPresident: db.prepare(`UPDATE users SET is_president = ? WHERE id = ? AND is_admin = 0`),
       setVicePresident: db.prepare(`UPDATE users SET is_vp = ? WHERE id = ? AND is_admin = 0`),
       setSecretary: db.prepare(`UPDATE users SET is_secretary = ? WHERE id = ? AND is_admin = 0`),
@@ -284,6 +285,7 @@ export default {
         isMd: Boolean(row.is_md),
         isArranger: Boolean(row.is_arranger),
         isAlumni: Boolean(row.is_alumni),
+        isCrew: Boolean(row.is_crew),
         isPresident: Boolean(row.is_president),
         isVicePresident: Boolean(row.is_vp),
         isSecretary: Boolean(row.is_secretary),
@@ -733,32 +735,38 @@ export default {
             musicDirector: statements.setMusicDirector,
             arranger: statements.setArranger,
             alumni: statements.setAlumni,
+            crew: statements.setCrew,
             president: statements.setPresident,
             vicePresident: statements.setVicePresident,
             secretary: statements.setSecretary,
             treasurer: statements.setTreasurer,
             mediaChair: statements.setMedia
           };
-          const adminOnly = new Set(['musicDirector', 'alumni', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair']);
+          const adminOnly = new Set(['musicDirector', 'alumni', 'crew', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair']);
           const changing = Object.keys(flags).filter(key => typeof body[key] === 'boolean');
           if (!changing.length) throw fail(400, 'bad_json');
           if (!user.isAdmin && changing.some(key => adminOnly.has(key))) throw fail(403, 'forbidden');
           if (target.is_admin && changing.some(key => key !== 'arranger')) throw fail(400, 'cannot_change_admin');
+          if (body.alumni === true && body.crew === true) throw fail(400, 'bad_json');
           const toAlumni = body.alumni === true;
           const roleKeys = ['musicDirector', 'arranger', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair'];
-          for (const key of changing) {
-            if ((toAlumni || target.is_alumni && body.alumni !== false) && roleKeys.includes(key)) continue;
-            await flags[key].run(body[key] ? 1 : 0, target.id);
-          }
-          if (toAlumni) {
-            await statements.setMusicDirector.run(0, target.id);
-            await statements.setArranger.run(0, target.id);
-            await statements.setPresident.run(0, target.id);
-            await statements.setVicePresident.run(0, target.id);
-            await statements.setSecretary.run(0, target.id);
-            await statements.setTreasurer.run(0, target.id);
-            await statements.setMedia.run(0, target.id);
-          }
+          await withTx(async () => {
+            for (const key of changing) {
+              if ((toAlumni || target.is_alumni && body.alumni !== false) && roleKeys.includes(key)) continue;
+              await flags[key].run(body[key] ? 1 : 0, target.id);
+            }
+            if (body.crew === true) await statements.setAlumni.run(0, target.id);
+            if (toAlumni) {
+              await statements.setCrew.run(0, target.id);
+              await statements.setMusicDirector.run(0, target.id);
+              await statements.setArranger.run(0, target.id);
+              await statements.setPresident.run(0, target.id);
+              await statements.setVicePresident.run(0, target.id);
+              await statements.setSecretary.run(0, target.id);
+              await statements.setTreasurer.run(0, target.id);
+              await statements.setMedia.run(0, target.id);
+            }
+          });
           send(res, 200, await stateFor(user));
           return;
         }
