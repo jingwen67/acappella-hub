@@ -106,7 +106,7 @@ The MD chooses one of four methods when opening a round:
 | **Duet · Part Voting** | Register for Part A or Part B, one part per person. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
 1. Open **Solo / Duet voting** to see the song, arranger and voting method.
-2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Part Voting, choose your part. You may add an HTTPS audition link, such as a Google Drive recording; make sure members can open it.
+2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Part Voting, choose your part.
 3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
 4. Select your favorites and click again to unselect. Choices save automatically and cannot be changed after the round closes.
 

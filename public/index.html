@@ -1002,7 +1002,7 @@
         notMusicDirector: '非总监',
         arrangerRole: '编曲者',
         notArrangerRole: '非编曲',
-        pollButton: 'Solo / Duet 投票',
+        pollButton: 'Solo 投票',
         scoresButton: '查看/上传乐谱',
         scoresTitle: '查看/上传乐谱',
         browseTitle: '查看乐谱',
@@ -1149,7 +1149,7 @@
         notMusicDirector: 'Not a director',
         arrangerRole: 'Arranger',
         notArrangerRole: 'Not an arranger',
-        pollButton: 'Solo / Duet voting',
+        pollButton: 'Solo voting',
         scoresButton: 'View / upload scores',
         scoresTitle: 'View / upload scores',
         browseTitle: 'View scores',
@@ -1771,7 +1771,6 @@
       const countIn = part => phase.candidates.filter(entry => entry.part === part).length;
       const locked = part => phase.started && (phase.pollType === 'pair' ? phase.registrationLocked : phase.partLocks[part]);
       const canWithdraw = entry => !phase.started || (!locked(entry.part) && countIn(entry.part)>3);
-      const auditionField = value => el('label', {}, pair('试听链接（可选）', 'Audition link (optional)'), el('input', {name:'auditionUrl',type:'url',maxlength:'2000',value:value||'',placeholder:'https://drive.google.com/…'}));
       const children = [el('h2', {}, phase.title),el('p', {class:'meta'},pollTypeLabel(phase.pollType)),el('p', {class:'hint'}, phase.pollType==='pair'
         ? pair('给搭档发起组队，对方确认后参选。同一人可参加不同组合；两组最多选一组，三组及以上最多选两组。','Invite a partner; the pair joins after confirmation. Multiple partnerships are allowed. Choose one of two pairs, or up to two of three or more.')
         : pair('选择一个声部报名。两个声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join one part. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
@@ -1779,16 +1778,15 @@
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       if (phase.pollType==='pair') {
         if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
-          event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId')),auditionUrl:form.get('auditionUrl')});
-        }}, el('label', {},pair('选择搭档','Choose a partner'),el('select', {name:'partnerId',required:true},el('option',{value:''},pair('请选择','Select a member')),data.members.filter(member=>member.id!==data.user.id).map(member=>el('option',{value:member.id},member.fullName||member.name)))),auditionField(''),el('button',{class:'nav-btn',type:'submit'},pair('邀请搭档','Invite partner'))));
+          event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId'))});
+        }}, el('label', {},pair('选择搭档','Choose a partner'),el('select', {name:'partnerId',required:true},el('option',{value:''},pair('请选择','Select a member')),data.members.filter(member=>member.id!==data.user.id).map(member=>el('option',{value:member.id},member.fullName||member.name)))),el('button',{class:'nav-btn',type:'submit'},pair('邀请搭档','Invite partner'))));
         else children.push(el('p',{class:'hint'},pair('两组场，报名已锁定。','Two-pair round; registration is locked.')));
         for (const pending of phase.pendingPairs) children.push(el('section', {class:'card stack'},duetIdentity(pending),el('p',{class:'hint'},pending.canConfirm?pair('邀请你一起参选','Invited you to join this pair'):pair('等待搭档确认','Waiting for your partner')),
-          pending.auditionUrl?el('a',{href:pending.auditionUrl,target:'_blank',rel:'noopener'},pair('听一听','Listen')):null,
           pending.canConfirm?el('button',{type:'button',class:'nav-btn',disabled:locked('pair'),onclick:()=>action('confirm',{entryId:pending.id})},pair('确认组队','Confirm pair')):null,
           el('button',{type:'button',class:'nav-btn',onclick:()=>action('cancel',{entryId:pending.id})},pending.canConfirm?pair('婉拒','Decline'):pair('取消邀请','Cancel invitation'))));
       } else if (!ownerEntries.length) {
         const available=['A','B'].filter(part=>!locked(part));
-        if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part'),auditionUrl:form.get('auditionUrl')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),auditionField(''),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
+        if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
         else children.push(el('p',{class:'hint'},pair('两个声部的报名均已锁定。','Registration is locked for both parts.')));
       }
       if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?phase.candidates.length<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开始投票','Start voting')));
@@ -1796,10 +1794,8 @@
         const entries=phase.candidates.filter(entry=>entry.part===part);
         if (phase.pollType==='parts') children.push(el('h3',{},partName(part)),el('p',{class:'hint'},pair('最多选择 '+phase.voteLimits[part]+' 位'+(locked(part)?' · 报名已锁定':''),'Select up to '+phase.voteLimits[part]+' singers'+(locked(part)?' · Registration locked':''))));
         children.push(entries.length?el('div',{class:'cards'},entries.map(entry=>el('article',{class:entry.isMe?'card is-me stack':'card stack'},duetIdentity(entry),
-          entry.auditionUrl?el('a',{href:entry.auditionUrl,target:'_blank',rel:'noopener'},pair('听一听','Listen')):null,
           phase.canSeeResults&&detailedResults.has(phase.id)?el('p',{class:'meta'},pair(entry.likes+' 票',entry.likes+' votes')):null,
           el('button',{type:'button',class:'choice is-like',disabled:!phase.started,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')),
-          entry.isMe?el('details',{},el('summary',{},pair('修改试听链接','Edit audition link')),el('form',{class:'stack',onsubmit:event=>{event.preventDefault();action('audition',{entryId:entry.id,auditionUrl:new FormData(event.target).get('auditionUrl')});}},auditionField(entry.auditionUrl),el('button',{type:'submit',class:'nav-btn'},pair('保存链接','Save link')))):null,
           entry.isMe?el('button',{type:'button',class:'nav-btn',disabled:!canWithdraw(entry),onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw')):null,
         ))):el('p',{class:'hint'},pair('还没有参选人','No candidates yet')));
       }
