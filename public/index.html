@@ -1494,6 +1494,7 @@
       galleryCache.clear();
       invitationList = null;
       issuedInvitation = null;
+      detailedResults.clear();
       latest = null;
       view = 'hub';
       window.history.replaceState({view: 'hub'}, '', '/');
@@ -1668,6 +1669,15 @@
       });
     }
 
+    const detailedResults = new Set();
+    function resultsToggle(item) {
+      return el('button', {type:'button', class:'nav-btn', 'aria-expanded':detailedResults.has(item.id)?'true':'false', onclick:()=>{
+        if (detailedResults.has(item.id)) detailedResults.delete(item.id);
+        else detailedResults.add(item.id);
+        if (latest) { renderRound(latest); renderHistory(latest.history); }
+      }}, detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
+    }
+
     function candidateCard(phase, candidate) {
       const choose = (reaction) => () => {
         const next = candidate.mine === reaction ? null : reaction;
@@ -1682,7 +1692,7 @@
           el('h3', {}, candidate.name),
           candidate.isMe ? el('span', { class: 'you' }, both('you')) : null,
         ),
-        phase.canSeeResults
+        phase.canSeeResults && detailedResults.has(phase.id)
           ? el('p', { class: 'counts' },
               countSpan(candidate.likes, 'like'),
               countSpan(candidate.again, 'again'),
@@ -1755,6 +1765,7 @@
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
+      if (phase.canSeeResults) children.push(resultsToggle(phase));
       if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
@@ -1848,17 +1859,20 @@
       history.append(el('h2', {}, t('history')));
       for (const item of rounds) {
         const when = formatTime(item.closedAt);
-        const rows = item.candidates.length
-          ? item.candidates.map((candidate) => el('div', { class: 'result-row' },
+        const showDetails = item.canSeeResults && detailedResults.has(item.id);
+        const visibleCandidates = showDetails ? item.candidates : item.candidates.filter(candidate => candidate.rank <= item.revealedRanks);
+        const rows = visibleCandidates.length
+          ? visibleCandidates.map((candidate) => el('div', { class: 'result-row' },
               el('span', { class: 'rank' }, candidate.rank),
               el('span', {}, candidate.name),
-              item.canSeeResults?el('span', { class: 'meta' },item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null,
+              showDetails?el('span', { class: 'meta' },item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null,
             ))
           : [el('p', { class: 'hint' }, t('noCandidates'))];
         history.append(el('section', { class: 'card' },
           el('h3', {}, item.title),
           when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
           item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
+          item.canSeeResults ? resultsToggle(item) : null,
           ...rows,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
         ));
