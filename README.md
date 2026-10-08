@@ -78,7 +78,7 @@ CU Chinese A Cappella 的成员资料、乐谱库和 Solo 投票工具。投票�
 
 从主页进入 **我的资料**，填写英文全名、代词、声部、学校、毕业年份、专业、Fun fact 和喜欢的食物，再保存。毕业年份填写四位数字，例如 `2027`。
 
-声部支持多选 Soprano、Alto、Tenor、Baritone、Bass、Bbox 和 Rap。在我的资料点 Edit，勾选声部后 Save。President 和 MD 可在其他成员的资料页保存声部。Active 名单在姓名旁显示声部，可按声部或「未选择声部」筛选。
+声部支持多选 Soprano、Alto、Tenor、Baritone、Bass、Bbox 和 Rap。在我的资料点 Edit，勾选声部后 Save。President 和 MD 可在其他成员的资料页保存声部。Active 名单在姓名旁显示声部，可按声部或「未选择声部」排序，选中的成员优先显示，保留完整名单。
 
 个人资料页有 **相册 / Photo gallery**：所有登录成员都能给这个人上传照片，每张需小于 5 MB，支持 JPG、PNG、WebP 和 GIF。点击照片可放大，并显示上传者名字。
 

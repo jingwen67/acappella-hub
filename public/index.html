@@ -719,8 +719,13 @@
     .voice-choices legend {margin-bottom:8px;font-size:14px;}
     .voice-choices label {display:flex;align-items:center;gap:6px;font-size:14px;}
     .voice-choices input {width:auto;min-height:0;margin:0;}
-    .voice-filter {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;}
-    .voice-filter select {width:auto;max-width:100%;}
+    .roster-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;}
+    .roster-heading .roster-label {margin:0;}
+    .voice-filter {display:flex;align-items:center;gap:7px;font:inherit;font-size:12px;color:var(--muted);margin-left:auto;}
+    .voice-filter select {width:auto;max-width:125px;min-height:28px;margin:0;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);font:inherit;}
+    .voice-filter .pair {flex-direction:row;gap:5px;}
+    .voice-filter .pair .en {font-size:inherit;}
+    @media(max-width:420px){.voice-filter .pair {flex-direction:column;}.voice-filter select {max-width:110px;}}
   </style>
 </head>
 <body>
@@ -2389,8 +2394,11 @@
         : el('div', { class: 'roster-bar' },
             el('button', { type: 'button', class: 'ghost roster-action', onclick: beginRosterEdit }, t('editRoles')),
           );
-      const group = (title, rows) => el('section', { class: 'stack' },
-        el('h2', { class: 'roster-label' }, title),
+      const activePeople=people.filter(person=>!personIsAlumni(person)&&!personIsCrew(person));
+      const preferred=person=>voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter);
+      if(voiceFilter!=='all')activePeople.sort((a,b)=>Number(preferred(b))-Number(preferred(a)));
+      const group = (title, rows, control=null) => el('section', { class: 'stack' },
+        el('div',{class:'roster-heading'},el('h2', { class: 'roster-label' }, title),control),
         el('div', { class: 'card stack' }, rows.length
           ? rows.map((person) => memberRow(person, data.user))
           : [el('p', { class: 'hint' }, t('noneYet'))]),
@@ -2398,11 +2406,10 @@
       roster.replaceChildren(
         ...(bar ? [bar] : []),
         ...(data.user.isAdmin ? [invitationPanel()] : []),
-        el('label',{class:'voice-filter'},pair('按声部筛选','Filter by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
-          el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
+        group('Active', activePeople, el('label',{class:'voice-filter'},pair('按声部排序','Sort by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
+          el('option',{value:'all',selected:voiceFilter==='all'},pair('默认顺序','Default order')),
           ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
-          el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet')))),
-        group('Active', people.filter((person) => !personIsAlumni(person) && !personIsCrew(person) && (voiceFilter==='all'||(voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter))))),
+          el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet'))))),
         group('Crew', people.filter((person) => !personIsAlumni(person) && personIsCrew(person))),
         group('Alumni', people.filter((person) => personIsAlumni(person))),
       );
