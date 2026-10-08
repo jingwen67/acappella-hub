@@ -714,6 +714,13 @@
     .photo-preview { max-width:calc(100vw - 24px); max-height:90dvh; padding:16px; border:1px solid var(--line); border-radius:16px; background:var(--card); }
     .photo-preview::backdrop { background:#241c1699; }
     .photo-preview img { display:block; max-width:100%; max-height:75dvh; object-fit:contain; }
+    .voice-caption {color:var(--muted,#888);font-size:12px;font-weight:400;text-decoration:none;}
+    .voice-choices {border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:10px 18px;}
+    .voice-choices legend {margin-bottom:8px;font-size:14px;}
+    .voice-choices label {display:flex;align-items:center;gap:6px;font-size:14px;}
+    .voice-choices input {width:auto;min-height:0;margin:0;}
+    .voice-filter {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;}
+    .voice-filter select {width:auto;max-width:100%;}
   </style>
 </head>
 <body>
@@ -2092,6 +2099,17 @@
       }
     }
 
+    const voiceParts=['soprano','alto','tenor','baritone','bass','bbox','rap'];
+    const voiceLabel=part=>part==='bbox'?'Bbox':part.charAt(0).toUpperCase()+part.slice(1);
+    let voiceFilter='all';
+    function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
+      return el('fieldset',{class:'voice-choices'},el('legend',{},pair('声部（可多选）','Voice parts (select all that apply)')),
+        voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
+    }
+    function managedVoiceEditor(person){
+      return el('form',{class:'card stack',onsubmit:event=>{event.preventDefault();const parts=new FormData(event.target).getAll('voiceParts');run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts})}));}},
+        voiceChoices(person),el('button',{type:'submit',class:'nav-btn'},pair('保存声部','Save voice parts')));
+    }
     let editingRoster = false;
     let roleDraft = null;
     let expandedMember = null;
@@ -2304,7 +2322,7 @@
         }
       }
       const display = person.fullName || person.name;
-      const identity = el('span', {class:'roster-name'}, avatarNode(person), el('span', {}, display));
+      const identity = el('span', {class:'roster-name'}, avatarNode(person), el('span', {}, display), !alumni&&!personIsCrew(person)?el('small',{class:'voice-caption'},(person.voiceParts||[]).map(voiceLabel).join(' · ')||pair('未选择声部','No voice part yet')):null);
       const name = canExpand
         ? el('button', {
             type: 'button',
@@ -2380,7 +2398,11 @@
       roster.replaceChildren(
         ...(bar ? [bar] : []),
         ...(data.user.isAdmin ? [invitationPanel()] : []),
-        group('Active', people.filter((person) => !personIsAlumni(person) && !personIsCrew(person))),
+        el('label',{class:'voice-filter'},pair('按声部筛选','Filter by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
+          el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
+          ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
+          el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet')))),
+        group('Active', people.filter((person) => !personIsAlumni(person) && !personIsCrew(person) && (voiceFilter==='all'||(voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter))))),
         group('Crew', people.filter((person) => !personIsAlumni(person) && personIsCrew(person))),
         group('Alumni', people.filter((person) => personIsAlumni(person))),
       );
@@ -2544,7 +2566,7 @@
 
     function renderProfile(data) {
       if (!profileBody) return;
-      if(profileEditing){const form=profileBody.querySelector("form");if(form)profileDraft=Object.fromEntries(new FormData(form));}
+      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="voiceParts"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');}}
       const person = profileId === data.user.id
         ? data.profile
         : (data.members || []).find((item) => item.id === profileId);
@@ -2576,6 +2598,7 @@
                 value,
               )))
             : el('p', { class: 'hint' }, en('noProfile')),
+          (data.user.isMd || data.members.find(p=>p.id===data.user.id)?.isPresident) ? managedVoiceEditor(person) : null,
           galleryNode(person, mine),
         );
         return;
@@ -2596,7 +2619,7 @@
                 body: JSON.stringify({
                   fullName: form.elements.fullName.value,
                   pronouns: form.elements.pronouns.value,
-                  voicePart: form.elements.voicePart.value,
+                  voiceParts: new FormData(form).getAll('voiceParts'),
                   school: form.elements.school.value,
                   gradYear: form.elements.gradYear.value,
                   program: form.elements.program.value,
@@ -2612,7 +2635,7 @@
           el('div',{class:'profile-edit-actions'},el('button', { class: 'nav-btn', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit'))),
           profileField('fullName', 'fullName', person.fullName, 80),
           profileField('pronouns', 'pronouns', person.pronouns, 40),
-          profileField('voicePart', 'voicePart', person.voicePart, 40),
+          voiceChoices(person,!profileEditing,profileDraft?.voiceParts||person.voiceParts||[]),
           profileField('school', 'school', person.school, 80),
           profileField('gradYear', 'gradYear', person.gradYear, 4),
           profileField('program', 'program', person.program, 80),
@@ -2622,6 +2645,7 @@
         galleryNode(person, mine),
       );
       for(const field of profileBody.querySelectorAll('form input, form textarea')){
+        if(field.type==='checkbox')continue;
         field.readOnly=!profileEditing;
         if(profileEditing&&profileDraft&&Object.hasOwn(profileDraft,field.name))field.value=profileDraft[field.name];
       }

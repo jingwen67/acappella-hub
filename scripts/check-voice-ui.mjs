@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const html=fs.readFileSync('public/index.html','utf8');
+const el=(tag,attrs,...children)=>({tag,attrs,children:children.flat().filter(x=>x!=null)});
+const find=(n,test)=>{if(test(n))return n;for(const c of n.children||[])if(c&&typeof c==='object'){const r=find(c,test);if(r)return r;}};
+const ctx={el,pair:(a,b)=>a+' / '+b,t:x=>x,canManage:()=>false,memberRow:p=>el('member',{id:p.id}),personIsAlumni:p=>p.isAlumni,personIsCrew:p=>p.isCrew,roster:{replaceChildren(...nodes){this.nodes=nodes;}},data:{user:{id:1},members:[{id:1,voiceParts:['alto','rap']},{id:2,voiceParts:['tenor']},{id:3,voiceParts:[]},{id:4,isCrew:true,voiceParts:['alto']}]}};
+vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('    const voiceParts='),html.indexOf('    let editingRoster = false;'))+'let editingRoster=false;'+html.slice(html.indexOf('    function renderRoster'),html.indexOf('    function renderAdmin')),ctx);
+vm.runInContext("renderRoster(data)",ctx);
+let active=ctx.roster.nodes.find(n=>n.tag==='section');assert.equal(active.children[1].children.length,3);
+vm.runInContext("voiceFilter='alto';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[1]);
+vm.runInContext("voiceFilter='unassigned';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[3]);
+const choices=vm.runInContext("voiceChoices({voiceParts:['alto','rap']},true)",ctx);assert.equal(choices.children.filter(n=>n.tag==='label').length,7);assert.equal(choices.children.filter(n=>n.tag==='label'&&n.children[0].attrs.checked).length,2);assert.equal(find(choices,n=>n.tag==='input').attrs.disabled,true);
+console.log('PASS: seven multi-select parts, checked/disabled profile state, Active-only part filters, and unassigned filter.');

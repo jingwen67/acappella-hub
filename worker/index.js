@@ -4,6 +4,7 @@ import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redire
 import { database, boundedBody, hashPassword, verifyPassword, initialize, responseSink } from './runtime.js';
 import { assets } from './assets.js';
 import { galleryService } from '../gallery.js';
+import {readVoiceParts,validateVoiceParts} from './voice-parts.js';
 export default {
   async fetch(request, env) {
     if (!env.DB || !env.FILES) return new Response('Storage unavailable', {
@@ -275,7 +276,8 @@ export default {
         name: row.name,
         fullName: row.full_name || '',
         pronouns: row.pronouns || '',
-        voicePart: row.voice_part || '',
+        voicePart: readVoiceParts(row.voice_part).join(' / '),
+        voiceParts: readVoiceParts(row.voice_part),
         school: row.school || '',
         gradYear: row.grad_year || '',
         program: row.program || '',
@@ -629,9 +631,18 @@ export default {
           const gradRaw = typeof body.gradYear === 'string' ? body.gradYear.trim() : '';
           if (gradRaw && !/^\d{4}$/.test(gradRaw)) throw fail(400, 'grad_year');
           const optional = (value, max) => value == null || String(value).trim() === '' ? '' : cleanText(value, max);
-          await statements.saveProfile.run(fullName, pronouns, '', optional(body.voicePart, 40), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
+          await statements.saveProfile.run(fullName, pronouns, '', JSON.stringify(body.voiceParts===undefined?readVoiceParts(body.voicePart):validateVoiceParts(body.voiceParts)), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
           send(res, 200, await stateFor(user));
           return;
+        }
+        if(req.method==='POST' && /^\/api\/members\/\d+\/voice-parts$/.test(pathname)) {
+          const user=await requireUser(req);const id=Number(pathname.split('/')[3]);
+          const actor=await statements.profileById.get(user.id);
+          if(id!==user.id&&!actor.is_president&&!actor.is_md)throw fail(403,'forbidden');
+          const target=await statements.profileById.get(id);if(!target)throw fail(404,'not_found');
+          const body=await readBody(req);const parts=validateVoiceParts(body.voiceParts);
+          await db.prepare('UPDATE users SET voice_part = ? WHERE id = ?').run(JSON.stringify(parts),id);
+          send(res,200,await stateFor(user));return;
         }
         if (req.method === 'POST' && pathname === '/api/profile/avatar') {
           const user = await requireUser(req);

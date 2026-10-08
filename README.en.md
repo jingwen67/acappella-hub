@@ -76,6 +76,8 @@ This is a home screen shortcut to the website and requires an internet connectio
 
 Open **My profile** from the home page. Fill in your English full name, pronouns, voice part, school, graduation year, major, fun fact, and favorite food, then save. Use a four-digit graduation year, such as `2027`.
 
+Voice parts allow multiple selections: Soprano, Alto, Tenor, Baritone, Bass, Bbox, and Rap. Choose Edit in My profile, check your parts, then Save. The President and MD can save voice parts on another member’s profile. The Active list shows parts beside names and can be filtered by part or members without a selected part.
+
 Each profile has a **Photo gallery**. Any signed-in member can add photos of that person. Each photo must be under 5 MB; JPG, PNG, WebP, and GIF are supported. Click a photo to enlarge it and see who uploaded it.
 
 - The **profile owner** can delete any photo in their gallery and choose **Set as avatar**.
