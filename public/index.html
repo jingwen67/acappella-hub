@@ -2715,6 +2715,7 @@
     let editingFiles = [];
     let removedFiles = new Set();
     let editCache = null;
+    let editCacheKey = null;
     let editError = '';
     let editLoadingId = '';
 
@@ -2767,6 +2768,10 @@
     }
 
     function renderEditSongs(loading) {
+      const current = editFilter.value;
+      const semesters = latest?.library?.semesters || [];
+      editFilter.replaceChildren(el('option', {value:''}, both('allSemesters')), ...semesters.map(item => el('option', {value:String(item.id)}, item.label)));
+      if (semesters.some(item => String(item.id) === current)) editFilter.value = current;
       if (loading) {
         editSongs.replaceChildren(el('p', { class: 'hint' }, t('loading')));
         return;
@@ -2776,12 +2781,8 @@
         return;
       }
       if (!editCache) return;
-      const current = editFilter.value;
-      const labels = [...new Set(editCache.folders.flatMap(item => item.semester.split(/[,，]/).map(label => label.trim()).filter(Boolean)))].sort().reverse();
-      editFilter.replaceChildren(el('option', {value:''}, both('allSemesters')), ...labels.map(label => el('option', {value:label}, label)));
-      if (labels.includes(current)) editFilter.value = current;
       const query = editSearch.value.trim().toLowerCase();
-      const folders = editCache.folders.filter(item => (!query || item.name.toLowerCase().includes(query)) && (!editFilter.value || item.semester.split(/[,，]/).some(label => label.trim() === editFilter.value))); 
+      const folders = editCache.folders.filter(item => !query || item.name.toLowerCase().includes(query));
       editSongs.replaceChildren(folders.length
         ? el('div', { class: 'card' }, folders.map((item) => el('button', {
             type: 'button',
@@ -2792,14 +2793,23 @@
     }
 
     async function ensureEditList() {
-      if (editCache) { renderEditSongs(); return; }
-      if (editLoadingId) { renderEditSongs(true); return; }
-      editLoadingId = 'all';
+      const requested = editFilter.value;
+      const requestKey = requested || 'all';
+      if (editCache && editCacheKey === requestKey) { renderEditSongs(); return; }
+      if (editLoadingId === requestKey) { renderEditSongs(true); return; }
+      editLoadingId = requestKey;
       editError = '';
+      editCache = null;
       renderEditSongs(true);
-      try { editCache = await api('/api/library/songs'); }
-      catch (error) { editError = error.message; }
-      finally { editLoadingId = ''; }
+      try {
+        const data = await api(requested ? `/api/library/folders?semesterId=${encodeURIComponent(requested)}` : '/api/library/songs');
+        if (editFilter.value !== requested) return;
+        editCache = requested ? {...data, folders:data.folders.map(item => ({...item, semesterId:data.id, semester:data.label}))} : data;
+        editCacheKey = requestKey;
+      } catch (error) {
+        if (editFilter.value !== requested) return;
+        editError = error.message;
+      } finally { if (editLoadingId === requestKey) editLoadingId = ''; }
       renderEditSongs();
     }
 
@@ -2848,8 +2858,8 @@
       editSearch.focus();
       ensureEditList();
     });
-    editSearch.addEventListener('input', () => renderEditSongs());
-    editFilter.addEventListener('change', () => renderEditSongs());
+    editSearch.addEventListener('input', () => renderEditSongs(Boolean(editLoadingId)));
+    editFilter.addEventListener('change', () => ensureEditList());
     editSearch.addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
     cancelEdit.addEventListener('click', clearSongEdit);
 
