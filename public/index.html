@@ -2403,7 +2403,7 @@
       const voiceRank=person=>{const ranks=(person.voiceParts||[]).map(part=>voiceParts.indexOf(part)).filter(rank=>rank>=0);return ranks.length?Math.min(...ranks):voiceParts.length;};
       activePeople.sort((a,b)=>(rosterSort==='voice'?voiceRank(a)-voiceRank(b):0)||(a.fullName||a.name||'').localeCompare(b.fullName||b.name||'','en',{sensitivity:'base',numeric:true})||a.id-b.id);
       const group = (title, rows, control=null) => el('section', { class: 'stack' },
-        el('div',{class:'roster-heading'},el('div',{class:'roster-heading-left'},el('h2', { class: 'roster-label' }, title),title==='Active'?el('button',{type:'button',class:'nav-btn roster-sort','aria-label':pair('切换排序方式','Switch sort order'),onclick:()=>{rosterSort=rosterSort==='voice'?'alpha':'voice';renderRoster(latest);}},rosterSort==='voice'?pair('按声部排序','By voice part'):pair('按首字母排序','Alphabetical')):null),control),
+        el('div',{class:'roster-heading'},el('div',{class:'roster-heading-left'},el('h2', { class: 'roster-label' }, title),title==='Active'?el('button',{type:'button',class:'nav-btn roster-sort','aria-label':pair('切换排序方式','Switch sort order'),onclick:()=>{rosterSort=rosterSort==='voice'?'alpha':'voice';renderRoster(latest);}},rosterSort==='voice'?pair('按首字母排序','Alphabetical'):pair('按声部排序','By voice part')):null),control),
         el('div', { class: 'card stack' }, rows.length
           ? rows.map((person) => memberRow(person, data.user))
           : [el('p', { class: 'hint' }, t('noneYet'))]),
@@ -2411,7 +2411,7 @@
       roster.replaceChildren(
         ...(bar ? [bar] : []),
         ...(data.user.isAdmin ? [invitationPanel()] : []),
-        group('Active', activePeople, el('label',{class:'voice-filter'},pair('按声部筛选','Filter by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
+        group('Active', activePeople, el('label',{class:'voice-filter'},el('select',{'aria-label':pair('按声部筛选','Filter by voice part'),value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
           el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
           ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
           el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet'))))),
