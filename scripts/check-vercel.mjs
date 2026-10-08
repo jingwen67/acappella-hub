@@ -45,6 +45,15 @@ try {
  await api('/api/profile','member',{fullName:'Singer',voiceParts:['baritone','bass','bbox','rap']});
  assert.deepEqual((await api('/api/state','member')).profile.voiceParts,['baritone','bass','bbox','rap']);
  console.log('PASS: multi-part profiles, canonical values, duplicate removal, invalid-part rejection, and President/MD-only editing of other members.');
+ // Profile opt-in moves members to Crew / Media without granting board roles.
+ await api('/api/profile','member',{fullName:'Singer',voiceParts:['alto'],crewMedia:true});
+ let crewProfile=(await api('/api/state','member')).profile;assert.equal(crewProfile.isCrew,true);assert.equal(crewProfile.isMedia,false);
+ await api('/api/profile','member',{fullName:'Singer',voiceParts:['alto']});assert.equal((await api('/api/state','member')).profile.isCrew,true);
+ await api('/api/profile','member',{fullName:'Singer',voiceParts:['alto'],crewMedia:false});assert.equal((await api('/api/state','member')).profile.isCrew,false);
+ await api('/api/profile','member',{fullName:'Singer',crewMedia:'yes'},400);
+ await api(`/api/members/${member.user.id}/voice-parts`,'md',{voiceParts:['alto'],crewMedia:true});assert.equal((await api('/api/state','member')).profile.isCrew,true);
+ await api(`/api/members/${member.user.id}/voice-parts`,'member',{voiceParts:['alto'],crewMedia:false});
+ console.log('PASS: self-service Crew / Media opt-in, opt-out, preserved omitted status, delegated editing, and no Media Chair role grant.');
  // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.
  await api(`/api/admin/users/${member.user.id}`,'member',{crew:true},403);
  await api(`/api/admin/users/${member.user.id}`,'md',{crew:true},403);

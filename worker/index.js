@@ -630,8 +630,10 @@ export default {
           const pronouns = cleanText(body.pronouns, 40);
           const gradRaw = typeof body.gradYear === 'string' ? body.gradYear.trim() : '';
           if (gradRaw && !/^\d{4}$/.test(gradRaw)) throw fail(400, 'grad_year');
+          if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
           const optional = (value, max) => value == null || String(value).trim() === '' ? '' : cleanText(value, max);
           await statements.saveProfile.run(fullName, pronouns, '', JSON.stringify(body.voiceParts===undefined?readVoiceParts(body.voicePart):validateVoiceParts(body.voiceParts)), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
+          if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,user.id);
           send(res, 200, await stateFor(user));
           return;
         }
@@ -641,7 +643,9 @@ export default {
           if(id!==user.id&&!actor.is_president&&!actor.is_md)throw fail(403,'forbidden');
           const target=await statements.profileById.get(id);if(!target)throw fail(404,'not_found');
           const body=await readBody(req);const parts=validateVoiceParts(body.voiceParts);
+          if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
           await db.prepare('UPDATE users SET voice_part = ? WHERE id = ?').run(JSON.stringify(parts),id);
+          if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,id);
           send(res,200,await stateFor(user));return;
         }
         if (req.method === 'POST' && pathname === '/api/profile/avatar') {

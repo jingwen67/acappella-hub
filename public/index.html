@@ -716,7 +716,9 @@
     .photo-preview img { display:block; max-width:100%; max-height:75dvh; object-fit:contain; }
     .voice-caption {color:var(--muted,#888);font-size:12px;font-weight:400;text-decoration:none;}
     .voice-choices {border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:10px 18px;}
-    .voice-choices legend {margin-bottom:8px;font-size:14px;}
+    .crew-media-choice {border-top:1px solid var(--line);padding-top:12px;margin-top:0;}
+    .crew-media-choice label {display:flex;align-items:center;gap:6px;font:inherit;font-size:14px;}
+    .crew-media-choice input {width:auto;min-height:0;margin:0;}
     .voice-choices label {display:flex;align-items:center;gap:6px;font-size:14px;}
     .voice-choices input {width:auto;min-height:0;margin:0;}
     .roster-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;}
@@ -2113,12 +2115,15 @@
     let voiceFilter='all';
     let rosterSort='voice';
     function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
-      return el('fieldset',{class:'voice-choices'},el('legend',{},pair('声部（可多选）','Voice parts (select all that apply)')),
+      return el('fieldset',{class:'voice-choices','aria-label':'Voice parts'},
         voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
     }
+    function crewMediaChoice(person,disabled=false,checked=person.isCrew) {
+      return el('div',{class:'crew-media-choice'},el('label',{},el('input',{type:'checkbox',name:'crewMedia',checked:Boolean(checked),disabled}),'Crew / Media'));
+    }
     function managedVoiceEditor(person){
-      return el('form',{class:'card stack',onchange:()=>{freezeRender=true;},onsubmit:event=>{event.preventDefault();const parts=new FormData(event.target).getAll('voiceParts');run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts})}));}},
-        voiceChoices(person),el('button',{type:'submit',class:'nav-btn'},pair('保存声部','Save voice parts')));
+      return el('form',{class:'card stack',onchange:()=>{freezeRender=true;},onsubmit:event=>{event.preventDefault();const parts=new FormData(event.target).getAll('voiceParts');run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts,crewMedia:event.target.elements.crewMedia.checked})}));}},
+        voiceChoices(person),crewMediaChoice(person),el('button',{type:'submit',class:'nav-btn'},pair('保存声部','Save voice parts')));
     }
     let editingRoster = false;
     let roleDraft = null;
@@ -2415,8 +2420,8 @@
           el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
           ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
           el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet'))))),
-        group('Crew', people.filter((person) => !personIsAlumni(person) && personIsCrew(person))),
-        group('Alumni', people.filter((person) => personIsAlumni(person))),
+        group('Crew / Media', people.filter((person) => personIsCrew(person))),
+        group('Alumni', people.filter((person) => personIsAlumni(person) && !personIsCrew(person))),
       );
     }
 
@@ -2578,7 +2583,7 @@
 
     function renderProfile(data) {
       if (!profileBody) return;
-      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="voiceParts"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');}}
+      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="voiceParts"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');profileDraft.crewMedia=form.elements.crewMedia.checked;}}
       const person = profileId === data.user.id
         ? data.profile
         : (data.members || []).find((item) => item.id === profileId);
@@ -2632,6 +2637,7 @@
                   fullName: form.elements.fullName.value,
                   pronouns: form.elements.pronouns.value,
                   voiceParts: new FormData(form).getAll('voiceParts'),
+                  crewMedia: form.elements.crewMedia.checked,
                   school: form.elements.school.value,
                   gradYear: form.elements.gradYear.value,
                   program: form.elements.program.value,
@@ -2648,6 +2654,7 @@
           profileField('fullName', 'fullName', person.fullName, 80),
           profileField('pronouns', 'pronouns', person.pronouns, 40),
           voiceChoices(person,!profileEditing,profileDraft?.voiceParts||person.voiceParts||[]),
+          crewMediaChoice(person,!profileEditing,profileDraft?.crewMedia??person.isCrew),
           profileField('school', 'school', person.school, 80),
           profileField('gradYear', 'gradYear', person.gradYear, 4),
           profileField('program', 'program', person.program, 80),
