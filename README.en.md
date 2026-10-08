@@ -120,6 +120,13 @@ Results rank by support votes. The first two ranks, including all ties, are init
 
 Results help the MD and arranger decide; the system does not automatically choose the performers. The same singer may appear in multiple leading pairs.
 
+#### Record and listen back
+
+After joining, open **Record / upload audio** on your own entry. Allow microphone access, then choose **Record → Stop and preview → Save recording**. You can record again or upload an existing audio file. Duet pairs must be confirmed first; either partner can add or delete recordings for their pair.
+
+All signed-in members can play saved recordings. There is no recording time limit; each file can be up to **50 MB**. Recordings stay available while voting is open and for **7 days after it closes**, including in round history, before automatic cleanup. Voting results remain. To keep your recording longer, download your own copy before saving.
+
+
 <a id="scores"></a>
 ### Browse Scores
 

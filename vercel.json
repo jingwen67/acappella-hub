@@ -13,5 +13,11 @@
       "source": "/api/:path*",
       "destination": "/api/index"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/recordings/cleanup",
+      "schedule": "0 10 * * *"
+    }
   ]
 }

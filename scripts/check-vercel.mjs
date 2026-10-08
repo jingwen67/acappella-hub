@@ -4,6 +4,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {createDatabase} from '../vercel/database.js';
 import {createVoting} from '../vercel/voting.js';
 import {createInvitations} from '../vercel/invitations.js';
+import {createRecordings} from '../vercel/recordings.js';
 import worker from '../dist/vercel-worker.mjs';
 const postgres=new PGlite();
 await postgres.exec(fs.readFileSync('vercel/schema.sql','utf8'));
@@ -12,6 +13,7 @@ const pool={query,connect:async()=>({query,release(){}})};
 const files=new Map();
 const storage={async get(key){const v=files.get(key);return v?{async arrayBuffer(){return v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)},async text(){return v.toString()},async json(){return JSON.parse(v.toString())}}:null},async put(key,value){files.set(key,Buffer.from(typeof value==='string'?value:await new Response(value).arrayBuffer()))},async delete(key){files.delete(key)}};
 const env={DB:createDatabase(pool),FILES:storage,ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',INVITE_REQUIRED:true,invitations:createInvitations(pool),voting:createVoting(pool)};
+env.recordings=createRecordings(pool,{...storage,audioUploadUrl:async key=>'https://storage.test/upload/'+key,audioInfo:async key=>({size:files.get(key)?.length||0,contentType:'audio/webm'}),audioPlaybackUrl:async key=>'https://storage.test/play/'+key});
 const mf={dispatchFetch:(url,options)=>worker.fetch(new Request(url,options),env),getR2Bucket:async()=>storage,dispose:async()=>postgres.close()};
 try {
  const cookies={};
@@ -94,7 +96,7 @@ try {
  album=await uploadPhoto('md');const cleanupPhoto=album.photos[0];
  await api(`/api/admin/users/${member.user.id}/delete`,'admin',{});
  await api('/api/photos/'+cleanupPhoto.id,'md',undefined,404);
- const files=await mf.getR2Bucket('FILES');assert.equal(await files.get('photos/'+cleanupPhoto.id+'.png'),null);
+ const photoFiles=await mf.getR2Bucket('FILES');assert.equal(await photoFiles.get('photos/'+cleanupPhoto.id+'.png'),null);
  state=await api('/api/state','md');assert.equal(state.members.some(x=>x.id===member.user.id),false);
  await api('/api/register','blocked',{name:'Uninvited',password:'abc12345'},403);
  await api('/api/admin/invitations','md',{},403);
@@ -118,7 +120,7 @@ try {
  await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
- assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,12);
+ assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,13);
 
  // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
  let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);
@@ -252,6 +254,44 @@ try {
  await api(`/api/phases/${did}/vote`,'sixth',{entryId:smallA[0].id,reaction:'like'});
  await api(`/api/phases/${did}/vote`,'sixth',{entryId:smallA[1].id,reaction:'like'},400);
  await api(`/api/phases/${did}/vote`,'sixth',{entryId:duet.phase.candidates.find(e=>e.part==='B').id,reaction:'like'});
+ // Private recording upload authorization, playback and one-week expiration.
+ const audioEntry=duet.phase.candidates.find(e=>e.members.some(m=>m.id===users.md));
+ await api(`/api/phases/${did}/recordings`,'',{entryId:audioEntry.id,mime:'audio/webm',size:10},401);
+ await api(`/api/phases/${did}/recordings`,'sixth',{entryId:audioEntry.id,mime:'audio/webm',size:10},403);
+ await api(`/api/phases/${did}/recordings`,'md',{entryId:audioEntry.id,mime:'text/html',size:10},400);
+ await api(`/api/phases/${did}/recordings`,'md',{entryId:audioEntry.id,mime:'audio/webm',size:51*1024*1024},413);
+ async function putAudio(who,phaseId,target){const upload=await api(`/api/phases/${phaseId}/recordings`,who,{...target,mime:'audio/webm',size:10},201);const key=(await query('SELECT object_key FROM cucac.recordings WHERE id=$1',[upload.id])).rows[0].object_key;files.set(key,Buffer.from('audio data'));await api(`/api/recordings/${upload.id}/complete`,who,{});return {...upload,key};}
+ const clip=await putAudio('md',did,{entryId:audioEntry.id});
+ let audioState=await api('/api/state','sixth');assert.equal(audioState.phase.recordings.length,1);assert.equal(audioState.phase.recordings[0].canDelete,false);
+ await api(`/api/recordings/${clip.id}/delete`,'sixth',{},403);
+ r=await mf.dispatchFetch(`https://hub.test/api/recordings/${clip.id}`);assert.equal(r.status,401);
+ r=await mf.dispatchFetch(`https://hub.test/api/recordings/${clip.id}`,{headers:{Cookie:cookies.sixth}});assert.equal(r.status,302);assert.match(r.headers.get('location'),/^https:\/\/storage.test\/play\//);
+ await query("UPDATE cucac.recordings SET created_at=now()-interval '30 days' WHERE id=$1",[clip.id]);
+ await env.recordings.cleanup();assert.equal(files.has(clip.key),true); // Open voting retains recordings regardless of creation age.
+ await api(`/api/phases/${did}/close`,'md',{});
+ audioState=await api('/api/state','sixth');assert.equal(audioState.history.find(h=>h.id===did).recordings.length,1);
+ await query("UPDATE cucac.phases SET closed_at=(now()-interval '8 days')::text WHERE id=$1",[did]);
+ r=await mf.dispatchFetch(`https://hub.test/api/recordings/${clip.id}`,{headers:{Cookie:cookies.sixth}});assert.equal(r.status,410);
+ assert.equal((await api('/api/state','sixth')).history.find(h=>h.id===did).recordings.length,0);
+ await env.recordings.cleanup();assert.equal(files.has(clip.key),false);assert.equal((await query('SELECT 1 FROM cucac.recordings WHERE id=$1',[clip.id])).rows.length,0);
+ // Either confirmed partner can delete a pair's recording, but only the uploader can finalize an upload.
+ duet=await api('/api/phases','md',{title:'Pair recording',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;
+ duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider});const audioPair=duet.phase.pendingPairs[0].id;
+ await api(`/api/phases/${did}/recordings`,'md',{entryId:audioPair,mime:'audio/webm',size:10},403);
+ await api(`/api/phases/${did}/confirm`,'outsider',{entryId:audioPair});
+ const pairedClip=await putAudio('outsider',did,{entryId:audioPair});
+ await api(`/api/recordings/${pairedClip.id}/complete`,'md',{},403);
+ await api(`/api/recordings/${pairedClip.id}/delete`,'md',{});assert.equal(files.has(pairedClip.key),false);
+ await api(`/api/phases/${did}/close`,'md',{});
+ duet=await api('/api/phases','md',{title:'Solo recording',arrangerId:md.user.id},201);did=duet.phase.id;
+ await api(`/api/phases/${did}/recordings`,'md',{candidateId:users.md,mime:'audio/webm',size:10},400);
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true});
+ const soloClip=await putAudio('md',did,{candidateId:users.md});
+ await api(`/api/phases/${did}/recordings`,'single',{candidateId:users.md,mime:'audio/webm',size:10},403);
+ await api(`/api/phases/${did}/candidacy`,'md',{join:false});assert.equal((await api('/api/state','md')).phase.recordings.length,0);
+ await query("UPDATE cucac.recordings SET created_at=now()-interval '2 days' WHERE id=$1",[soloClip.id]);await env.recordings.cleanup();assert.equal(files.has(soloClip.key),false);
+ console.log('PASS: recording ownership, signed upload flow, confirmed-pair sharing, authenticated playback, no creation-age limit in open rounds, exact post-close expiry, private history recordings, and storage cleanup.');
+
  console.log('PASS: pair confirmation, invitation ownership, shared singers, locked two-pair ballot, two-choice pair ballot, late confirmation order, per-part limits/ranks/privacy, MD reveal, audition URL validation and cascade cleanup.');
 
  console.log('PASS: default voting limits, start permissions, locked two-singer registration, persistent shuffled order, late appends, dense ties, admin-only counts, MD reveal, and private result API.');

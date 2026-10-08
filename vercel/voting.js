@@ -32,6 +32,7 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
     if(p.started_at&&p.voting_mode==='default'&&candidates.includes(user.id)&&candidates.length<=3)throw fail(403,'withdraw_locked');
     await c.query('DELETE FROM cucac.votes WHERE phase_id=$1 AND candidate_id=$2',[id,user.id]);
     await c.query('DELETE FROM cucac.candidacies WHERE phase_id=$1 AND user_id=$2',[id,user.id]);
+    await c.query('UPDATE cucac.recordings SET candidate_id=NULL WHERE phase_id=$1 AND candidate_id=$2',[id,user.id]);
    }
   }else if(action==='vote'){
    if(!p.started_at)throw fail(403,'voting_not_started');

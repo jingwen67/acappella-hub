@@ -79,3 +79,11 @@ New rounds default to Default voting: one choice for two candidates (registratio
 ## Duet voting
 
 The MD can select Duet · Pair Voting or Duet · Part Voting when opening a round. Pair Voting requires partner confirmation. Part Voting uses independent ballots and rankings for A and B. The additive upgrade SQL is in `vercel/duet-schema.sql`; new installations include it in `vercel/schema.sql`. Existing rounds default to Solo and keep their original votes. Run `npm run build:vercel`, `npm run check:vercel` and `node scripts/check-duet-ui.mjs` before deploying changes.
+
+## 投票录音 / Voting recordings
+
+现有项目先运行 `vercel/recording-schema.sql`；新项目的 `vercel/schema.sql` 已包含录音表。继续使用私有 `cucac-private` bucket。音频通过短效签名上传地址直接传到 Storage，不经过 Vercel 请求正文，因此不受应用 4 MiB 请求限制；服务端核验文件大小与类型，单个音频最多 50 MiB。播放需登录，签名播放地址最长一小时，且不超过本轮保留期限。
+
+录音在轮次结束后 7 天停止展示与播放。`vercel.json` 的每日 Cron 调用 `/api/recordings/cleanup` 清理到期文件；实际删除最迟在下一次每日任务完成。清理接口不接受目标 ID，只删除服务器判定到期的录音及超过一天的未完成或失去报名关联的上传，不需要新增环境变量。麦克风需 HTTPS 和用户授权；离开投票页面时停止录制。
+
+Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.mjs`, and `node scripts/check-recording-ui.mjs` before deploying. Browser microphone hardware and permissions should also be checked on the member’s device.

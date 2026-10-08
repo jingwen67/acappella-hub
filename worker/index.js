@@ -385,12 +385,13 @@ export default {
         title: phase.title,
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b
       })));
       return {
         user: account,
         phase: open ? {
           ...(openDuet||{}),
+          recordings:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
           status: open.status,
@@ -776,6 +777,16 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
+        if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
+          if(!env.recordings)throw fail(404,'not_found');
+          await env.recordings.cleanup();send(res,200,{ok:true});return;
+        }
+        const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
+        if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}
+        const audioAction=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)\/(complete|delete)$/);
+        if(req.method==='POST'&&audioAction){const user=await requireUser(req);if(audioAction[2]==='complete')await env.recordings.complete(audioAction[1],user);else await env.recordings.remove(audioAction[1],user);send(res,200,await stateFor(user));return;}
+        const audioRead=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)$/);
+        if(req.method==='GET'&&audioRead){await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1]),'Cache-Control':'private, no-store'});res.end();return;}
         const action = pathname.match(/^\/api\/phases\/(\d+)\/(start|reveal|close|candidacy|vote|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);

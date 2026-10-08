@@ -9,12 +9,12 @@ const find=(nodes,predicate)=>{for(const n of nodes){if(n&&typeof n==='object'){
 const calls=[];
 const context={el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
  window:{confirm:()=>true},api:async(path,options)=>{calls.push({path,body:JSON.parse(options.body)});},run:fn=>fn(),
- resultsToggle:()=>el('button',{},'details'),candidateCard:()=>null,runningLine:()=>'',formatTime:()=>'',scoreLine:()=>'',
+ recordingControls:()=>null,recordingList:()=>null,resultsToggle:()=>el('button',{},'details'),candidateCard:()=>null,runningLine:()=>'',formatTime:()=>'',scoreLine:()=>'',
  FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}},
  round:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}},
  history:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}}};
 vm.createContext(context);
-vm.runInContext('const detailedResults=new Set();'+html.slice(html.indexOf('    function pollTypeLabel'),html.indexOf('    let editingRoster')),context);
+vm.runInContext('let captureSession=null;const detailedResults=new Set();'+html.slice(html.indexOf('    function pollTypeLabel'),html.indexOf('    let editingRoster')),context);
 const members=[{id:1,name:'One',isArranger:true},{id:2,name:'Two'},{id:3,name:'Three'}];
 context.data={user:{id:1,isMd:true},members,phase:null};vm.runInContext('renderRound(data)',context);
 const methodSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='votingMode');assert.deepEqual(methodSelect.children.map(n=>n.attrs.value),['default','feedback','pair','parts']);

@@ -594,6 +594,9 @@
       color: var(--ink);
     }
 
+    .recordings audio, .recording-tools audio { width:100%; max-width:100%; }
+    .recording-tools summary { cursor:pointer; color:var(--muted); font-size:14px; }
+    .recording-tools .stack { margin-top:12px; }
     .duet-identity { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
     .duet-identity .roster-name { font-weight:600; }
     .roster-name { display:flex; align-items:center; gap:10px; min-width:0; }
@@ -1002,6 +1005,16 @@
         notMusicDirector: '非总监',
         arrangerRole: '编曲者',
         notArrangerRole: '非编曲',
+        recording_unsupported: '这个浏览器不支持录音，请上传音频或换用 Safari / Chrome。',
+        recording_failed: '录音中断，请重新录制。',
+        microphone_denied: '无法打开麦克风，请检查浏览器的麦克风权限。',
+        recording_empty: '录音是空的，请重新录制。',
+        audio_size: '单个音频最大 50 MB，请换用较小的文件。',
+        audio_type: '请选择 MP3、M4A、WAV、AAC、OGG 或 WebM 音频。',
+        recording_upload_failed: '音频上传失败，录音仍可重试保存。',
+        recording_missing: '这段录音已不存在。',
+        recording_expired: '录音已超过保留的一周期限。',
+        delete_recording_confirm: '确定删除这段录音吗？',
         pollButton: 'Solo 投票',
         scoresButton: '查看/上传乐谱',
         scoresTitle: '查看/上传乐谱',
@@ -1149,6 +1162,16 @@
         notMusicDirector: 'Not a director',
         arrangerRole: 'Arranger',
         notArrangerRole: 'Not an arranger',
+        recording_unsupported: 'Recording is unavailable in this browser. Upload audio or use Safari / Chrome.',
+        recording_failed: 'Recording was interrupted. Please record again.',
+        microphone_denied: 'Cannot access the microphone. Check browser microphone permissions.',
+        recording_empty: 'This recording is empty. Please record again.',
+        audio_size: 'Audio files can be up to 50 MB. Choose a smaller file.',
+        audio_type: 'Choose MP3, M4A, WAV, AAC, OGG or WebM audio.',
+        recording_upload_failed: 'Audio upload failed. You can retry saving your recording.',
+        recording_missing: 'This recording no longer exists.',
+        recording_expired: 'The one-week retention period has expired.',
+        delete_recording_confirm: 'Delete this recording?',
         pollButton: 'Solo voting',
         scoresButton: 'View / upload scores',
         scoresTitle: 'View / upload scores',
@@ -1283,6 +1306,16 @@
         phase_missing: '找不到这一轮',
         phase_closed: '这一轮已经结束了',
         not_candidate: '这个人没有参选',
+        recording_unsupported: '这个浏览器不支持录音，请上传音频或换用 Safari / Chrome。',
+        recording_failed: '录音中断，请重新录制。',
+        microphone_denied: '无法打开麦克风，请检查浏览器的麦克风权限。',
+        recording_empty: '录音是空的，请重新录制。',
+        audio_size: '单个音频最大 50 MB，请换用较小的文件。',
+        audio_type: '请选择 MP3、M4A、WAV、AAC、OGG 或 WebM 音频。',
+        recording_upload_failed: '音频上传失败，录音仍可重试保存。',
+        recording_missing: '这段录音已不存在。',
+        recording_expired: '录音已超过保留的一周期限。',
+        delete_recording_confirm: '确定删除这段录音吗？',
         need_two_pairs: '至少需要两组已确认的搭档',
         need_both_parts: '两个声部都需要至少一位报名者',
         bad_partner: '请选择另一位成员作为搭档',
@@ -1358,6 +1391,16 @@
         phase_missing: 'That round was not found',
         phase_closed: 'This round is already closed',
         not_candidate: 'That person isn’t running',
+        recording_unsupported: 'Recording is unavailable in this browser. Upload audio or use Safari / Chrome.',
+        recording_failed: 'Recording was interrupted. Please record again.',
+        microphone_denied: 'Cannot access the microphone. Check browser microphone permissions.',
+        recording_empty: 'This recording is empty. Please record again.',
+        audio_size: 'Audio files can be up to 50 MB. Choose a smaller file.',
+        audio_type: 'Choose MP3, M4A, WAV, AAC, OGG or WebM audio.',
+        recording_upload_failed: 'Audio upload failed. You can retry saving your recording.',
+        recording_missing: 'This recording no longer exists.',
+        recording_expired: 'The one-week retention period has expired.',
+        delete_recording_confirm: 'Delete this recording?',
         need_two_pairs: 'At least two confirmed pairs are needed.',
         need_both_parts: 'At least one singer in each part is needed.',
         bad_partner: 'Choose another member as your partner.',
@@ -1545,6 +1588,7 @@
     }
 
     function showView(next, { record = true } = {}) {
+      if (next!=='poll') disposeCapture();
       view = ['hub', 'members', 'profile', 'poll', 'scores'].includes(next) ? next : 'hub';
       const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : '');
       const state = { view, profileId, profileFrom };
@@ -1715,6 +1759,79 @@
       }}, detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
     }
 
+    let captureSession = null;
+    const audioMaxBytes = 50 * 1024 * 1024;
+    function disposeCapture() {
+      const session = captureSession;captureSession = null;
+      document.querySelectorAll('audio').forEach(audio=>audio.pause());
+      freezeRender = false;
+      if (!session) return;
+      if (session.recorder && session.recorder.state !== 'inactive') session.recorder.stop();
+      session.stream?.getTracks().forEach(track => track.stop());
+      if (session.preview) URL.revokeObjectURL(session.preview);
+      freezeRender = false;
+    }
+    function refreshRecordingView() { if (latest) renderRound(latest); }
+    async function startCapture(phase, target) {
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {showBanner(both('recording_unsupported'));return;}
+      disposeCapture();
+      const session = {phaseId:phase.id,target,key:phase.id+'/'+(target.entryId?'entry'+target.entryId:'solo'+target.candidateId),status:'starting',chunks:[]};
+      captureSession = session;freezeRender = true;refreshRecordingView();
+      try {
+        session.stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        if(captureSession!==session){session.stream.getTracks().forEach(track=>track.stop());return;}
+        const mime = ['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
+        session.recorder = new MediaRecorder(session.stream, {...(mime?{mimeType:mime}:{}),audioBitsPerSecond:96000});
+        session.recorder.ondataavailable = event => {if(event.data.size)session.chunks.push(event.data);};
+        session.recorder.onstop = () => {
+          session.stream.getTracks().forEach(track=>track.stop());
+          if(captureSession!==session)return;
+          session.blob = new Blob(session.chunks,{type:session.recorder.mimeType||mime||'audio/webm'});
+          session.preview = URL.createObjectURL(session.blob);session.status='preview';refreshRecordingView();
+        };
+        session.recorder.onerror = () => {disposeCapture();showBanner(both('recording_failed'));refreshRecordingView();};
+        session.recorder.start(1000);session.status='recording';refreshRecordingView();
+      } catch {disposeCapture();showBanner(both('microphone_denied'));refreshRecordingView();}
+    }
+    function audioMime(blob) {
+      const type = (blob.type||'').split(';')[0].toLowerCase();
+      if(type==='audio/x-m4a')return 'audio/mp4';
+      if(type)return type;
+      return {mp3:'audio/mpeg',m4a:'audio/mp4',mp4:'audio/mp4',aac:'audio/aac',wav:'audio/wav',ogg:'audio/ogg',webm:'audio/webm'}[(blob.name||'').split('.').pop().toLowerCase()]||'';
+    }
+    async function saveRecording(phase, target, blob) {
+      if(!blob?.size){showBanner(both('recording_empty'));return;}
+      if(blob.size>audioMaxBytes){showBanner(both('audio_size'));return;}
+      await run(async()=>{
+        const upload = await api(`/api/phases/${phase.id}/recordings`,{method:'POST',body:JSON.stringify({...target,mime:audioMime(blob),size:blob.size})});
+        const response = await fetch(upload.signedUrl,{method:'PUT',credentials:'omit',headers:{'Content-Type':audioMime(blob),'cache-control':'max-age=0','x-upsert':'false'},body:blob});
+        if(!response.ok)throw new Error(both('recording_upload_failed'));
+        const data = await api(`/api/recordings/${upload.id}/complete`,{method:'POST',body:'{}'});
+        disposeCapture();return data;
+      });
+    }
+    function recordingControls(phase,target) {
+      const key = phase.id+'/'+(target.entryId?'entry'+target.entryId:'solo'+target.candidateId);
+      const session = captureSession?.key===key?captureSession:null;
+      const buttons = [];
+      if(session?.status==='starting')buttons.push(el('p',{class:'hint'},pair('正在打开麦克风…','Opening the microphone…')));
+      else if(session?.status==='recording')buttons.push(el('p',{class:'hint'},pair('● 正在录音，不限制时长。','● Recording. No time limit.')),el('button',{type:'button',class:'nav-btn',onclick:()=>session.recorder.stop()},pair('停止并试听','Stop and preview')));
+      else {
+        if(session?.blob)buttons.push(el('audio',{controls:true,src:session.preview,preload:'metadata'}),el('a',{href:session.preview,download:'my-recording.'+(audioMime(session.blob)==='audio/mp4'?'m4a':'webm')},pair('下载到本机','Download a copy')),el('button',{type:'button',class:'nav-btn',onclick:()=>saveRecording(phase,target,session.blob)},pair('保存录音','Save recording')));
+        buttons.push(el('button',{type:'button',class:'nav-btn',disabled:Boolean(captureSession&&!session),onclick:()=>startCapture(phase,target)},session?.blob?pair('重新录制','Record again'):pair('开始录音','Record')),
+          el('label',{},pair('或上传已有音频','Or upload an audio file'),el('input',{type:'file',accept:'audio/*,.m4a,.mp3,.wav,.ogg,.webm,.aac',disabled:Boolean(captureSession&&!session),onchange:event=>{const file=event.target.files?.[0];if(file)saveRecording(phase,target,file);}})));
+      }
+      if(session)buttons.push(el('button',{type:'button',class:'nav-btn',onclick:()=>{disposeCapture();refreshRecordingView();}},pair('取消录音','Discard recording')));
+      return el('details',{open:Boolean(session),class:'recording-tools'},el('summary',{},pair('录音 / 上传音频','Record / upload audio')),el('div',{class:'stack'},el('p',{class:'hint'},pair('不限制时长，单个音频最多 50 MB。投票结束后保留一周。','No time limit; up to 50 MB per audio file. Kept for one week after voting closes.')),...buttons));
+    }
+    function recordingList(recordings, includeNames=false) {
+      if(!recordings?.length)return null;
+      return el('div',{class:'stack recordings'},recordings.map(recording=>el('div',{class:'stack'},includeNames?el('p',{class:'meta'},recording.name):null,
+        el('audio',{controls:true,preload:'none',src:recording.url,onplay:()=>{freezeRender=true;},onpause:()=>{if(!captureSession)freezeRender=false;},onended:()=>{if(!captureSession)freezeRender=false;},onerror:()=>{if(!captureSession)freezeRender=false;}}),
+        recording.canDelete?el('button',{type:'button',class:'nav-btn',onclick:()=>{if(window.confirm(both('delete_recording_confirm')))run(()=>api(`/api/recordings/${recording.id}/delete`,{method:'POST',body:'{}'}));}},pair('删除录音','Delete recording')):null)));
+    }
+    window.addEventListener('pagehide', disposeCapture);
+
     function candidateCard(phase, candidate) {
       const choose = (reaction) => () => {
         const next = candidate.mine === reaction ? null : reaction;
@@ -1736,6 +1853,8 @@
             )
           : null,
         el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)),
+        recordingList((phase.recordings||[]).filter(recording=>recording.candidateId===candidate.id)),
+        candidate.isMe?recordingControls(phase,{candidateId:candidate.id}):null,
         el('div', { class: 'votes' },
           el('button', {
             type: 'button',
@@ -1796,6 +1915,8 @@
         children.push(entries.length?el('div',{class:'cards'},entries.map(entry=>el('article',{class:entry.isMe?'card is-me stack':'card stack'},duetIdentity(entry),
           phase.canSeeResults&&detailedResults.has(phase.id)?el('p',{class:'meta'},pair(entry.likes+' 票',entry.likes+' votes')):null,
           el('button',{type:'button',class:'choice is-like',disabled:!phase.started,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')),
+          recordingList((phase.recordings||[]).filter(recording=>recording.entryId===entry.id)),
+          entry.isMe?recordingControls(phase,{entryId:entry.id}):null,
           entry.isMe?el('button',{type:'button',class:'nav-btn',disabled:!canWithdraw(entry),onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw')):null,
         ))):el('p',{class:'hint'},pair('还没有参选人','No candidates yet')));
       }
@@ -1804,6 +1925,7 @@
     }
 
     function renderRound(data) {
+      if(captureSession && captureSession.phaseId!==data.phase?.id)disposeCapture();
       round.replaceChildren();
       round.className = 'history';
       const phase = data.phase;
@@ -1964,6 +2086,7 @@
           item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
           item.canSeeResults ? resultsToggle(item) : null,
           ...rows,
+          item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
         ));
       }
@@ -2731,6 +2854,7 @@
     });
 
     async function logout() {
+      disposeCapture();
       clearBanner();
       try {
         await api('/api/logout', { method: 'POST', body: '{}' });
