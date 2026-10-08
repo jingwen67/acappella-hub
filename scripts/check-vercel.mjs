@@ -156,6 +156,11 @@ try {
  let results=v.history.find(r=>r.id===vid);assert.equal(results.candidates.length,4);assert.deepEqual(results.candidates.map(c=>c.rank),[1,1,2,2]);
  for(const c of results.candidates){assert.equal(c.likes,undefined);assert.equal(c.again,undefined);assert.equal(c.mine,undefined);}
  let adminResults=(await api('/api/state','admin')).history.find(r=>r.id===vid);assert.equal(adminResults.candidates.length,5);assert.deepEqual(adminResults.candidates.map(c=>c.likes),[3,3,2,2,1]);
+ assert.equal(adminResults.canSeeResults,true);assert.equal(adminResults.canReveal,false);
+ assert.equal(adminResults.candidates.at(-1).rank,3);assert.equal(adminResults.candidates.at(-1).likes,1);
+ assert.equal(results.canReveal,true);
+ await api(`/api/phases/${vid}/reveal`,'admin',{},403);
+ assert.equal((await api('/api/state','admin')).history.find(r=>r.id===vid).revealedRanks,2);
  assert.equal((await api('/api/state','outsider')).history.find(r=>r.id===vid).candidates.length,4);
  await api(`/api/phases/${vid}/reveal`,'outsider',{},403);
  await api(`/api/phases/${vid}/reveal`,'md',{});

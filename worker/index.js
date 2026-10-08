@@ -383,7 +383,7 @@ export default {
         title: phase.title,
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd||account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account)
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account)
       })));
       return {
         user: account,

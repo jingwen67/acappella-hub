@@ -5,7 +5,7 @@ export function createVoting(pool){return {async action(id,action,user,body={}){
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
  if(action==='reveal'){
-  if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
+  if(!user.isMd||user.isAdmin)throw fail(403,'forbidden');
   if(p.status!=='closed')throw fail(400,'phase_not_closed');
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[id]);
  }else{
