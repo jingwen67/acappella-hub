@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+export function mergeSemesters(existing,...labels){const values=String(existing||'').split(/[,，、;]/).concat(labels.flatMap(v=>String(v||'').split(/[,，、;]/)));const seen=new Set();return values.map(v=>v.trim()).filter(v=>{const key=v.toLowerCase().replace(/\s+/g,'');if(!key||seen.has(key))return false;seen.add(key);return true;}).join(', ');}
 const empty = {
   clientId: '',
   clientSecret: '',
@@ -464,6 +465,7 @@ export function createGoogle(storage) {
     const row = headers.map((header, index) => {
       const key = columnKey(header);
       if (!key || !Object.prototype.hasOwnProperty.call(values, key)) return current[index] || '';
+      if(key==='semester')return mergeSemesters(current[index],values[key]);
       return values[key] || '';
     });
     await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A${rowNumber}:${end}${rowNumber}`)}?valueInputOption=USER_ENTERED`, {
@@ -472,6 +474,15 @@ export function createGoogle(storage) {
         values: [row]
       })
     });
+  }
+  async function recordPlanSemesters(jobs){
+    const sheet=await spreadsheet();const existing=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
+    const keys=(existing.values?.[0]||[]).map(columnKey),semesterColumn=keys.indexOf('semester'),linkColumn=keys.indexOf('link'),titleColumn=keys.indexOf('title');if(semesterColumn<0||linkColumn<0)throw fail(400,'sheet_headers');
+    const data=[],done=[],byFolder=new Map(),titleCounts=new Map();
+    for(const job of jobs){if(!byFolder.has(job.folder_id))byFolder.set(job.folder_id,[]);byFolder.get(job.folder_id).push(job);}
+    for(const row of (existing.values||[]).slice(1))if(!parseFolderId(row[linkColumn])){const key='title:'+String(row[titleColumn]||'').trim().toLowerCase();titleCounts.set(key,(titleCounts.get(key)||0)+1);}
+    for(let i=1;i<(existing.values||[]).length;i++){const cells=existing.values[i],folderId=parseFolderId(cells[linkColumn]);const titleKey='title:'+String(cells[titleColumn]||'').trim().toLowerCase();const matches=byFolder.get(folderId||(titleCounts.get(titleKey)===1?titleKey:''))||[];if(!matches.length)continue;const value=mergeSemesters(cells[semesterColumn],...matches.map(j=>j.semester));if(value!==String(cells[semesterColumn]||''))data.push({range:`${sheet.quoted}!${columnLetter(semesterColumn+1)}${i+1}`,values:[[value]]});done.push(...matches.map(j=>j.id));}
+    if(data.length)await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values:batchUpdate`,{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});return [...new Set(done)];
   }
   return {
     load,
@@ -485,6 +496,7 @@ export function createGoogle(storage) {
     appendRow,
     listScoreFolders,
     listScoreIndex,
+    recordPlanSemesters,
     listFolderFiles,
     updateDriveFile,
     findScoreRow,

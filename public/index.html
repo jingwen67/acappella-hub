@@ -754,6 +754,10 @@
     #plan .plan-inline select {width:auto;font:inherit;font-size:13px;min-height:28px;padding:3px 5px;}
     .plan-checkbox {display:flex;gap:8px;align-items:center;}
     .plan-checkbox input {width:auto;min-height:0;}
+    .plan-library-results.semester-results {max-height:none;overflow:visible;}
+    .plan-library-choice {display:flex;align-items:center;gap:9px;font:inherit;font-size:14px;}
+    .plan-library-choice input {width:auto;min-height:0;margin:0;}
+    .plan-library-choice small {display:block;}
     .plan-library-results {max-height:240px;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
     .plan-mobile-cards,.plan-mobile-toggle {display:none;}
     @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:none;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
@@ -1623,7 +1627,7 @@
       profileEditing = false;
       profileDraft = null;
       galleryCache.clear();
-      planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
+      planSelectedSongs.clear();planLibrarySemester=null;planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
       invitationList = null;
       issuedInvitation = null;
       detailedResults.clear();

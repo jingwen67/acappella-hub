@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
-import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink } from './google.js';
+import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink, mergeSemesters } from './google.js';
 import { database, boundedBody, hashPassword, verifyPassword, initialize, responseSink } from './runtime.js';
 import { assets } from './assets.js';
 import { galleryService } from '../gallery.js';
@@ -176,18 +176,7 @@ export default {
       if (text.includes('小组') || text.includes('小歌') || text.includes('small group') || text.includes('group')) kinds.push('group');
       return kinds;
     }
-    function semesterCell(existing, sourceLabel, destLabel) {
-      const parts = String(existing || '').split(/[,，]/).map(part => part.trim()).filter(Boolean);
-      const same = (part, label) => part.toLowerCase() === String(label || '').trim().toLowerCase();
-      if (!parts.length) return destLabel;
-      if (same(sourceLabel, destLabel)) {
-        if (parts.some(part => same(part, destLabel))) return parts.join(', ');
-        return [...parts, destLabel].join(', ');
-      }
-      const next = parts.filter(part => !same(part, sourceLabel));
-      if (!next.some(part => same(part, destLabel))) next.push(destLabel);
-      return next.join(', ') || destLabel;
-    }
+    function semesterCell(existing, sourceLabel, destLabel) {return mergeSemesters(existing,sourceLabel,destLabel);}
     function driveId(value) {
       const id = String(value || '').trim();
       if (!/^[a-zA-Z0-9_-]{10,}$/.test(id)) return '';
@@ -799,12 +788,13 @@ export default {
           const user=await requireUser(req);send(res,200,await env.plans.list(user,Number(new URL(req.url,'https://hub.local').searchParams.get('termId'))||undefined));return;
         }
         if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
-          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|archive|add|edit|delete|entry)(?:\/(\d+))?$/);
-          if(!match)throw fail(404,'not_found');send(res,200,await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req)));return;
+          if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
+          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|archive|add|bulk|edit|delete|entry)(?:\/(\d+))?$/);
+          if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
         }
         if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
           if(!env.recordings)throw fail(404,'not_found');
-          await env.recordings.cleanup();send(res,200,{ok:true});return;
+          await env.recordings.cleanup();if(env.plans)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true});return;
         }
         const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
         if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}

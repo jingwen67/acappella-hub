@@ -18,17 +18,24 @@ export function createPlans(pool){
   if(!terms.length)return {terms:[],term:null,songs:[],members:[],canManage:manager(user)};
   const t=await term(q,id||terms[0].id);const songs=(await q.query('SELECT * FROM cucac.plan_songs WHERE term_id=$1 ORDER BY id',[t.id])).rows;
   const entries=(await q.query('SELECT e.* FROM cucac.plan_entries e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1',[t.id])).rows;
-  return {terms,term:{id:t.id,label:t.label,archived:t.archived},canManage:manager(user),members:t.archived?t.roster_snapshot||[]:await roster(q,t.id),songs:songs.map(s=>({id:s.id,title:s.title,folderUrl:s.folder_url,locked:s.locked,entries:entries.filter(e=>e.song_id===s.id).map(e=>({memberId:e.member_key,name:e.member_name,part:e.part}))}))};
+  return {terms,term:{id:t.id,label:t.label,archived:t.archived},canManage:manager(user),sheetPending:manager(user)?Number((await q.query('SELECT count(*)::int AS n FROM cucac.plan_sheet_jobs WHERE semester=$1 AND NOT synced',[t.label])).rows[0].n):0,members:t.archived?t.roster_snapshot||[]:await roster(q,t.id),songs:songs.map(s=>({id:s.id,title:s.title,folderUrl:s.folder_url,locked:s.locked,entries:entries.filter(e=>e.song_id===s.id).map(e=>({memberId:e.member_key,name:e.member_name,part:e.part}))}))};
  }
+ async function queue(q,url,label,title,fromLibrary=false){if(!url&&!fromLibrary)return;const folderId=url?new URL(url).pathname.split('/').filter(Boolean).at(-1):'title:'+title.trim().toLowerCase();await q.query('INSERT INTO cucac.plan_sheet_jobs(folder_id,semester,title) VALUES($1,$2,$3) ON CONFLICT(folder_id,semester) DO NOTHING',[folderId,label,title]);}
+ async function sync(update){const c=await pool.connect();try{await c.query('BEGIN');const gate=(await c.query('SELECT id FROM cucac.plan_sheet_jobs WHERE id=(SELECT min(id) FROM cucac.plan_sheet_jobs) FOR UPDATE SKIP LOCKED')).rows;if(!gate.length){await c.query('COMMIT');return;}
+  const jobs=(await c.query('SELECT * FROM cucac.plan_sheet_jobs WHERE NOT synced ORDER BY (last_error='') DESC,id LIMIT 300')).rows;
+  if(jobs.length){try{const completed=new Set(await update(jobs));for(const job of jobs)await c.query('UPDATE cucac.plan_sheet_jobs SET synced=$1,last_error=$2 WHERE id=$3',[completed.has(job.id),completed.has(job.id)?'':'sheet_song_missing',job.id]);}catch(error){await c.query('UPDATE cucac.plan_sheet_jobs SET last_error=$1 WHERE id=ANY($2::int[])',[String(error.message).slice(0,100),jobs.map(j=>j.id)]);}}
+  await c.query('COMMIT');
+ }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}}
  async function mutate(user,action,id,body){const c=await pool.connect();let termId;try{await c.query('BEGIN');
   if(action==='term'){requireManager(user);const label=text(body.label,40);const exists=(await c.query('SELECT id FROM cucac.plan_terms WHERE lower(label)=lower($1)',[label])).rows[0];if(exists)throw fail(409,'plan_exists');termId=(await c.query('INSERT INTO cucac.plan_terms(label) VALUES($1) RETURNING id',[label])).rows[0].id;
   }else if(action==='archive'){requireManager(user);const t=await term(c,id,true);termId=t.id;if(typeof body.archived!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_terms SET archived=$1,roster_snapshot=$2::jsonb WHERE id=$3',[body.archived,body.archived?JSON.stringify(await roster(c,id)):null,id]);
-  }else if(action==='add'){requireManager(user);const t=await term(c,id,true);termId=t.id;if(t.archived)throw fail(409,'plan_archived');await c.query('INSERT INTO cucac.plan_songs(term_id,title,folder_url) VALUES($1,$2,$3)',[id,text(body.title),folder(body.folderUrl)]);
+  }else if(action==='add'||action==='bulk'){requireManager(user);const t=await term(c,id,true);termId=t.id;if(t.archived)throw fail(409,'plan_archived');const songs=action==='add'?[body]:body.songs;if(!Array.isArray(songs)||!songs.length||songs.length>300)throw fail(400,'plan_invalid');
+   for(const song of songs){const title=text(song.title),url=folder(song.folderUrl);const existing=(await c.query(`SELECT id FROM cucac.plan_songs WHERE term_id=$1 AND ((folder_url=$2 AND $2<>'') OR (lower(title)=lower($3) AND folder_url=$2))`,[id,url,title])).rows[0];if(!existing)await c.query('INSERT INTO cucac.plan_songs(term_id,title,folder_url) VALUES($1,$2,$3)',[id,title,url]);await queue(c,url,t.label,title,action==='bulk');}
   }else{
    const s=(await c.query('SELECT * FROM cucac.plan_songs WHERE id=$1',[id])).rows[0];if(!s)throw fail(404,'plan_missing');const t=await term(c,s.term_id,true);termId=t.id;if(t.archived)throw fail(409,'plan_archived');
    // All mutations for a term share its lock, including signup, confirmation and archival.
    const current=(await c.query('SELECT * FROM cucac.plan_songs WHERE id=$1',[id])).rows[0];if(!current)throw fail(404,'plan_missing');
-   if(action==='edit'){requireManager(user);if(typeof body.locked!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_songs SET title=$1,folder_url=$2,locked=$3 WHERE id=$4',[text(body.title),folder(body.folderUrl),body.locked,id]);
+   if(action==='edit'){requireManager(user);if(typeof body.locked!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_songs SET title=$1,folder_url=$2,locked=$3 WHERE id=$4',[text(body.title),folder(body.folderUrl),body.locked,id]);await queue(c,folder(body.folderUrl),t.label,text(body.title));
    }else if(action==='delete'){requireManager(user);await c.query('DELETE FROM cucac.plan_songs WHERE id=$1',[id]);
    }else if(action==='entry'){
     const memberId=body.memberId===undefined?user.id:Number(body.memberId);if(!Number.isInteger(memberId))throw fail(400,'plan_invalid');if(memberId!==user.id)requireManager(user);if(current.locked&&!manager(user))throw fail(409,'plan_locked');
@@ -38,5 +45,5 @@ export function createPlans(pool){
   }
   await c.query('COMMIT');return await list(user,termId,c);
  }catch(e){await c.query('ROLLBACK');if(e.code==='23505')throw fail(409,'plan_exists');throw e;}finally{c.release();}}
- return {list,mutate};
+ return {list,mutate,sync};
 }

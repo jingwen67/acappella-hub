@@ -101,11 +101,12 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 
 Open **Song Plan** from the home page. It defaults to the current semester (**2026 Fall** initially); use the semester dropdown to view older plans.
 
-- On a computer, rows are singers and columns are songs. Cells show that song’s part (`S / A / T / Bar / B / BB / R`); totals show the singer count and counts for all seven parts. Members appear once, grouped by their earliest selected profile part.
+- On a computer, rows are singers and columns are songs. Cells show that song’s voice part; totals show the singer count and counts for all seven parts. Members appear once, grouped by their earliest selected profile part.
 - Click a **song title** to view the lineup or join. Choose one part per song, stored separately from your profile parts. You can change your part or withdraw while signup is open.
 - **Scores ↗** opens the linked Google Drive folder directly.
 - Phones show song cards first; **View roster table** opens the horizontally scrolling matrix.
-- The MD can search the score library to bring in a title and folder link, or add a song manually and attach scores later. The MD can assign singers and parts, then confirm the lineup and lock member signup in Song settings.
+- The MD can filter the library by semester, search, check songs or select all matching results, then Add selected songs to the current plan. Already added songs are marked and skipped. Titles and folder links are linked automatically; manual entry remains available. The MD can assign singers and parts, then confirm the lineup and lock member signup in Song settings.
+- **Semester** in Google Sheet records all performance semesters for the song. Reusing it in a new semester’s plan appends that semester while preserving previous entries and avoiding duplicates. If Google is unavailable, the plan stays saved and shows pending updates with a retry button; pending updates also retry daily.
 - The MD can create semesters, archive them, or reopen editing. Archived plans are read only and preserve names, profile parts, and lineups as they were then.
 
 <a id="voting"></a>

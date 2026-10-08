@@ -95,3 +95,9 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 学期变更、报名、歌曲锁定与归档共用学期行锁，避免锁定后仍写入报名。归档时保存成员快照；删除账号不会删除旧歌曲报名记录。曲库选择直接读取现有 Google Sheet 索引，需已有 Google 授权。
 
 验证：`npm run build:vercel`；`PLAN_UI_FIXTURE=/tmp/plan-state.json npm run check:vercel`；`node scripts/check-plan-ui.mjs /tmp/plan-state.json`。页面测试使用 Happy DOM 验证导航、报名、文件夹链接、曲库选择、输入保护、手机表格切换和归档只读；布局仍可在实际手机与电脑上复核。
+
+## Plan 批量选歌与 Sheet 演出学期
+
+升级已有项目需运行 `vercel/plan-sheet-schema.sql`；新安装已包含在 schema 中。批量选歌按 Google Sheet 的演出学期筛选，实际乐谱文件夹保持原位置。每次添加或关联曲目，将学期追加任务与 Plan 一起提交；Google 更新在事务提交后处理，只修改 Semester 单元格，保留曲名、编曲和链接公式。Google 失败不会回滚人员表，待同步任务保存在私有表中。MD 可以重试；已有每日清理 Cron 同时重试同步。学期同名忽略大小写与空格，不重复写入。
+
+新增验证：`node scripts/check-plan-sheet.mjs`；批量选择、学期筛选和全选由 `scripts/check-plan-ui.mjs` 检查。

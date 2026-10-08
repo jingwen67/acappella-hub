@@ -85,6 +85,15 @@ try {
  await api(`/api/plan/edit/${planSong}`,'md',{title:'Jiangnan',folderUrl:'',locked:false});
  plan=await api(`/api/plan/entry/${planSong}`,'member',{part:null});assert.equal(plan.songs[0].entries.length,0);
  plan=await api(`/api/plan/delete/${planSong}`,'md',{});assert.equal(plan.songs.length,0);
+ // Bulk import is atomic, skips existing folders, and retains durable Google retry jobs.
+ await api(`/api/plan/bulk/${planTerm}`,'member',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'}]},403);
+ plan=await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'},{title:'Old B',folderUrl:'https://drive.google.com/drive/folders/oldB'}]});assert.equal(plan.songs.length,2);assert.ok(plan.sheetPending>=2);
+ plan=await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'}]});assert.equal(plan.songs.length,2);
+ await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Rollback song',folderUrl:'https://drive.google.com/drive/folders/rollback'},{title:'Invalid',folderUrl:'https://bad.example'}]},400);
+ assert.equal((await env.plans.list({isMd:true},planTerm)).songs.length,2);
+ await env.plans.sync(async()=>{throw Error('temporary_google_failure');});assert.ok((await env.plans.list({isMd:true},planTerm)).sheetPending>0);
+ await env.plans.sync(async jobs=>jobs.map(j=>j.id));assert.equal((await env.plans.list({isMd:true},planTerm)).sheetPending,0);
+ console.log('PASS: atomic bulk imports, duplicate folder prevention, preserved plans on Google failure, and durable sync retry completion.');
  console.log('PASS: Song Plan authentication, term selection/history, score-folder validation, own-only registration, signup parts, confirmation locks, delegated edits, archived snapshots and read-only history.');
  // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.
  await api(`/api/admin/users/${member.user.id}`,'member',{crew:true},403);
@@ -175,7 +184,7 @@ try {
  await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
- assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,16);
+ assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,17);
 
  // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
  let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);
