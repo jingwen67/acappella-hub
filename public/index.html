@@ -721,6 +721,10 @@
     .voice-choices input {width:auto;min-height:0;margin:0;}
     .roster-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;}
     .roster-heading .roster-label {margin:0;}
+    .roster-heading-left {display:flex;align-items:center;gap:8px;min-width:0;}
+    .roster-sort.nav-btn {width:auto;min-height:26px;margin:0;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;font:inherit;font-size:11px;color:var(--muted);white-space:nowrap;}
+    .roster-sort .pair {gap:0;}
+    .roster-sort .pair .en {font-size:inherit;}
     .voice-filter {display:flex;align-items:center;gap:7px;font:inherit;font-size:12px;color:var(--muted);margin-left:auto;}
     .voice-filter select {width:auto;max-width:125px;min-height:28px;margin:0;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);font:inherit;}
     .voice-filter .pair {flex-direction:row;gap:5px;}
@@ -2107,6 +2111,7 @@
     const voiceParts=['soprano','alto','tenor','baritone','bass','bbox','rap'];
     const voiceLabel=part=>part==='bbox'?'Bbox':part.charAt(0).toUpperCase()+part.slice(1);
     let voiceFilter='all';
+    let rosterSort='voice';
     function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
       return el('fieldset',{class:'voice-choices'},el('legend',{},pair('声部（可多选）','Voice parts (select all that apply)')),
         voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
@@ -2394,11 +2399,11 @@
         : el('div', { class: 'roster-bar' },
             el('button', { type: 'button', class: 'ghost roster-action', onclick: beginRosterEdit }, t('editRoles')),
           );
-      const activePeople=people.filter(person=>!personIsAlumni(person)&&!personIsCrew(person));
-      const preferred=person=>voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter);
-      if(voiceFilter!=='all')activePeople.sort((a,b)=>Number(preferred(b))-Number(preferred(a)));
+      const activePeople=people.filter(person=>!personIsAlumni(person)&&!personIsCrew(person) && (voiceFilter==='all'||(voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter))));
+      const voiceRank=person=>{const ranks=(person.voiceParts||[]).map(part=>voiceParts.indexOf(part)).filter(rank=>rank>=0);return ranks.length?Math.min(...ranks):voiceParts.length;};
+      activePeople.sort((a,b)=>(rosterSort==='voice'?voiceRank(a)-voiceRank(b):0)||(a.fullName||a.name||'').localeCompare(b.fullName||b.name||'','en',{sensitivity:'base',numeric:true})||a.id-b.id);
       const group = (title, rows, control=null) => el('section', { class: 'stack' },
-        el('div',{class:'roster-heading'},el('h2', { class: 'roster-label' }, title),control),
+        el('div',{class:'roster-heading'},el('div',{class:'roster-heading-left'},el('h2', { class: 'roster-label' }, title),title==='Active'?el('button',{type:'button',class:'nav-btn roster-sort','aria-label':pair('切换排序方式','Switch sort order'),onclick:()=>{rosterSort=rosterSort==='voice'?'alpha':'voice';renderRoster(latest);}},rosterSort==='voice'?pair('按声部排序','By voice part'):pair('按首字母排序','Alphabetical')):null),control),
         el('div', { class: 'card stack' }, rows.length
           ? rows.map((person) => memberRow(person, data.user))
           : [el('p', { class: 'hint' }, t('noneYet'))]),
@@ -2406,8 +2411,8 @@
       roster.replaceChildren(
         ...(bar ? [bar] : []),
         ...(data.user.isAdmin ? [invitationPanel()] : []),
-        group('Active', activePeople, el('label',{class:'voice-filter'},pair('按声部排序','Sort by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
-          el('option',{value:'all',selected:voiceFilter==='all'},pair('默认顺序','Default order')),
+        group('Active', activePeople, el('label',{class:'voice-filter'},pair('按声部筛选','Filter by voice part'),el('select',{value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
+          el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
           ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
           el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet'))))),
         group('Crew', people.filter((person) => !personIsAlumni(person) && personIsCrew(person))),
