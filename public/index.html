@@ -735,6 +735,28 @@
     .voice-filter .pair {flex-direction:row;gap:5px;}
     .voice-filter .pair .en {font-size:inherit;}
     @media(max-width:420px){.voice-filter .pair {flex-direction:column;}.voice-filter select {max-width:110px;}}
+    .plan-toolbar,.plan-inline {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .plan-toolbar>select {width:auto;font:inherit;font-size:14px;background:transparent;min-height:32px;padding:4px 8px;}
+    .plan-term-settings {margin-left:auto;font-size:13px;}
+    .plan-term-settings>.card {margin-top:10px;}
+    .plan-table-wrap {overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+    .plan-table {border-collapse:separate;border-spacing:0;min-width:100%;font-size:13px;}
+    .plan-table th,.plan-table td {border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:10px 12px;min-width:125px;text-align:center;}
+    .plan-table tr>:first-child {position:sticky;left:0;background:var(--card);z-index:1;text-align:left;min-width:150px;}
+    .plan-table thead th {position:sticky;top:0;z-index:2;background:var(--card);}
+    .plan-table thead th:first-child {z-index:3;}
+    .plan-table .nav-btn {font:inherit;font-size:13px;padding:3px 6px;min-height:26px;}
+    .plan-group th {background:var(--paper)!important;font-weight:600;}
+    .plan-score-link {font-size:12px;color:var(--muted);white-space:nowrap;}
+    .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
+    .plan-lineups {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    #plan .nav-btn {width:auto;font:inherit;font-size:13px;min-height:28px;padding:4px 8px;}
+    #plan .plan-inline select {width:auto;font:inherit;font-size:13px;min-height:28px;padding:3px 5px;}
+    .plan-checkbox {display:flex;gap:8px;align-items:center;}
+    .plan-checkbox input {width:auto;min-height:0;}
+    .plan-library-results {max-height:240px;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
+    .plan-mobile-cards,.plan-mobile-toggle {display:none;}
+    @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:none;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
@@ -789,10 +811,15 @@
         <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
         <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
         <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">查看/上传乐谱</button>
+        <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">歌曲人员表</button>
         <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">Solo 投票</button>
       </div>
     </section>
 
+    <section id="plan" hidden>
+      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">歌曲人员表</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
+      <div id="plan-body" class="stack"></div>
+    </section>
     <section id="profile" hidden>
       <header class="top">
         <div>
@@ -942,6 +969,7 @@
     </section>
   </main>
   <noscript>需要打开 JavaScript 才能投票。 JavaScript is required to vote.</noscript>
+  <script src="/plan.js"></script>
   <script>
     const loading = document.querySelector('#loading');
     const auth = document.querySelector('#auth');
@@ -1005,6 +1033,7 @@
         fullName: '英文全名',
         pronouns: '代词',
         position: '职位',
+        planTitle: '歌曲人员表',
         voicePart: '声部',
         school: '学校',
         gradYear: '毕业年份',
@@ -1162,6 +1191,7 @@
         fullName: 'English full name',
         pronouns: 'Pronouns',
         position: 'Position',
+        planTitle: 'Song Plan',
         voicePart: 'Voice part',
         school: 'School',
         gradYear: 'Graduation year',
@@ -1572,7 +1602,7 @@
         ...options,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(errorText(data.error));
+      if (!res.ok) {const error=new Error(errorText(data.error));error.code=data.error;throw error;}
       return data;
     }
 
@@ -1593,6 +1623,7 @@
       profileEditing = false;
       profileDraft = null;
       galleryCache.clear();
+      planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
       invitationList = null;
       issuedInvitation = null;
       detailedResults.clear();
@@ -1606,12 +1637,13 @@
       profile.hidden = true;
       app.hidden = true;
       scores.hidden = true;
+      planPage.hidden = true;
     }
 
     function showView(next, { record = true } = {}) {
       if (next!=='poll') disposeCapture();
-      view = ['hub', 'members', 'profile', 'poll', 'scores'].includes(next) ? next : 'hub';
-      const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : '');
+      view = ['hub', 'members', 'profile', 'poll', 'scores', 'plan'].includes(next) ? next : 'hub';
+      const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : view==='plan'&&planTermId?'/'+planTermId+(planSongId?'/'+planSongId:''):'');
       const state = { view, profileId, profileFrom };
       if (record && location.hash !== fragment) window.history.pushState(state, '', '/' + fragment);
       else if (record) window.history.replaceState(state, '', '/' + fragment);
@@ -1620,6 +1652,8 @@
       profile.hidden = view !== 'profile';
       app.hidden = view !== 'poll';
       scores.hidden = view !== 'scores';
+      planPage.hidden = view !== 'plan';
+      if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
     }
 
     let profileEditing = false;
@@ -1628,8 +1662,9 @@
     let profileFrom = 'hub';
 
     function restoreNavigation() {
-      const [route, id] = location.hash.slice(1).split('/');
-      view = ['members', 'profile', 'poll', 'scores'].includes(route) ? route : 'hub';
+      const [route, id, song] = location.hash.slice(1).split('/');
+      if(route==='plan'){const term=id?Number(id):null;if(term!==planTermId){planData=null;planTermId=term;planLoading=false;}planSongId=song?Number(song):null;}
+      view = ['members', 'profile', 'poll', 'scores', 'plan'].includes(route) ? route : 'hub';
       profileId = id && /^\d+$/.test(id) ? Number(id) : null;
       profileFrom = window.history.state?.profileFrom || 'members';
       if (latest && auth.hidden) {
@@ -1639,6 +1674,7 @@
         }
         showView(view, { record: false });
         if (view === 'scores') ensureBrowse(latest.library?.semesters || []);
+        if(view==='plan')renderPlan();
       }
     }
     restoreNavigation();
@@ -2684,12 +2720,13 @@
     function render(data) {
       const label = whoLabel(data.user);
       const person = { ...data.user, ...data.profile };
-      for (const node of [me, hubMe, membersMe, profileMe, scoresMe]) {
+      for (const node of [me, hubMe, membersMe, profileMe, scoresMe, document.querySelector('#plan-me')]) {
         node.classList.add('account-mini');
         node.replaceChildren(avatarNode(person), el('span', {}, label));
       }
       renderProfile(data);
       renderRoster(data);
+      if(view==='plan'&&!planPage.contains(document.activeElement))renderPlan();
       renderAdmin(data);
       renderRound(data);
       renderHistory(data.history);
@@ -2922,12 +2959,14 @@
       }
     }
 
-    for (const button of document.querySelectorAll('#logout, #hub-logout, #members-logout, #profile-logout, #scores-logout')) {
+    for (const button of document.querySelectorAll('#logout, #hub-logout, #members-logout, #profile-logout, #scores-logout, #plan-logout')) {
       button.addEventListener('click', logout);
     }
 
     document.querySelector('#open-profile').addEventListener('click', () => openProfile(latest?.user?.id, 'hub'));
     document.querySelector('#profile-back').addEventListener('click', () => showView(profileFrom));
+    document.querySelector('#open-plan').addEventListener('click',()=>{showView('plan');renderPlan();});
+    document.querySelector('#plan-back').addEventListener('click',()=>showView('hub'));
     document.querySelector('#open-members').addEventListener('click', () => showView('members'));
     document.querySelector('#members-back').addEventListener('click', () => showView('hub'));
     document.querySelector('#open-poll').addEventListener('click', () => showView('poll'));
@@ -3144,7 +3183,7 @@
           body,
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(errorText(data.error));
+        if (!res.ok) {const error=new Error(errorText(data.error));error.code=data.error;throw error;}
         editingSong = null;
         editingFiles = [];
         removedFiles = new Set();

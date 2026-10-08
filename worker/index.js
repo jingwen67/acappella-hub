@@ -792,6 +792,16 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
+        if(pathname==='/api/plan/library'&&req.method==='GET'){
+          const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');send(res,200,{folders:await google.listScoreIndex()});return;
+        }
+        if(pathname==='/api/plan'&&req.method==='GET'){
+          const user=await requireUser(req);send(res,200,await env.plans.list(user,Number(new URL(req.url,'https://hub.local').searchParams.get('termId'))||undefined));return;
+        }
+        if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
+          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|archive|add|edit|delete|entry)(?:\/(\d+))?$/);
+          if(!match)throw fail(404,'not_found');send(res,200,await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req)));return;
+        }
         if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
           if(!env.recordings)throw fail(404,'not_found');
           await env.recordings.cleanup();send(res,200,{ok:true});return;

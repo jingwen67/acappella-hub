@@ -87,3 +87,11 @@ The MD can select Duet · Pair Voting or Duet · Part Voting when opening a roun
 录音在轮次结束后 7 天停止展示与播放。`vercel.json` 的每日 Cron 调用 `/api/recordings/cleanup` 清理到期文件；实际删除最迟在下一次每日任务完成。清理接口不接受目标 ID，只删除服务器判定到期的录音及超过一天的未完成或失去报名关联的上传，不需要新增环境变量。麦克风需 HTTPS 和用户授权；离开投票页面时停止录制。
 
 Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.mjs`, and `node scripts/check-recording-ui.mjs` before deploying. Browser microphone hardware and permissions should also be checked on the member’s device.
+
+## Song Plan 人员表升级
+
+现有项目运行 `vercel/plan-schema.sql`，新增私有学期、歌曲和报名表，并创建空的 2026 Fall；新安装已包含在 `vercel/schema.sql` 中。不改已有账号、乐谱和投票，也不需要新环境变量。表启用 RLS，不向匿名或 Supabase 客户端角色开放；应用继续通过后端连接使用。
+
+学期变更、报名、歌曲锁定与归档共用学期行锁，避免锁定后仍写入报名。归档时保存成员快照；删除账号不会删除旧歌曲报名记录。曲库选择直接读取现有 Google Sheet 索引，需已有 Google 授权。
+
+验证：`npm run build:vercel`；`PLAN_UI_FIXTURE=/tmp/plan-state.json npm run check:vercel`；`node scripts/check-plan-ui.mjs /tmp/plan-state.json`。页面测试使用 Happy DOM 验证导航、报名、文件夹链接、曲库选择、输入保护、手机表格切换和归档只读；布局仍可在实际手机与电脑上复核。

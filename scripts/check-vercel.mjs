@@ -4,6 +4,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {createDatabase} from '../vercel/database.js';
 import {createVoting} from '../vercel/voting.js';
 import {createInvitations} from '../vercel/invitations.js';
+import {createPlans} from '../vercel/plans.js';
 import {createRecordings} from '../vercel/recordings.js';
 import worker from '../dist/vercel-worker.mjs';
 const postgres=new PGlite();
@@ -13,6 +14,7 @@ const pool={query,connect:async()=>({query,release(){}})};
 const files=new Map();
 const storage={async get(key){const v=files.get(key);return v?{async arrayBuffer(){return v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)},async text(){return v.toString()},async json(){return JSON.parse(v.toString())}}:null},async put(key,value){files.set(key,Buffer.from(typeof value==='string'?value:await new Response(value).arrayBuffer()))},async delete(key){files.delete(key)}};
 const env={DB:createDatabase(pool),FILES:storage,ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',INVITE_REQUIRED:true,invitations:createInvitations(pool),voting:createVoting(pool)};
+env.plans=createPlans(pool);
 env.recordings=createRecordings(pool,{...storage,audioUploadUrl:async key=>'https://storage.test/upload/'+key,audioInfo:async key=>({size:files.get(key)?.length||0,contentType:'audio/webm'}),audioPlaybackUrl:async key=>'https://storage.test/play/'+key});
 const mf={dispatchFetch:(url,options)=>worker.fetch(new Request(url,options),env),getR2Bucket:async()=>storage,dispose:async()=>postgres.close()};
 try {
@@ -55,6 +57,35 @@ try {
  await api(`/api/members/${member.user.id}/voice-parts`,'md',{voiceParts:['alto'],crewMedia:true});assert.equal((await api('/api/state','member')).profile.isCrew,true);
  await api(`/api/members/${member.user.id}/voice-parts`,'member',{voiceParts:['alto'],crewMedia:false});
  console.log('PASS: self-service Crew / Media opt-in, opt-out, preserved omitted status, delegated editing, and no Media Chair role grant.');
+ // Song Plan term history, own signup, delegated lineups, locks, archives and retained snapshots.
+ await api('/api/plan','',undefined,401);
+ let plan=await api('/api/plan','member');assert.equal(plan.term.label,'2026 Fall');const planTerm=plan.term.id;
+ await api('/api/plan/term','member',{label:'2027 Spring'},403);
+ await api(`/api/plan/add/${planTerm}`,'member',{title:'Song'},403);
+ await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://example.com/folder'},400);
+ plan=await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://drive.google.com/drive/folders/scoreFolder'});const planSong=plan.songs[0].id;
+ assert.equal(plan.songs[0].folderUrl,'https://drive.google.com/drive/folders/scoreFolder');
+ await api(`/api/plan/entry/${planSong}`,'member',{memberId:md.user.id,part:'tenor'},403);
+ plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'alto'});assert.equal(plan.songs[0].entries[0].part,'alto');
+ plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'tenor'});assert.equal(plan.songs[0].entries.length,1);assert.equal(plan.songs[0].entries[0].part,'tenor');
+ await api(`/api/plan/entry/${planSong}`,'member',{part:'invalid'},400);
+ plan=await api(`/api/plan/edit/${planSong}`,'md',{title:'Jiangnan',folderUrl:'',locked:true});assert.equal(plan.songs[0].locked,true);
+ await api(`/api/plan/entry/${planSong}`,'member',{part:null},409);
+ plan=await api(`/api/plan/entry/${planSong}`,'md',{memberId:member.user.id,part:'alto'});assert.equal(plan.songs[0].entries[0].part,'alto');
+ await api(`/api/plan/archive/${planTerm}`,'member',{archived:true},403);
+ plan=await api(`/api/plan/archive/${planTerm}`,'md',{archived:true});assert.equal(plan.term.archived,true);const oldName=plan.members.find(m=>m.id===member.user.id).name;
+ await api('/api/profile','member',{fullName:'Changed later',voiceParts:['bass']});
+ plan=await api('/api/plan?termId='+planTerm,'member');assert.equal(plan.members.find(m=>m.id===member.user.id).name,oldName);
+ await api(`/api/plan/entry/${planSong}`,'md',{memberId:member.user.id,part:'bass'},409);
+ await api(`/api/plan/delete/${planSong}`,'md',{},409);
+ plan=await api('/api/plan/term','md',{label:'2027 Spring'});assert.equal(plan.term.label,'2027 Spring');assert.equal(plan.songs.length,0);assert.equal(plan.terms.length,2);
+ assert.equal((await api('/api/plan','member')).term.label,'2027 Spring');
+ await api('/api/plan/term','md',{label:'2027 spring'},409);
+ plan=await api(`/api/plan/archive/${planTerm}`,'md',{archived:false});assert.equal(plan.term.archived,false);
+ await api(`/api/plan/edit/${planSong}`,'md',{title:'Jiangnan',folderUrl:'',locked:false});
+ plan=await api(`/api/plan/entry/${planSong}`,'member',{part:null});assert.equal(plan.songs[0].entries.length,0);
+ plan=await api(`/api/plan/delete/${planSong}`,'md',{});assert.equal(plan.songs.length,0);
+ console.log('PASS: Song Plan authentication, term selection/history, score-folder validation, own-only registration, signup parts, confirmation locks, delegated edits, archived snapshots and read-only history.');
  // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.
  await api(`/api/admin/users/${member.user.id}`,'member',{crew:true},403);
  await api(`/api/admin/users/${member.user.id}`,'md',{crew:true},403);
@@ -144,7 +175,7 @@ try {
  await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
- assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,13);
+ assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,16);
 
  // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
  let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);
@@ -314,6 +345,7 @@ try {
  await api(`/api/phases/${did}/recordings`,'single',{candidateId:users.md,mime:'audio/webm',size:10},403);
  await api(`/api/phases/${did}/candidacy`,'md',{join:false});assert.equal((await api('/api/state','md')).phase.recordings.length,0);
  await query("UPDATE cucac.recordings SET created_at=now()-interval '2 days' WHERE id=$1",[soloClip.id]);await env.recordings.cleanup();assert.equal(files.has(soloClip.key),false);
+ if(process.env.PLAN_UI_FIXTURE)fs.writeFileSync(process.env.PLAN_UI_FIXTURE,JSON.stringify(await api('/api/state','md')));
  console.log('PASS: recording ownership, signed upload flow, confirmed-pair sharing, authenticated playback, no creation-age limit in open rounds, exact post-close expiry, private history recordings, and storage cleanup.');
 
  console.log('PASS: pair confirmation, invitation ownership, shared singers, locked two-pair ballot, two-choice pair ballot, late confirmation order, per-part limits/ranks/privacy, MD reveal, audition URL validation and cascade cleanup.');
