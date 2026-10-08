@@ -2107,7 +2107,7 @@
         voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
     }
     function managedVoiceEditor(person){
-      return el('form',{class:'card stack',onsubmit:event=>{event.preventDefault();const parts=new FormData(event.target).getAll('voiceParts');run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts})}));}},
+      return el('form',{class:'card stack',onchange:()=>{freezeRender=true;},onsubmit:event=>{event.preventDefault();const parts=new FormData(event.target).getAll('voiceParts');run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts})}));}},
         voiceChoices(person),el('button',{type:'submit',class:'nav-btn'},pair('保存声部','Save voice parts')));
     }
     let editingRoster = false;
