@@ -1,3 +1,5 @@
+**Official release v1.0** · [Changelog](CHANGELOG.md) · [Open Hub](https://cucac-hub.vercel.app)
+
 # A Cappella Hub · CUCAC User Guide
 
 [中文](README.md) | **English**

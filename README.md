@@ -1,3 +1,5 @@
+**正式版本 v1.0** · [版本更新日志](CHANGELOG.md) · [打开 Hub](https://cucac-hub.vercel.app)
+
 > **独立 Vercel 分支 / Independent Vercel branch:** [部署指南 / Deployment guide](VERCEL_SETUP.md)。原 Sites 继续运行，数据尚未迁移。 / Sites remains live; data has not been migrated.
 
 # A Cappella Hub · CUCAC 使用指南
