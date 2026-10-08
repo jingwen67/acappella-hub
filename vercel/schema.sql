@@ -260,3 +260,5 @@ CREATE TABLE IF NOT EXISTS cucac.plan_sheet_jobs (
 CREATE INDEX IF NOT EXISTS plan_sheet_jobs_pending ON cucac.plan_sheet_jobs(id) WHERE NOT synced;
 ALTER TABLE cucac.plan_sheet_jobs ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.plan_sheet_jobs FROM anon; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.plan_sheet_jobs FROM authenticated; END IF; END $$;
+
+ALTER TABLE cucac.plan_songs ADD COLUMN IF NOT EXISTS excluded boolean NOT NULL DEFAULT false;

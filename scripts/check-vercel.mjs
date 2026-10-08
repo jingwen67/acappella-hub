@@ -93,6 +93,25 @@ try {
  assert.equal((await env.plans.list({isMd:true},planTerm)).songs.length,2);
  await env.plans.sync(async()=>{throw Error('temporary_google_failure');});assert.ok((await env.plans.list({isMd:true},planTerm)).sheetPending>0);
  await env.plans.sync(async jobs=>jobs.map(j=>j.id));assert.equal((await env.plans.list({isMd:true},planTerm)).sheetPending,0);
+ // Drive semesters seed the same plan; exclusions survive rescan and re-add preserves signup.
+ const president=await api('/api/register','president',{name:'PresidentTest',password:'abc12345'},201);
+ await api(`/api/admin/users/${president.user.id}`,'admin',{president:true});
+ let auto=await env.plans.fromSemester({id:member.user.id},'2028 Fall',[{name:'From Drive',url:'https://drive.google.com/drive/folders/newFolder'}]);
+ const autoTerm=auto.term.id,autoSong=auto.songs[0].id;assert.equal(auto.canChoose,false);
+ auto=await env.plans.fromSemester({id:member.user.id},'2028fall',[{name:'From Drive',url:'https://drive.google.com/drive/folders/newFolder'}]);assert.equal(auto.term.id,autoTerm);assert.equal(auto.songs.length,1);
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'alto'});
+ auto=await api(`/api/plan?termId=${autoTerm}`,'president');assert.equal(auto.canChoose,true);assert.equal(auto.canManage,false);
+ await api(`/api/plan/entry/${autoSong}`,'president',{memberId:member.user.id,part:'bass'},403);
+ await api(`/api/plan/edit/${autoSong}`,'president',{title:'From Drive',folderUrl:'',locked:true},403);
+ await api(`/api/plan/delete/${autoSong}`,'member',{},403);
+ auto=await api(`/api/plan/delete/${autoSong}`,'president',{});assert.equal(auto.songs.length,0);
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'bass'},404);
+ auto=await env.plans.fromSemester({id:member.user.id},'2028 Fall',[{name:'From Drive',url:'https://drive.google.com/drive/folders/newFolder'}]);assert.equal(auto.songs.length,0);
+ auto=await api(`/api/plan/bulk/${autoTerm}`,'president',{songs:[{title:'From Drive',folderUrl:'https://drive.google.com/drive/folders/newFolder'}]});assert.equal(auto.songs[0].id,autoSong);assert.equal(auto.songs[0].entries[0].part,'alto');
+ await api(`/api/plan/archive/${autoTerm}`,'md',{archived:true});
+ auto=await env.plans.fromSemester({id:member.user.id},'2028 Fall',[{name:'Later folder',url:'https://drive.google.com/drive/folders/laterFolder'}]);assert.equal(auto.songs.length,1);
+ await api(`/api/plan/bulk/${autoTerm}`,'president',{songs:[{title:'Cannot change archive'}]},409);
+ console.log('PASS: Drive semester auto-population, normalized semester identity, President repertoire-only permissions, persistent exclusions, re-added signups, and immutable archived songs.');
  console.log('PASS: atomic bulk imports, duplicate folder prevention, preserved plans on Google failure, and durable sync retry completion.');
  console.log('PASS: Song Plan authentication, term selection/history, score-folder validation, own-only registration, signup parts, confirmation locks, delegated edits, archived snapshots and read-only history.');
  // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.

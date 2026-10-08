@@ -101,3 +101,11 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 升级已有项目需运行 `vercel/plan-sheet-schema.sql`；新安装已包含在 schema 中。批量选歌按 Google Sheet 的演出学期筛选，实际乐谱文件夹保持原位置。每次添加或关联曲目，将学期追加任务与 Plan 一起提交；Google 更新在事务提交后处理，只修改 Semester 单元格，保留曲名、编曲和链接公式。Google 失败不会回滚人员表，待同步任务保存在私有表中。MD 可以重试；已有每日清理 Cron 同时重试同步。学期同名忽略大小写与空格，不重复写入。
 
 新增验证：`node scripts/check-plan-sheet.mjs`；批量选择、学期筛选和全选由 `scripts/check-plan-ui.mjs` 检查。
+
+## 乐谱页阵容与曲目选择升级
+
+运行 `vercel/plan-selection-schema.sql` 为已有歌曲增加 excluded 标记，新安装已包含在 schema 中。保留已有学期、歌曲和报名；移除只设置标记，重新加入同一乐谱文件夹复用原记录。乐谱页按 semesterId 从服务端读取 Google Drive 文件夹，按学期名（忽略大小写和空格）关联人员表，自动纳入新曲，保留手动排除，归档后不自动改写曲目。President 与 MD 可选曲；替他人安排声部和归档仍需 MD 权限。
+
+验证覆盖学期自动关联、移除后刷新、重新加入保留报名、权限边界，以及从 Scores 打开阵容与选曲。
+
+额外联通验证：`node scripts/check-plan-library.mjs`，覆盖真实 Worker 路由、Drive 文件夹与快捷方式发现、自动关联学期、手动排除和重新加入。

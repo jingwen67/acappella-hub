@@ -97,17 +97,17 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 - Music Director, Arranger, and board position labels are assigned by an administrator or someone with the appropriate permission; you cannot assign them to yourself through your profile.
 
 <a id="song-plan"></a>
-### Song Plan
+### Lineups and this semester’s songs
 
-Open **Song Plan** from the home page. It defaults to the current semester (**2026 Fall** initially); use the semester dropdown to view older plans.
+In **Scores**, choose a semester and click **View lineup** beside its folder name. Songs in that semester’s Google Drive folder appear automatically, including folder shortcuts to older songs.
 
-- On a computer, rows are singers and columns are songs. Cells show that song’s voice part; totals show the singer count and counts for all seven parts. Members appear once, grouped by their earliest selected profile part.
-- Click a **song title** to view the lineup or join. Choose one part per song, stored separately from your profile parts. You can change your part or withdraw while signup is open.
-- **Scores ↗** opens the linked Google Drive folder directly.
-- Phones show song cards first; **View roster table** opens the horizontally scrolling matrix.
-- The MD can filter the library by semester, search, check songs or select all matching results, then Add selected songs to the current plan. Already added songs are marked and skipped. Titles and folder links are linked automatically; manual entry remains available. The MD can assign singers and parts, then confirm the lineup and lock member signup in Song settings.
-- **Semester** in Google Sheet records all performance semesters for the song. Reusing it in a new semester’s plan appends that semester while preserving previous entries and avoiding duplicates. If Google is unavailable, the plan stays saved and shows pending updates with a retry button; pending updates also retry daily.
-- The MD can create semesters, archive them, or reopen editing. Archived plans are read only and preserve names, profile parts, and lineups as they were then.
+- Computers show the singer/song matrix; phones show song cards with an option to open the scrolling table.
+- Click a **song title** to view its lineup, join, or change your own part. Choose one part per song, stored separately from your profile parts.
+- **Scores ↗** opens the linked Google Drive folder.
+- The President and MD can select **This semester’s songs** at the right end of the semester row, search or filter the library, check songs or select all results, and add older songs. They can also remove songs from this semester. Removal keeps the scores and signups; removed songs stay excluded after refresh, and re-adding restores their signups.
+- The MD can assign singers, confirm and lock lineups, archive a semester with a roster snapshot, or reopen it. The President’s repertoire permission does not include assigning other singers’ parts.
+- Plans use the score library’s semesters automatically. There is no separate plan-creation step. Reused songs link to the original scores without copying files.
+- Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the saved list intact; sync can be retried and also retries daily.
 
 <a id="voting"></a>
 ### Solo / Duet Voting

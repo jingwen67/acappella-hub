@@ -35,7 +35,7 @@ export default {
       insertUser: db.prepare(`INSERT INTO users (name, password_hash, created_at) VALUES (?, ?, ?)`),
       userBySession: db.prepare(`
     SELECT u.id AS id, u.name AS name, u.is_admin AS is_admin, u.can_start AS can_start,
-      u.is_md AS is_md, u.is_arranger AS is_arranger
+      u.is_md AS is_md, u.is_arranger AS is_arranger, u.is_president AS is_president
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ?
@@ -249,7 +249,8 @@ export default {
         name: row.name,
         isAdmin: Boolean(row.is_admin),
         isMd: Boolean(row.is_md),
-        isArranger: Boolean(row.is_arranger)
+        isArranger: Boolean(row.is_arranger),
+        isPresident: Boolean(row.is_president)
       };
     }
     function isManager(account) {
@@ -782,13 +783,15 @@ export default {
           return;
         }
         if(pathname==='/api/plan/library'&&req.method==='GET'){
-          const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');send(res,200,{folders:await google.listScoreIndex()});return;
+          const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');send(res,200,{folders:await google.listScoreIndex()});return;
         }
         if(pathname==='/api/plan'&&req.method==='GET'){
-          const user=await requireUser(req);send(res,200,await env.plans.list(user,Number(new URL(req.url,'https://hub.local').searchParams.get('termId'))||undefined));return;
+          const user=await requireUser(req);const semesterId=Number(url.searchParams.get('semesterId'));
+          if(semesterId){const semester=await statements.semesterById.get(semesterId);if(!semester?.folder_id)throw fail(404,'semester_missing');const folders=await google.listScoreFolders(semester.folder_id);send(res,200,await env.plans.fromSemester(user,semester.label,folders));}
+          else send(res,200,await env.plans.list(user,Number(url.searchParams.get('termId'))||undefined));return;
         }
         if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
-          if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
+          if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
           const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|archive|add|bulk|edit|delete|entry)(?:\/(\d+))?$/);
           if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
         }
