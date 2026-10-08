@@ -584,9 +584,11 @@
       color: var(--ink);
     }
 
-    .profile-name-row { display:flex; align-items:flex-start; gap:12px; }
-    .profile-name-row > label { flex:1; min-width:0; }
-    .profile-name-row > button { flex:none; min-height:44px; padding:8px 14px; }
+    .profile-edit-actions { display:flex; justify-content:flex-end; }
+    .profile-edit-actions .nav-btn { min-height:32px; padding:3px 8px; margin:0; font-size:14px; color:var(--muted); white-space:nowrap; }
+    .profile-edit-actions .pair { display:flex; flex-direction:row; align-items:center; gap:6px; }
+    .profile-edit-actions .pair .en { font-size:inherit; }
+
 
     .profile-top {
       display: flex;
@@ -2366,7 +2368,8 @@
             });
           },
         },
-          el('div',{class:'profile-name-row'},profileField('fullName', 'fullName', person.fullName, 80),el('button', { class: 'primary', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit'))),
+          el('div',{class:'profile-edit-actions'},el('button', { class: 'nav-btn', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit'))),
+          profileField('fullName', 'fullName', person.fullName, 80),
           profileField('pronouns', 'pronouns', person.pronouns, 40),
           profileField('voicePart', 'voicePart', person.voicePart, 40),
           profileField('school', 'school', person.school, 80),
