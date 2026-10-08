@@ -158,7 +158,7 @@ For the hosted version, **all files in one upload must total less than 20 MB**; 
 #### Edit an Existing Song
 
 1. Select **更新已有曲目** (“Update an existing song”).
-2. Search the entire library by title and select a song; its original semester is filled in automatically.
+2. Select Update an existing song beside the heading, then search the entire library or filter by semester. Scroll through the results and select a song to open its details; the original semester is filled in automatically.
 3. Edit the title, arrangers, type, or destination semester. You can also add files and select existing files to delete.
 4. Select **Save** to apply your changes. Canceling exits without saving.
 

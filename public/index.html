@@ -408,6 +408,11 @@
 
     .score-link:first-child { border-top: 0; padding-top: 0; }
 
+    .upload-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:28px; }
+    .upload-header .nav-btn { width:auto; min-height:32px; padding:4px 10px; font-size:13px; flex-shrink:0; }
+    .upload-header #upload-heading { margin:0; }
+    .song-info { border:0; padding:0; margin:0; min-width:0; }
+    #edit-songs { max-height:300px; overflow-y:auto; overscroll-behavior:contain; }
     #upload-heading { margin-top: 28px; font-size: 1.35rem; }
 
     .field-head {
@@ -828,20 +833,21 @@
         <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
         <div id="browse-folders"></div>
       </div>
-      <h2 id="upload-heading" data-i18n="uploadTitle" hidden>上传新曲目</h2>
+      <div id="upload-header" class="upload-header" hidden><h2 id="upload-heading" data-i18n="uploadTitle">上传新曲目</h2><button id="edit-song" class="nav-btn" type="button" data-i18n="editSong">更新已有曲目</button></div>
       <p id="scores-wait" class="hint" hidden></p>
       <form id="score-form" class="panel stack" hidden>
+        <div id="edit-picker" class="stack" hidden>
+          <label><span data-i18n="searchSong">输入曲名搜索</span><input id="edit-search" type="search" autocomplete="off" maxlength="80"></label>
+          <label><span data-i18n="semester">学期</span><select id="edit-filter"></select></label>
+          <p class="hint" data-i18n="editPick">先搜索或选择学期，再选择要更新的曲目。</p>
+          <div id="edit-songs"></div>
+        </div>
+        <fieldset id="song-info" class="stack song-info">
         <div class="song-field">
           <div class="field-head">
             <span data-i18n="songName">曲名</span>
-            <button id="edit-song" class="quiet" type="button" data-i18n="editSong">更新已有曲目</button>
           </div>
           <input name="title" maxlength="80" required>
-        </div>
-        <div id="edit-picker" class="stack" hidden>
-          <p class="hint" data-i18n="editPick">输入曲名搜索整个曲库。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。</p>
-          
-          <div id="edit-songs"></div>
         </div>
         <div class="picker">
           <span data-i18n="arranger">编曲者</span>
@@ -874,6 +880,7 @@
         <p class="hint" data-i18n="uploadHint">文件会放进这个学期下面、以曲名为名字的文件夹。</p>
         <button id="cancel-edit" class="ghost" type="button" hidden data-i18n="cancelEditSong">取消修改</button>
         <button id="upload-submit" class="primary" type="submit" data-i18n="uploadScore">上传</button>
+        </fieldset>
       </form>
       <div id="score-setup" hidden>
         <h2 data-i18n="libraryAdmin">乐谱设置</h2>
@@ -935,6 +942,10 @@
     const browseSemesterSelect = document.querySelector('#browse-semester');
     const browseSemesterLink = document.querySelector('#browse-semester-link');
     const browseFolders = document.querySelector('#browse-folders');
+    const uploadHeader = document.querySelector('#upload-header');
+    const songInfo = document.querySelector('#song-info');
+    const editSearch = document.querySelector('#edit-search');
+    const editFilter = document.querySelector('#edit-filter');
     const uploadHeading = document.querySelector('#upload-heading');
     const editSongButton = document.querySelector('#edit-song');
     const editPicker = document.querySelector('#edit-picker');
@@ -994,7 +1005,9 @@
         browseTitle: '查看乐谱',
         uploadTitle: '上传新曲目',
         editSong: '更新已有曲目',
-        editPick: '输入曲名搜索整个曲库。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。',
+        allSemesters: '所有学期',
+        newSong: '上传新曲目',
+        editPick: '搜索整个曲库，也可以按学期筛选。选中曲目后再修改信息或增删谱子。',
         searchSong: '输入曲名搜索',
         noSearch: '没有找到这首。',
         cancelEditSong: '取消修改',
@@ -1139,7 +1152,9 @@
         browseTitle: 'View scores',
         uploadTitle: 'Upload a new song',
         editSong: 'Update an existing song',
-        editPick: 'Search the entire library by song title. After you choose one, you can change the details, upload new files, or remove old ones. Nothing changes until you save.',
+        allSemesters: 'All semesters',
+        newSong: 'Upload a new song',
+        editPick: 'Search the entire library or filter by semester. Select a song to edit its details or add and remove scores.',
         searchSong: 'Type a song title to search',
         noSearch: 'No song with that name.',
         cancelEditSong: 'Cancel edit',
@@ -2547,7 +2562,8 @@
       const library = data.library || { ready: false, semesters: [], setup: null, arrangers: [] };
       const upload = Boolean(data.user.isArranger);
       scoreForm.hidden = !upload || !library.ready;
-      uploadHeading.hidden = !upload;
+      uploadHeader.hidden = !upload;
+      editSongButton.disabled = !library.ready;
       const showWait = upload && !library.ready;
       scoresWait.hidden = !showWait;
       if (showWait) scoresWait.replaceChildren(t(data.user.isAdmin ? 'setupFirst' : 'libraryClosed'));
@@ -2703,6 +2719,12 @@
     let editLoadingId = '';
 
     function syncEditChrome() {
+      const searching = !editPicker.hidden;
+      songInfo.hidden = searching;
+      songInfo.disabled = searching;
+      uploadHeading.replaceChildren(t(searching || editingSong ? 'editSong' : 'uploadTitle'));
+      editSongButton.replaceChildren(t(searching || editingSong ? 'newSong' : 'editSong'));
+      if (searching) renderEditSongs(Boolean(editLoadingId));
       uploadSubmit.replaceChildren(t(editingSong ? 'saveSong' : 'uploadScore'));
       cancelEdit.hidden = !editingSong;
       existingFiles.hidden = !editingSong;
@@ -2754,8 +2776,12 @@
         return;
       }
       if (!editCache) return;
-      const query = songTitle.value.trim().toLowerCase();
-      const folders = editCache.folders.filter((item) => !query || item.name.toLowerCase().includes(query));
+      const current = editFilter.value;
+      const labels = [...new Set(editCache.folders.flatMap(item => item.semester.split(/[,，]/).map(label => label.trim()).filter(Boolean)))].sort().reverse();
+      editFilter.replaceChildren(el('option', {value:''}, both('allSemesters')), ...labels.map(label => el('option', {value:label}, label)));
+      if (labels.includes(current)) editFilter.value = current;
+      const query = editSearch.value.trim().toLowerCase();
+      const folders = editCache.folders.filter(item => (!query || item.name.toLowerCase().includes(query)) && (!editFilter.value || item.semester.split(/[,，]/).some(label => label.trim() === editFilter.value))); 
       editSongs.replaceChildren(folders.length
         ? el('div', { class: 'card' }, folders.map((item) => el('button', {
             type: 'button',
@@ -2813,19 +2839,18 @@
     }
 
     editSongButton.addEventListener('click', () => {
-      editPicker.hidden = !editPicker.hidden;
-      if (!editPicker.hidden) editCache = null;
-      syncSongSearch();
-      if (editPicker.hidden) return;
-      songTitle.focus();
+      if (!editPicker.hidden || editingSong) { clearSongEdit(); return; }
+      editPicker.hidden = false;
+      editSearch.value = '';
+      editFilter.value = '';
+      editCache = null;
+      syncEditChrome();
+      editSearch.focus();
       ensureEditList();
     });
-    songTitle.addEventListener('input', () => {
-      if (!editPicker.hidden) renderEditSongs();
-    });
-    songTitle.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !editPicker.hidden) event.preventDefault();
-    });
+    editSearch.addEventListener('input', () => renderEditSongs());
+    editFilter.addEventListener('change', () => renderEditSongs());
+    editSearch.addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
     cancelEdit.addEventListener('click', clearSongEdit);
 
     scoreForm.addEventListener('submit', (event) => {
