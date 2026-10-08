@@ -828,21 +828,19 @@
         <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
         <div id="browse-folders"></div>
       </div>
-      <h2 id="upload-heading" data-i18n="uploadTitle" hidden>上传乐谱</h2>
+      <h2 id="upload-heading" data-i18n="uploadTitle" hidden>上传新曲目</h2>
       <p id="scores-wait" class="hint" hidden></p>
       <form id="score-form" class="panel stack" hidden>
         <div class="song-field">
           <div class="field-head">
             <span data-i18n="songName">曲名</span>
-            <button id="edit-song" class="quiet" type="button" data-i18n="editSong">修改已经上传过的曲目</button>
+            <button id="edit-song" class="quiet" type="button" data-i18n="editSong">更新已有曲目</button>
           </div>
           <input name="title" maxlength="80" required>
         </div>
         <div id="edit-picker" class="stack" hidden>
-          <p class="hint" data-i18n="editPick">在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。</p>
-          <label><span data-i18n="semester">学期</span>
-            <select id="edit-semester"></select>
-          </label>
+          <p class="hint" data-i18n="editPick">输入曲名搜索整个曲库。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。</p>
+          
           <div id="edit-songs"></div>
         </div>
         <div class="picker">
@@ -940,7 +938,6 @@
     const uploadHeading = document.querySelector('#upload-heading');
     const editSongButton = document.querySelector('#edit-song');
     const editPicker = document.querySelector('#edit-picker');
-    const editSemesterSelect = document.querySelector('#edit-semester');
     const editSongs = document.querySelector('#edit-songs');
     const songTitle = scoreForm.elements.title;
     const existingFiles = document.querySelector('#existing-files');
@@ -995,9 +992,9 @@
         scoresButton: '查看/上传乐谱',
         scoresTitle: '查看/上传乐谱',
         browseTitle: '查看乐谱',
-        uploadTitle: '上传乐谱',
-        editSong: '修改已经上传过的曲目',
-        editPick: '在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。',
+        uploadTitle: '上传新曲目',
+        editSong: '更新已有曲目',
+        editPick: '输入曲名搜索整个曲库。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。',
         searchSong: '输入曲名搜索',
         noSearch: '没有找到这首。',
         cancelEditSong: '取消修改',
@@ -1140,9 +1137,9 @@
         scoresButton: 'View / upload scores',
         scoresTitle: 'View / upload scores',
         browseTitle: 'View scores',
-        uploadTitle: 'Upload a score',
-        editSong: 'Edit an uploaded song',
-        editPick: 'Type in the song title to search. After you choose one, you can change the details, upload new files, or remove old ones. Nothing changes until you save.',
+        uploadTitle: 'Upload a new song',
+        editSong: 'Update an existing song',
+        editPick: 'Search the entire library by song title. After you choose one, you can change the details, upload new files, or remove old ones. Nothing changes until you save.',
         searchSong: 'Type a song title to search',
         noSearch: 'No song with that name.',
         cancelEditSong: 'Cancel edit',
@@ -2701,7 +2698,6 @@
     let editingSong = null;
     let editingFiles = [];
     let removedFiles = new Set();
-    let editSemester = '';
     let editCache = null;
     let editError = '';
     let editLoadingId = '';
@@ -2749,16 +2745,6 @@
     }
 
     function renderEditSongs(loading) {
-      const semesters = latest?.library?.semesters || [];
-      const current = editSemesterSelect.value;
-      editSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
-      if (semesters.some((item) => String(item.id) === (editSemester || current))) {
-        editSemesterSelect.value = editSemester || current;
-      }
-      if (!semesters.length) {
-        editSongs.replaceChildren(el('p', { class: 'hint' }, t('noSemesters')));
-        return;
-      }
       if (loading) {
         editSongs.replaceChildren(el('p', { class: 'hint' }, t('loading')));
         return;
@@ -2774,44 +2760,20 @@
         ? el('div', { class: 'card' }, folders.map((item) => el('button', {
             type: 'button',
             class: 'score-link',
-            onclick: () => run(() => loadSongEdit(editCache.id, item.id)),
-          }, item.name)))
+            onclick: () => run(() => loadSongEdit(item.semesterId, item.id)),
+          }, item.name, item.semester ? el('span', {class:'meta'}, ' · '+item.semester) : null)))
         : el('p', { class: 'hint' }, t(query ? 'noSearch' : 'noFolders')));
     }
 
-    async function ensureEditList(semesters) {
-      if (!semesters.length) {
-        editCache = null;
-        editError = '';
-        renderEditSongs();
-        return;
-      }
-      if (!semesters.some((item) => String(item.id) === editSemester)) editSemester = String(semesters[0].id);
-      if (editCache && String(editCache.id) === editSemester) {
-        renderEditSongs();
-        return;
-      }
-      if (editLoadingId === editSemester) {
-        renderEditSongs(true);
-        return;
-      }
-      const requested = editSemester;
-      editLoadingId = requested;
+    async function ensureEditList() {
+      if (editCache) { renderEditSongs(); return; }
+      if (editLoadingId) { renderEditSongs(true); return; }
+      editLoadingId = 'all';
       editError = '';
-      editCache = null;
       renderEditSongs(true);
-      try {
-        const data = await api(`/api/library/folders?semesterId=${requested}`);
-        if (editSemester !== requested) return;
-        editCache = data;
-        editError = '';
-      } catch (error) {
-        if (editSemester !== requested) return;
-        editCache = null;
-        editError = error.message;
-      } finally {
-        if (editLoadingId === requested) editLoadingId = '';
-      }
+      try { editCache = await api('/api/library/songs'); }
+      catch (error) { editError = error.message; }
+      finally { editLoadingId = ''; }
       renderEditSongs();
     }
 
@@ -2852,16 +2814,11 @@
 
     editSongButton.addEventListener('click', () => {
       editPicker.hidden = !editPicker.hidden;
+      if (!editPicker.hidden) editCache = null;
       syncSongSearch();
       if (editPicker.hidden) return;
       songTitle.focus();
-      ensureEditList(latest?.library?.semesters || []);
-    });
-    editSemesterSelect.addEventListener('change', () => {
-      editSemester = editSemesterSelect.value;
-      editCache = null;
-      editError = '';
-      ensureEditList(latest?.library?.semesters || []);
+      ensureEditList();
     });
     songTitle.addEventListener('input', () => {
       if (!editPicker.hidden) renderEditSongs();

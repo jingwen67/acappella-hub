@@ -401,6 +401,17 @@ export function createGoogle(storage) {
       } : {})
     });
   }
+  async function listScoreIndex() {
+    const sheet = await spreadsheet();
+    const data = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
+    const keys = (data.values?.[0] || []).map(columnKey);
+    if (!keys.includes('title')) throw fail(400, 'sheet_headers');
+    return (data.values || []).slice(1).map((cells, index) => {
+      const row = {};
+      keys.forEach((key, i) => { if (key) row[key] = cells[i] || ''; });
+      return {row:index + 2, id:parseFolderId(row.link), name:String(row.title || '').trim(), semester:String(row.semester || '').trim()};
+    }).filter(item => item.name).sort((a,b) => a.name.localeCompare(b.name, 'zh'));
+  }
   async function findScoreRow({
     folderId,
     shortcutId,
@@ -473,6 +484,7 @@ export function createGoogle(storage) {
     deleteFile,
     appendRow,
     listScoreFolders,
+    listScoreIndex,
     listFolderFiles,
     updateDriveFile,
     findScoreRow,

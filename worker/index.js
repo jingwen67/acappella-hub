@@ -955,13 +955,29 @@ export default {
           });
           return;
         }
+        if (req.method === 'GET' && pathname === '/api/library/songs') {
+          const user = await requireUser(req);
+          if (!user.isArranger) throw fail(403, 'not_arranger');
+          const semesters = await statements.listSemesters.all();
+          const folders = (await google.listScoreIndex()).map(item => ({...item, semesterId:semesters.find(s => item.semester.split(/[,，]/).some(label => label.trim().toLowerCase() === s.label.toLowerCase()))?.id || 0}));
+          send(res, 200, {folders});
+          return;
+        }
         if (req.method === 'GET' && pathname === '/api/scores/folder') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const semester = await statements.semesterById.get(Number(url.searchParams.get('semesterId')));
+          let semester = await statements.semesterById.get(Number(url.searchParams.get('semesterId')));
           const folderId = driveId(url.searchParams.get('folderId'));
-          if (!semester?.folder_id || !folderId) throw fail(404, 'semester_missing');
-          const match = (await google.listScoreFolders(semester.folder_id)).find(item => item.id === folderId);
+          if (!folderId) throw fail(404, 'folder_not_found');
+          let match = semester?.folder_id ? (await google.listScoreFolders(semester.folder_id)).find(item => item.id === folderId) : null;
+          if (!match) {
+            for (const item of await statements.listSemesters.all()) {
+              const source = await statements.semesterById.get(item.id);
+              if (!source?.folder_id) continue;
+              const found = (await google.listScoreFolders(source.folder_id)).find(item => item.id === folderId);
+              if (found) {semester=source;match=found;break;}
+            }
+          }
           if (!match) throw fail(404, 'folder_not_found');
           const files = await google.listFolderFiles(folderId);
           const row = await google.findScoreRow({
