@@ -22,7 +22,7 @@ export function createPlans(pool){
  }
  async function queue(q,url,label,title,fromLibrary=false){if(!url&&!fromLibrary)return;const folderId=url?new URL(url).pathname.split('/').filter(Boolean).at(-1):'title:'+title.trim().toLowerCase();await q.query('INSERT INTO cucac.plan_sheet_jobs(folder_id,semester,title) VALUES($1,$2,$3) ON CONFLICT(folder_id,semester) DO NOTHING',[folderId,label,title]);}
  async function sync(update){const c=await pool.connect();try{await c.query('BEGIN');const gate=(await c.query('SELECT id FROM cucac.plan_sheet_jobs WHERE id=(SELECT min(id) FROM cucac.plan_sheet_jobs) FOR UPDATE SKIP LOCKED')).rows;if(!gate.length){await c.query('COMMIT');return;}
-  const jobs=(await c.query('SELECT * FROM cucac.plan_sheet_jobs WHERE NOT synced ORDER BY (last_error='') DESC,id LIMIT 300')).rows;
+  const jobs=(await c.query(`SELECT * FROM cucac.plan_sheet_jobs WHERE NOT synced ORDER BY (last_error='') DESC,id LIMIT 300`)).rows;
   if(jobs.length){try{const completed=new Set(await update(jobs));for(const job of jobs)await c.query('UPDATE cucac.plan_sheet_jobs SET synced=$1,last_error=$2 WHERE id=$3',[completed.has(job.id),completed.has(job.id)?'':'sheet_song_missing',job.id]);}catch(error){await c.query('UPDATE cucac.plan_sheet_jobs SET last_error=$1 WHERE id=ANY($2::int[])',[String(error.message).slice(0,100),jobs.map(j=>j.id)]);}}
   await c.query('COMMIT');
  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}}
