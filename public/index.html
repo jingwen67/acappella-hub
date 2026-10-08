@@ -413,6 +413,7 @@
     .upload-header #upload-heading { margin:0; }
     .song-info { border:0; padding:0; margin:0; min-width:0; }
     #edit-songs { max-height:300px; overflow-y:auto; overscroll-behavior:contain; }
+    #edit-songs.semester-results { max-height:none; overflow:visible; }
     #upload-heading { margin-top: 28px; font-size: 1.35rem; }
 
     .field-head {
@@ -2769,6 +2770,7 @@
 
     function renderEditSongs(loading) {
       const current = editFilter.value;
+      editSongs.classList.toggle('semester-results', Boolean(current));
       const semesters = latest?.library?.semesters || [];
       editFilter.replaceChildren(el('option', {value:''}, both('allSemesters')), ...semesters.map(item => el('option', {value:String(item.id)}, item.label)));
       if (semesters.some(item => String(item.id) === current)) editFilter.value = current;
