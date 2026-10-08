@@ -640,7 +640,7 @@ export default {
         if(req.method==='POST' && /^\/api\/members\/\d+\/voice-parts$/.test(pathname)) {
           const user=await requireUser(req);const id=Number(pathname.split('/')[3]);
           const actor=await statements.profileById.get(user.id);
-          if(id!==user.id&&!actor.is_president&&!actor.is_md)throw fail(403,'forbidden');
+          if(id!==user.id&&!actor.is_admin&&!actor.is_md)throw fail(403,'forbidden');
           const target=await statements.profileById.get(id);if(!target)throw fail(404,'not_found');
           const body=await readBody(req);const parts=validateVoiceParts(body.voiceParts);
           if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');

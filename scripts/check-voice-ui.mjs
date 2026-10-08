@@ -15,4 +15,10 @@ vm.runInContext("voiceFilter='all';rosterSort='alpha';renderRoster(data)",ctx);a
 vm.runInContext("rosterSort='voice';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[1,2,3]);
 const choices=vm.runInContext("voiceChoices({voiceParts:['alto','rap']},true)",ctx);assert.equal(choices.children.filter(n=>n.tag==='label').length,7);assert.equal(choices.children.filter(n=>n.tag==='label'&&n.children[0].attrs.checked).length,2);assert.equal(find(choices,n=>n.tag==='input').attrs.disabled,true);
 const crewChoice=vm.runInContext("crewMediaChoice({isCrew:true},true)",ctx);assert.equal(find(crewChoice,n=>n.tag==='input').attrs.checked,true);assert.equal(find(crewChoice,n=>n.tag==='input').attrs.disabled,true);assert.equal(find(choices,n=>n.tag==='legend'),undefined);
+const assignments=[];ctx.busy=false;ctx.run=fn=>fn();ctx.api=async(path,options)=>{assignments.push({path,body:JSON.parse(options.body)});};ctx.FormData=class{getAll(){return ['alto','rap'];}};
+const editor=vm.runInContext("managedVoiceEditor({id:1,voiceParts:['alto'],isCrew:false})",ctx);
+assert.equal(find(editor,n=>n.tag==='button').children[0],'Edit');assert.equal(find(editor,n=>n.tag==='input').attrs.disabled,true);
+const button={textContent:'Edit'},inputs=[{disabled:true},{disabled:true}];const target={querySelector:()=>button,querySelectorAll:()=>inputs,elements:{crewMedia:{checked:true}}};
+editor.attrs.onsubmit({preventDefault(){},target});assert.equal(button.textContent,'Save');assert.equal(inputs[0].disabled,false);assert.equal(assignments.length,0);
+editor.attrs.onsubmit({preventDefault(){},target});assert.equal(assignments.length,1);assert.deepEqual(assignments[0].body,{voiceParts:['alto','rap'],crewMedia:true});
 console.log('PASS: seven multi-select parts, checked/disabled profile state, independent alphabetical/voice sorting and Active-only voice filtering.');
