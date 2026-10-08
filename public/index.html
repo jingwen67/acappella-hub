@@ -584,6 +584,10 @@
       color: var(--ink);
     }
 
+    .profile-name-row { display:flex; align-items:flex-start; gap:12px; }
+    .profile-name-row > label { flex:1; min-width:0; }
+    .profile-name-row > button { flex:none; min-height:44px; padding:8px 14px; }
+
     .profile-top {
       display: flex;
       align-items: center;
@@ -2362,7 +2366,7 @@
             });
           },
         },
-          profileField('fullName', 'fullName', person.fullName, 80),
+          el('div',{class:'profile-name-row'},profileField('fullName', 'fullName', person.fullName, 80),el('button', { class: 'primary', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit'))),
           profileField('pronouns', 'pronouns', person.pronouns, 40),
           profileField('voicePart', 'voicePart', person.voicePart, 40),
           profileField('school', 'school', person.school, 80),
@@ -2370,7 +2374,6 @@
           profileField('program', 'program', person.program, 80),
           profileField('funFact', 'funFact', person.funFact, 240),
           profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
-          el('button', { class: 'primary', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit')),
         ),
         galleryNode(person, mine),
       );
