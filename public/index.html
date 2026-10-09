@@ -1431,10 +1431,10 @@
         recording_expired: '录音已超过保留的一周期限。',
         delete_recording_confirm: '确定删除这段录音吗？',
         need_two_pairs: '至少需要两组已确认的搭档',
-        need_both_parts: '两个声部都需要至少一位报名者',
+        need_both_parts: '每个声部都需要至少一位报名者',
         bad_partner: '请选择另一位成员作为搭档',
         pair_exists: '这组搭档已报名或正在等待确认',
-        already_in_part: '你已报名一个声部，请先退出后再更换',
+        already_in_part: '你已经报名这个声部',
         bad_part: '请选择声部 A 或 B',
         entry_missing: '这条报名已不存在',
         bad_audition_url: '试听链接需要完整的 HTTPS 网址',
@@ -1521,7 +1521,7 @@
         need_both_parts: 'At least one singer in each part is needed.',
         bad_partner: 'Choose another member as your partner.',
         pair_exists: 'This pair already exists or awaits confirmation.',
-        already_in_part: 'You already joined a part. Withdraw before switching.',
+        already_in_part: 'You have already joined this part.',
         bad_part: 'Choose Part A or Part B.',
         entry_missing: 'This entry no longer exists.',
         bad_audition_url: 'Use a complete HTTPS audition URL.',
@@ -2043,7 +2043,7 @@
       return holder;
     }
     function pollTypeLabel(kind) {
-      return kind === 'pair' ? pair('组合投票', 'Pair Voting') : kind === 'parts' ? pair('分声部投票', 'Part Voting') : pair('Solo 投票', 'Solo Voting');
+      return kind === 'pair' ? pair('组合投票', 'Pair Voting') : kind === 'parts' ? pair('多声部投票', 'Multi-part Voting') : pair('Solo 投票', 'Solo Voting');
     }
 
     function duetIdentity(entry) {
@@ -2060,13 +2060,14 @@
       const phase = data.phase;
       const action = (name, body={}) => run(() => api(`/api/phases/${phase.id}/${name}`, {method:'POST',body:JSON.stringify(body)}));
       const ownerEntries = phase.ownEntries||phase.candidates.filter(entry => entry.isMe);
-      const partName = part => part === 'A' ? phase.partA : phase.partB;
+      const partKeys=phase.partC?['A','B','C']:['A','B'];
+      const partName = part => ({A:phase.partA,B:phase.partB,C:phase.partC})[part];
       const countIn = part => phase.candidateCounts?.[part]??phase.candidates.filter(entry => entry.part === part).length;
       const locked = part => phase.started && (phase.pollType === 'pair' ? phase.registrationLocked : phase.partLocks[part]);
       const canWithdraw = entry => !phase.started || (!locked(entry.part) && countIn(entry.part)>3);
       const children = [el('h2', {}, phase.title),el('p', {class:'meta'},pollTypeLabel(phase.pollType)),el('p', {class:'hint'}, phase.pollType==='pair'
         ? pair('给搭档发起组队，对方确认后参选。同一人可参加不同组合；两组最多选一组，三组及以上最多选两组。','Invite a partner; the pair joins after confirmation. Multiple partnerships are allowed. Choose one of two pairs, or up to two of three or more.')
-        : pair('选择一个声部报名。两个声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join one part. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
+        : pair('可报名多个声部。各声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join multiple parts. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
         !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+(phase.candidateCount??phase.candidates.length)+' '+(phase.pollType==='pair'?'组':'人')+'已参选',(phase.candidateCount??phase.candidates.length)+' candidates registered'))));
@@ -2079,13 +2080,13 @@
         for (const pending of phase.pendingPairs) children.push(el('section', {class:'card stack'},duetIdentity(pending),el('p',{class:'hint'},pending.canConfirm?pair('邀请你一起参选','Invited you to join this pair'):pair('等待搭档确认','Waiting for your partner')),
           pending.canConfirm?el('button',{type:'button',class:'nav-btn',disabled:locked('pair'),onclick:()=>action('confirm',{entryId:pending.id})},pair('确认组队','Confirm pair')):null,
           el('button',{type:'button',class:'nav-btn',onclick:()=>action('cancel',{entryId:pending.id})},pending.canConfirm?pair('婉拒','Decline'):pair('取消邀请','Cancel invitation'))));
-      } else if (!ownerEntries.length) {
-        const available=['A','B'].filter(part=>!locked(part));
+      } else {
+        const available=partKeys.filter(part=>!locked(part)&&!ownerEntries.some(entry=>entry.part===part));
         if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
-        else children.push(el('p',{class:'hint'},pair('两个声部的报名均已锁定。','Registration is locked for both parts.')));
+        else children.push(el('p',{class:'hint'},pair('没有其他可报名的声部。','No other parts are available.')));
       }
-      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?(phase.candidateCount??phase.candidates.length)<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开启投票','Start voting')));
-      for (const part of phase.pollType==='parts'?['A','B']:['pair']) {
+      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?(phase.candidateCount??phase.candidates.length)<2:partKeys.some(part=>!countIn(part)),onclick:()=>action('start')},pair('开启投票','Start voting')));
+      for (const part of phase.pollType==='parts'?partKeys:['pair']) {
         const entries=phase.candidates.filter(entry=>entry.part===part);
         if (phase.pollType==='parts') children.push(el('h3',{},partName(part)),el('p',{class:'hint'},pair('最多选择 '+phase.voteLimits[part]+' 位'+(locked(part)?' · 报名已锁定':''),'Select up to '+phase.voteLimits[part]+' singers'+(locked(part)?' · Registration locked':''))));
         if(!phase.started){if(phase.pollType==='parts')children.push(el('p',{class:'candidacy-count'},pair('共 '+countIn(part)+' 人已参选',countIn(part)+' candidates registered')));continue;}
@@ -2125,7 +2126,7 @@
                   planSongId:Number(form.get('planSongId'))||null,
                   votingMode:['pair','parts'].includes(form.get('votingMode'))?'default':form.get('votingMode'),
                   pollType:['pair','parts'].includes(form.get('votingMode'))?form.get('votingMode'):'solo',
-                  partA:form.get('partA'),partB:form.get('partB'),
+                  partA:form.get('partA'),partB:form.get('partB'),partC:form.get('partC'),
                   arrangerId: Number(form.get('arrangerId')),
                 }),
               }));
@@ -2140,8 +2141,10 @@
                 el('option',{value:'',selected:true},pair('请选择编曲者','Select an arranger')),arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
-            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';const label=event.target.closest('form').querySelector('.poll-song-choice');label.firstChild.replaceWith(['pair','parts'].includes(event.target.value)?pair('为哪一首歌选 Duet？','Which song is this Duet for?'):pair('为哪首歌选 Solo？','Which song is this Solo for?'));planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
+            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{const form=event.target.closest('form');form.querySelector('.part-labels').hidden=event.target.value!=='parts';form.querySelector('.add-third-part').hidden=event.target.value!=='parts';if(event.target.value!=='parts'){form.querySelector('.third-part').hidden=true;form.querySelector('input[name=partC]').disabled=true;}const label=event.target.closest('form').querySelector('.poll-song-choice');label.firstChild.replaceWith(['pair','parts'].includes(event.target.value)?pair('为哪首歌选 Duet？','Which song is this Duet for?'):pair('为哪首歌选 Solo？','Which song is this Solo for?'));planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 多声部投票','Duet · Multi-part Voting')))),
             el('div',{class:'stack part-labels',hidden:true},el('label',{},pair('声部 A 名称','Part A label'),el('input',{name:'partA',maxlength:30,value:'Part A'})),el('label',{},pair('声部 B 名称','Part B label'),el('input',{name:'partB',maxlength:30,value:'Part B'}))),
+            el('button',{type:'button',class:'nav-btn add-third-part',hidden:true,onclick:event=>{const form=event.target.closest('form'),field=form.querySelector('.third-part'),input=field.querySelector('input');field.hidden=!field.hidden;input.disabled=field.hidden;}},pair('添加 / 移除第三声部','Add / remove third part')),
+            el('label',{class:'third-part',hidden:true},pair('声部 C 名称','Part C label'),el('input',{name:'partC',maxlength:30,value:'Part C',disabled:true})),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));
         round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, block));
@@ -2266,7 +2269,7 @@
           el('span', {class:'rank'}, candidate.rank),
           candidate.members ? duetIdentity(candidate) : el('span',{},candidate.name),
           showDetails?el('span',{class:'meta'},item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null);
-        const rows = item.pollType==='parts' ? ['A','B'].flatMap(part=>[el('h4',{},part==='A'?item.partA:item.partB),...visibleCandidates.filter(candidate=>candidate.part===part).map(resultRow)]) : visibleCandidates.length
+        const rows = item.pollType==='parts' ? (item.partC?['A','B','C']:['A','B']).flatMap(part=>[el('h4',{},({A:item.partA,B:item.partB,C:item.partC})[part]),...visibleCandidates.filter(candidate=>candidate.part===part).map(resultRow)]) : visibleCandidates.length
           ? visibleCandidates.map(resultRow)
           : [el('p', { class: 'hint' }, t('noCandidates'))];
         history.append(el('details', { class: 'card past-round',open:historyExpanded.get(item.id)??item.id===rounds[0].id,'data-phase-id':item.id,ontoggle:event=>{if(!event.target.isConnected)return;const defaultOpen=item.id===rounds[0].id;if(event.target.open===defaultOpen)historyExpanded.delete(item.id);else historyExpanded.set(item.id,event.target.open);}},

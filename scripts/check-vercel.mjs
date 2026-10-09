@@ -395,7 +395,7 @@ try {
  assert.equal(duet.phase.partA,'High voice');assert.equal(duet.phase.partB,'Low voice');
  await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'A'});
  await api(`/api/phases/${did}/start`,'md',{},400);
- await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'B'},409);
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'A'},409);
  for(const who of ['outsider','retry'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'A'});
  for(const who of ['invited','single','sixth'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'B'});
  const partsWaiting=await api('/api/state','outsider');assert.deepEqual(partsWaiting.phase.candidates,[]);assert.equal(partsWaiting.phase.candidateCount,6);assert.deepEqual(partsWaiting.phase.candidateCounts,{pair:0,A:3,B:3});assert.equal(partsWaiting.phase.ownEntries.length,1);
@@ -465,6 +465,19 @@ try {
  await api(`/api/phases/${did}/recordings`,'single',{candidateId:users.md,mime:'audio/webm',size:10},403);
  await api(`/api/phases/${did}/candidacy`,'md',{join:false});assert.equal((await api('/api/state','md')).phase.recordings.length,0);
  await query("UPDATE cucac.recordings SET created_at=now()-interval '2 days' WHERE id=$1",[soloClip.id]);await env.recordings.cleanup();assert.equal(files.has(soloClip.key),false);
+ await api(`/api/phases/${did}/close`,'md',{});
+ duet=await api('/api/phases','md',{title:'Three parts',arrangerId:md.user.id,pollType:'parts',partA:'High',partB:'Middle',partC:'Low'},201);did=duet.phase.id;await enterDuetUsers();assert.equal(duet.phase.partC,'Low');
+ for(const part of ['A','B'])await api(`/api/phases/${did}/candidacy`,'md',{join:true,part});
+ await api(`/api/phases/${did}/start`,'md',{},400);
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'C'});
+ await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'C'},409);
+ for(const part of ['A','B','C'])await api(`/api/phases/${did}/candidacy`,'outsider',{join:true,part});
+ let triple=await api('/api/state','md');assert.equal(triple.phase.candidateCount,2);assert.deepEqual(triple.phase.candidateCounts,{pair:0,A:2,B:2,C:2});assert.equal(triple.phase.ownEntries.length,3);assert.deepEqual(triple.phase.candidates,[]);
+ const ownC=triple.phase.ownEntries.find(e=>e.part==='C').id;await api(`/api/phases/${did}/cancel`,'md',{entryId:ownC});assert.equal((await api('/api/state','md')).phase.ownEntries.length,2);await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'C'});
+ triple=await api(`/api/phases/${did}/start`,'md',{});assert.deepEqual(triple.phase.voteLimits,{A:1,B:1,C:1});assert.deepEqual(triple.phase.partLocks,{A:true,B:true,C:true});assert.equal(triple.phase.candidates.length,6);
+ const multiBallot=[];for(const part of ['A','B','C']){const entries=triple.phase.candidates.filter(e=>e.part===part);await api(`/api/phases/${did}/vote`,'retry',{entryId:entries[0].id,reaction:'like'});await api(`/api/phases/${did}/vote`,'retry',{entryId:entries[1].id,reaction:'like'},400);multiBallot.push({candidateId:entries[0].id,reaction:'like'});}
+ const multiReceipt=await api(`/api/phases/${did}/submit`,'retry',{votes:multiBallot});assert.equal(multiReceipt.voteReceipt.votes.length,3);await api(`/api/phases/${did}/close`,'md',{});const multiHistory=(await api('/api/state','retry')).history.find(p=>p.id===did);assert.equal(multiHistory.partC,'Low');assert.equal(multiHistory.candidates.filter(e=>e.part==='C').length,2);
+ console.log('PASS: third-part creation, multi-part registration, per-part uniqueness, distinct member count, independent withdrawal, hidden lists, per-part caps, submissions and three-part history.');
  if(process.env.PLAN_UI_FIXTURE)fs.writeFileSync(process.env.PLAN_UI_FIXTURE,JSON.stringify(await api('/api/state','md')));
  console.log('PASS: recording ownership, signed upload flow, confirmed-pair sharing, authenticated playback, no creation-age limit in open rounds, exact post-close expiry, private history recordings, and storage cleanup.');
 
