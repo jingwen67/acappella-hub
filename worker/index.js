@@ -101,7 +101,7 @@ export default {
       insertSession: db.prepare(`INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)`),
       deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
       openPhase: db.prepare(`
-    SELECT p.poll_type,p.part_a,p.part_b,p.part_c,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
+    SELECT p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
       u.name AS opened_by, a.name AS arranger_name
     FROM phases p
     JOIN users u ON u.id = p.created_by
@@ -110,11 +110,11 @@ export default {
   `),
       phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,part_c,plan_song_id) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,part_c,part_labels,plan_song_id) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'closed'
@@ -387,7 +387,7 @@ export default {
         planSongId:phase.plan_song_id||null,planSongTitle:phase.plan_song_id?(await env.plans.songInfo(phase.plan_song_id))?.title||'':'',
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||''
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
       })));
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
@@ -673,19 +673,20 @@ export default {
           if (!user.isMd) throw fail(403, 'cannot_start');
           const body = await readBody(req);
           let title = cleanText(body.title, 40);
-          const arrangerId = Number(body.arrangerId);
+          const arrangerId = body.arrangerId?Number(body.arrangerId):null;
           if (!title) throw fail(400, 'title_required');
-          const arranger = await statements.account.get(arrangerId);
-          if (!arranger || arranger.is_admin || arranger.is_alumni || !arranger.is_arranger) {
+          const arranger = arrangerId===null?null:await statements.account.get(arrangerId);
+          if (arrangerId!==null&&(!arranger || arranger.is_admin || arranger.is_alumni || !arranger.is_arranger)) {
             throw fail(400, 'poll_arranger_required');
           }
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
           try {
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
+            const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
             const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
             if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
-            await statements.insertPhase.run(title, user.id, arranger.id, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',songId);
+            await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId);
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;

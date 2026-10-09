@@ -1,6 +1,7 @@
 import {randomInt} from 'node:crypto';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-const parts=p=>p.part_c?['A','B','C']:['A','B'];
+const partLabels=p=>Array.isArray(p.part_labels)&&p.part_labels.length?p.part_labels:[p.part_a,p.part_b,...(p.part_c?[p.part_c]:[])];
+const parts=p=>partLabels(p).map((_,i)=>['A','B','C'][i]||'part_'+(i+1));
 const shuffle=rows=>{const ids=rows.map(row=>row.id);for(let i=ids.length-1;i>0;i--){const j=randomInt(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;};
 function auditionUrl(value){
  if(value==null||value==='')return '';
@@ -108,7 +109,7 @@ export async function duetView(pool,p,user){
  const candidateCounts=Object.fromEntries(['pair',...parts(p)].map(part=>[part,confirmed.filter(row=>row.part===part).length]));
  const ownEntries=p.status==='open'?candidates.filter(entry=>entry.isMe):[];
  if(p.status==='open'&&!p.started_at)candidates=[];
- return {candidateCount:p.poll_type==='parts'?new Set(confirmed.map(row=>row.member1)).size:confirmed.length,candidateCounts,ownEntries,pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partC:p.part_c||'',partLocks:locks,candidates,
+ return {candidateCount:p.poll_type==='parts'?new Set(confirmed.map(row=>row.member1)).size:confirmed.length,candidateCounts,ownEntries,pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partC:p.part_c||'',partLabels:partLabels(p),partLocks:locks,candidates,
   pendingPairs:p.status==='open'?rows.filter(row=>!row.confirmed&&belongs(row,user)).map(row=>({...view(row),canConfirm:row.proposed_by!==user.id})):[],
   iAmCandidate:rows.some(row=>row.confirmed&&belongs(row,user)),
   voteLimits:p.poll_type==='parts'?Object.fromEntries(parts(p).map(part=>[part,locks[part]?1:2])):{pair:p.registration_locked?1:2}};

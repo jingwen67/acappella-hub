@@ -126,7 +126,7 @@ The MD chooses one of four methods when opening a round:
 | **Solo · Default Voting** | Register individually. Choose one of two singers, or up to two of three or more. |
 | **Solo · Like Voting** | Register individually. Give each singer “sounds great” or “not sure yet” feedback. |
 | **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
-| **Duet · Multi-part Voting** | Part A and B are the default; the MD can add Part C. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
+| **Duet · Multi-part Voting** | Two parts are the default; add or remove parts as needed. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
 1. Open **Solo / Duet voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
 2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Multi-part Voting, choose your part.
