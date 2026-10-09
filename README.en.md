@@ -79,7 +79,7 @@ Open **My profile** from the home page. Fill in your English full name, pronouns
 
 Voice parts allow multiple selections: Soprano, Alto, Tenor, Baritone, Bass, Bbox, and Rap. Choose Edit in My profile, check your parts, then Save. The MD can click Edit in another member’s voice-part section and Save to apply changes. The Active list shows parts beside names and defaults to voice-part order, alphabetical within each part. The small button beside Active switches to alphabetical order; the right-hand dropdown independently filters by part. Members with multiple parts appear once, under their earliest selected part. Check Crew / Media below the voice parts and save to join the Crew / Media list. Uncheck and save to return to your previous member group.
 
-Each profile has a **Photo gallery**. Any signed-in member can add photos. Crop before uploading: **1:1** is the default, or choose **Freeform** and drag the selection or its bottom-right corner. Photos are saved as still JPGs. Original images must be **5 MB or smaller**; oversized files show a warning.
+Each profile has a **Photo gallery**. Any signed-in member can add photos. Select Upload photo to choose a file, crop, and confirm upload: **1:1** is the default, or choose **Freeform** and drag the selection or its bottom-right corner. Photos are saved as still JPGs. Original images must be **5 MB or smaller**; oversized files show a warning.
 
 - Photos appear in a square grid. Open a photo to see the full image and uploader name.
 - Select **♡ / ♥** to like or unlike a photo. Each member contributes one like per photo.

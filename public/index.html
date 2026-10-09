@@ -719,7 +719,9 @@
     .photo-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
     .photo-card { min-width:0; }
     .photo-like {display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:5px 2px;margin:0;font-size:16px;color:var(--muted);width:auto;}
-    .photo-like[aria-pressed="true"] {color:var(--like);}
+    .photo-like svg {width:20px;height:20px;fill:none;stroke:#d6c9be;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;filter:none;}
+    .photo-like[aria-pressed="true"] svg {fill:#e65362;stroke:#e9a6ad;}
+    .photo-like,.photo-like:hover {box-shadow:none;background:transparent;}
     .photo-like small {font-size:12px;}
     .photo-crop {width:min(600px,calc(100vw - 24px));}
     .photo-crop select,.photo-crop input {margin:8px 0;}
@@ -2629,6 +2631,7 @@
         if (view === 'profile' && profileId === owner && latest) renderProfile(latest);
       }
     }
+    function photoHeart(){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d','M12 20.2C10.8 19.2 3 13.9 3 8.7C3 5.6 5 3.8 7.7 3.8C9.5 3.8 11 4.8 12 6.3C13 4.8 14.5 3.8 16.3 3.8C19 3.8 21 5.6 21 8.7C21 13.9 13.2 19.2 12 20.2Z');svg.append(path);return svg;}
     async function galleryAction(owner,photo,action,body={}) {
       const album=await api('/api/photos/'+photo.id+'/'+action,{method:'POST',body:JSON.stringify(body)});
       galleryCache.set(owner,album);return api('/api/state');
@@ -2644,15 +2647,16 @@
     }
     function galleryNode(person,mine) {
       const owner=person.id,album=galleryCache.get(owner),box=el('section',{class:'panel stack gallery-panel'},el('h2',{},pair('相册','Photo gallery')));
-      const input=el('input',{type:'file',accept:'image/*','aria-label':'上传照片 / Upload photo'});
-      const upload=el('form',{class:'stack',onsubmit:async event=>{
-        event.preventDefault();const file=input.files?.[0];if(!file)return;const button=event.currentTarget.querySelector('button');button.disabled=true;
-        try{const photo=await window.cropPhoto(file);if(!photo){button.disabled=false;return;}const body=new FormData();body.set('photo',photo);const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});const data=await res.json();if(!res.ok)throw new Error(data.error==='too_large'?'每张图片不能超过 5 MB。 / Each photo must be under 5 MB.':errorText(data.error));galleryCache.set(owner,data);const state=await api('/api/state');latest=state;render(state);}catch(error){showBanner(error.message);button.disabled=false;}
-      }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));box.append(upload);
+      const input=el('input',{type:'file',accept:'image/*',hidden:true,'aria-label':'上传照片 / Upload photo'});
+      const button=el('button',{class:'nav-btn',type:'button',onclick:()=>input.click()},pair('上传照片','Upload photo'));
+      input.addEventListener('change',async()=>{
+        const file=input.files?.[0];if(!file)return;button.disabled=true;
+        try{const photo=await window.cropPhoto(file);if(!photo)return;const body=new FormData();body.set('photo',photo);const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});const data=await res.json();if(!res.ok)throw new Error(data.error==='too_large'?'每张图片不能超过 5 MB。 / Each photo must be under 5 MB.':errorText(data.error));galleryCache.set(owner,data);const state=await api('/api/state');latest=state;render(state);}catch(error){showBanner(error.message);}finally{button.disabled=false;input.value='';}
+      });box.append(el('div',{class:'stack'},input,button));
       if(!album){box.append(el('p',{class:'hint'},pair('正在加载…','Loading…')));loadGallery(owner);return box;}
       if(album.error){box.append(el('p',{class:'hint'},album.error),el('button',{class:'nav-btn',type:'button',onclick:()=>loadGallery(owner)},pair('重试','Retry')));return box;}
       const grid=el('div',{class:'photo-grid'});
-      for(const photo of album.photos){const card=el('div',{class:'photo-card'},el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo,owner,mine)},el('img',{src:photo.url,alt:'',loading:'lazy'})),el('button',{class:'photo-like',type:'button','aria-label':photo.liked?'取消点赞 / Unlike':'点赞 / Like','aria-pressed':String(Boolean(photo.liked)),onclick:()=>run(()=>galleryAction(owner,photo,'like',{liked:!photo.liked}))},photo.liked?'♥':'♡',el('small',{},String(photo.likes||0))));grid.append(card);}
+      for(const photo of album.photos){const card=el('div',{class:'photo-card'},el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo,owner,mine)},el('img',{src:photo.url,alt:'',loading:'lazy'})),el('button',{class:'photo-like',type:'button','aria-label':photo.liked?'取消点赞 / Unlike':'点赞 / Like','aria-pressed':String(Boolean(photo.liked)),onclick:()=>run(()=>galleryAction(owner,photo,'like',{liked:!photo.liked}))},photoHeart(),el('small',{},String(photo.likes||0))));grid.append(card);}
       box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));return box;
     }
 
