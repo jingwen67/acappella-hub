@@ -462,6 +462,11 @@
 
     #score-setup { display: grid; gap: 12px; margin-top: 22px; }
 
+    .past-round>summary {cursor:pointer;font-size:16px;font-weight:600;overflow-wrap:anywhere;}
+    .past-round-body {margin-top:14px;}
+    .history-closed {display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+    .history-closed .pair {flex-direction:row;gap:6px;}
+    .history-closed .pair .en {font-size:inherit;}
     .history h2 { font-size: 1.2rem; }
 
     .person-row {
@@ -2157,6 +2162,7 @@
       round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, children));
     }
 
+    const historyExpanded=new Map();
     function renderHistory(rounds) {
       history.replaceChildren();
       if (!rounds.length) return;
@@ -2173,16 +2179,16 @@
         const rows = item.pollType==='parts' ? ['A','B'].flatMap(part=>[el('h4',{},part==='A'?item.partA:item.partB),...visibleCandidates.filter(candidate=>candidate.part===part).map(resultRow)]) : visibleCandidates.length
           ? visibleCandidates.map(resultRow)
           : [el('p', { class: 'hint' }, t('noCandidates'))];
-        history.append(el('section', { class: 'card' },
-          el('h3', {}, item.title),
+        history.append(el('details', { class: 'card past-round',open:historyExpanded.get(item.id)??item.id===rounds[0].id,'data-phase-id':item.id,ontoggle:event=>{if(!event.target.isConnected)return;const defaultOpen=item.id===rounds[0].id;if(event.target.open===defaultOpen)historyExpanded.delete(item.id);else historyExpanded.set(item.id,event.target.open);}},
+          el('summary', {}, item.title),
+          el('div',{class:'stack past-round-body'},
           item.pollType&&item.pollType!=='solo'?el('p',{class:'meta'},pollTypeLabel(item.pollType)):null,
-          when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
-          item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
+          when ? el('p', { class: 'meta history-closed' }, pair('已结束','Closed'),' '+when) : null,
           item.canSeeResults ? resultsToggle(item) : null,
           ...rows,
           item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
-        ));
+        )));
       }
     }
 
