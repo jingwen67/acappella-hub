@@ -236,9 +236,15 @@ try {
  await api('/api/google/settings','member',{clientId:'x'},403);
  await api('/api/google/settings','admin',{clientId:'test.apps.googleusercontent.com',clientSecret:'test-secret',spreadsheet:'',parentFolder:''});
  r=await mf.dispatchFetch('https://hub.test/api/google/connect',{headers:{Cookie:cookies.admin},redirect:'manual'});assert.equal(r.status,302);assert.equal(new URL(r.headers.get('location')).searchParams.get('redirect_uri'),'https://hub.test/api/google/callback');
- await api(`/api/phases/${phaseId}/delete`,'admin',{});
+ const preservedResults=(await api('/api/state','admin')).history.find(p=>p.id===phaseId).candidates;
+ await query('UPDATE cucac.phases SET solo_results=NULL WHERE id=$1',[phaseId]);await postgres.exec(fs.readFileSync('vercel/solo-results-schema.sql','utf8'));await postgres.exec(fs.readFileSync('vercel/solo-results-schema.sql','utf8'));assert.deepEqual((await api('/api/state','admin')).history.find(p=>p.id===phaseId).candidates,preservedResults);
  album=await uploadPhoto('md');const cleanupPhoto=album.photos[0];
  await api(`/api/admin/users/${member.user.id}/delete`,'admin',{});
+ await postgres.exec(fs.readFileSync('vercel/solo-results-schema.sql','utf8'));
+ assert.deepEqual((await api('/api/state','admin')).history.find(p=>p.id===phaseId).candidates,preservedResults);
+ const retainedPublic=(await api('/api/plan/results?songId='+linkedSongId,'md')).history.find(p=>p.id===phaseId);assert.ok(retainedPublic.candidates.some(c=>c.id===member.user.id));assert.ok(retainedPublic.candidates.every(c=>!('likes' in c)&&!('again' in c)));
+ await api(`/api/phases/${phaseId}/delete`,'admin',{});
+ console.log('PASS: immutable Solo history survives candidate/voter deletion, migration backfill is idempotent, linked results retain deleted names and private counts remain protected.');
  await api('/api/photos/'+cleanupPhoto.id,'md',undefined,404);
  const photoFiles=await mf.getR2Bucket('FILES');assert.equal(await photoFiles.get('photos/'+cleanupPhoto.id+'.png'),null);
  state=await api('/api/state','md');assert.equal(state.members.some(x=>x.id===member.user.id),false);

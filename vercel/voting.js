@@ -24,7 +24,9 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
    await c.query('UPDATE cucac.phases SET started_at=$1,registration_locked=$2,candidate_order=$3 WHERE id=$4',[new Date().toISOString(),candidates.length===2?1:0,JSON.stringify(candidates),id]);
   }else if(action==='close'){
    if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
-   await c.query("UPDATE cucac.phases SET status='closed',closed_at=$1 WHERE id=$2",[new Date().toISOString(),id]);
+   const resultRows=(await c.query(`SELECT u.id,u.name,count(v.candidate_id) FILTER (WHERE v.reaction='like')::int AS likes,count(v.candidate_id) FILTER (WHERE v.reaction='again')::int AS again FROM cucac.candidacies ca JOIN cucac.users u ON u.id=ca.user_id LEFT JOIN cucac.votes v ON v.phase_id=ca.phase_id AND v.candidate_id=ca.user_id WHERE ca.phase_id=$1 GROUP BY u.id,u.name`,[id])).rows.sort((a,b)=>b.likes-a.likes||a.name.localeCompare(b.name,'zh'));
+   let rank=0,last=null;const snapshot=resultRows.map(row=>{if(row.likes!==last){rank++;last=row.likes;}return {...row,rank};});
+   await c.query("UPDATE cucac.phases SET status='closed',closed_at=$1,solo_results=$2::jsonb WHERE id=$3",[new Date().toISOString(),JSON.stringify(snapshot),id]);
   }else if(action==='candidacy'){
    if(p.registration_locked)throw fail(403,'registration_locked');
    if(body.join){if(!candidates.includes(user.id)){

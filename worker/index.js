@@ -110,7 +110,7 @@ export default {
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'closed'
@@ -361,6 +361,7 @@ export default {
     }
     async function rankedResults(phase,account){
       if (phase.poll_type!=='solo') return (await env.voting.view(phase,account)).candidates;
+      if(Array.isArray(phase.solo_results))return phase.solo_results.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?{...c,isMe:c.id===account.id}:{id:c.id,name:c.name,rank:c.rank,isMe:c.id===account.id});
       const all=(await loadCandidates(phase.id,account.id,true)).sort(byScore);
       let rank=0,last=null;
       const ranked=all.map(c=>{if(c.likes!==last){rank++;last=c.likes;}return {...c,rank};});
