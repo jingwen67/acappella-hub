@@ -476,10 +476,14 @@ export function createGoogle(storage) {
     });
   }
   async function recordPlanSemesters(jobs){
-    const sheet=await spreadsheet();const existing=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
+    const sheet=await spreadsheet();
+    const params=new URLSearchParams({ranges:`${sheet.quoted}!A:Z`,fields:'sheets(data(startRow,rowData(values(formattedValue,hyperlink,userEnteredValue,textFormatRuns(format(link))))))'});
+    const grid=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}?${params}`);
+    const values=[],cellRows=[];for(const block of grid.sheets?.[0]?.data||[])for(let i=0;i<(block.rowData||[]).length;i++){const index=(block.startRow||0)+i;cellRows[index]=block.rowData[i].values||[];values[index]=cellRows[index].map(cell=>cell.formattedValue??cell.userEnteredValue?.stringValue??'');}
+    const existing={values};
     const keys=(existing.values?.[0]||[]).map(columnKey),semesterColumn=keys.indexOf('semester'),linkColumn=keys.indexOf('link'),titleColumn=keys.indexOf('title');if(semesterColumn<0||linkColumn<0||titleColumn<0)throw fail(400,'sheet_headers');
     const normalize=v=>String(v||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
-    const rows=(existing.values||[]).slice(1).map((cells,i)=>({cells,row:i+2,folder:parseFolderId(cells[linkColumn]),title:normalize(cells[titleColumn])}));
+    const rows=(existing.values||[]).slice(1).map((cells,i)=>({cells,row:i+2,folder:(()=>{const cell=cellRows[i+1]?.[linkColumn]||{};const ids=[cell.hyperlink,...(cell.textFormatRuns||[]).map(run=>run.format?.link?.uri),cell.userEnteredValue?.formulaValue,cells[linkColumn]].map(parseFolderId).filter(Boolean);return [...new Set(ids)].length===1?ids[0]:'';})(),title:normalize(cells[titleColumn])}));
     const titleRows=new Map(),jobTitles=new Map(),matched=new Map(),done=[];
     for(const row of rows)if(row.title){if(!titleRows.has(row.title))titleRows.set(row.title,[]);titleRows.get(row.title).push(row);}
     for(const job of jobs){const title=normalize(job.title||(job.folder_id.startsWith('title:')?job.folder_id.slice(6):''));if(title){if(!jobTitles.has(title))jobTitles.set(title,new Set());jobTitles.get(title).add(job.folder_id);}}
