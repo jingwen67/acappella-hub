@@ -2113,12 +2113,12 @@
         el('h2', {}, phase.title),
         el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
         el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
-        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始竞选。','Registration is open. Waiting for the MD to start auditions.')):null,
+        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始投票。','Registration is open. Waiting for the MD to start voting.')):null,
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
       if (phase.canSeeResults) children.push(resultsToggle(phase));
-      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始竞选','Start auditions')));
+      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
 
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
