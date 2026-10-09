@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
 const state=JSON.parse(fs.readFileSync(process.argv[2]||'/tmp/plan-state.json','utf8'));
-state.phase=null;state.user.isMd=true;state.admin={rounds:[{id:777,title:'Past Solo',status:'closed',pollType:'solo',openedBy:'MD',planSongId:1,planSongTitle:'江南'}]};
+state.uiVersion='';state.phase=null;state.user.isMd=true;state.admin={rounds:[{id:777,title:'Past Solo',status:'closed',pollType:'solo',openedBy:'MD',planSongId:1,planSongTitle:'江南'}]};
 const people=state.members.filter(m=>!m.isAlumni&&!m.isCrew).map(m=>({id:m.id,name:m.fullName||m.name,voiceParts:m.voiceParts}));
 state.library={...(state.library||{}),ready:true,semesters:[{id:10,label:'2026 Fall'},{id:11,label:'2025 Fall'}]};
 const data={terms:[{id:1,label:'2026 Fall',is_current:true,archived:false},{id:2,label:'2025 Fall',is_current:false,archived:true}],term:{id:1,label:'2026 Fall',isCurrent:true,archived:false},canManage:true,canChoose:true,members:people,songs:[{id:1,title:'江南',folderUrl:'https://drive.google.com/drive/folders/song1',locked:false,entries:[]},{id:2,title:'天黑黑',folderUrl:'',locked:true,entries:[]}]};

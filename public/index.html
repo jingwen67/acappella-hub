@@ -1971,7 +1971,7 @@
       if(!recordings?.length)return null;
       return el('div',{class:'stack recordings'},recordings.map(recording=>el('div',{class:'stack'},includeNames?el('p',{class:'meta'},recording.name):null,
         el('audio',{controls:true,preload:'none',src:recording.url,onplay:()=>{freezeRender=true;},onpause:()=>{if(!captureSession)freezeRender=false;},onended:()=>{if(!captureSession)freezeRender=false;},onerror:()=>{if(!captureSession)freezeRender=false;}}),
-        recording.canDelete?el('button',{type:'button',class:'nav-btn',onclick:()=>{if(window.confirm(both('delete_recording_confirm')))run(()=>api(`/api/recordings/${recording.id}/delete`,{method:'POST',body:'{}'}));}},pair('删除录音','Delete recording')):null)));
+        recording.canDelete?el('button',{type:'button',class:'nav-btn',onclick:event=>requestInlineConfirmation(event.currentTarget,both('delete_recording_confirm'),()=>run(()=>api(`/api/recordings/${recording.id}/delete`,{method:'POST',body:'{}'})))},pair('删除录音','Delete recording')):null)));
     }
     window.addEventListener('pagehide', disposeCapture);
 
@@ -2026,6 +2026,22 @@
       );
     }
 
+    function inlineConfirmation(message,onConfirm,confirmLabel=pair('确认','Confirm'),freeze=false){
+      const box=el('div',{class:'confirm'},el('p',{class:'hint'},message));
+      let completed=false;
+      const dismiss=()=>{if(freeze)freezeRender=false;box.remove();};
+      box.append(el('div',{class:'votes'},el('button',{type:'button',class:'primary',onclick:()=>{if(completed)return;completed=true;dismiss();onConfirm();}},confirmLabel),el('button',{type:'button',class:'ghost',onclick:dismiss},t('neverMind'))));
+      return box;
+    }
+    function requestInlineConfirmation(anchor,message,onConfirm,confirmLabel){
+      anchor.parentElement?.querySelector(':scope > .inline-confirmation')?.remove();
+      const box=inlineConfirmation(message,onConfirm,confirmLabel);box.classList.add('inline-confirmation');anchor.insertAdjacentElement('afterend',box);
+    }
+    function duetCloseControl(phase,action){
+      const holder=el('div',{class:'stack'});
+      holder.append(el('button',{type:'button',class:'primary',onclick:()=>{if(holder.querySelector('.confirm'))return;freezeRender=true;holder.append(inlineConfirmation(t('closeHint'),()=>action('close'),t('confirmClose'),true));}},t('close')));
+      return holder;
+    }
     function pollTypeLabel(kind) {
       return kind === 'pair' ? pair('组合投票', 'Pair Voting') : kind === 'parts' ? pair('分声部投票', 'Part Voting') : pair('Solo 投票', 'Solo Voting');
     }
@@ -2083,7 +2099,7 @@
       }
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
-      if (data.user.isMd||data.user.isAdmin) children.push(el('button',{type:'button',class:'primary',onclick:()=>{if(window.confirm(both('closeHint')))action('close');}},pair('结束投票','Close voting')));
+      if (data.user.isMd||data.user.isAdmin) children.push(duetCloseControl(phase,action));
       round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
     }
 
@@ -2693,7 +2709,7 @@
       const actions=el('div',{class:'photo-actions'});
       actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>dialog.close()},pair('关闭','Close')));
       if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{dialog.close();run(()=>galleryAction(owner,photo,photo.isManualAvatar?'clear-avatar':'avatar'));}},pair(photo.isManualAvatar?'取消设为头像':'设为头像',photo.isManualAvatar?'Use automatic avatar':'Set as avatar')));
-      if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{if(!confirm('删除这张照片？ / Delete this photo?'))return;dialog.close();run(()=>galleryAction(owner,photo,'delete'));}},pair('删除','Delete')));
+      if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:event=>requestInlineConfirmation(event.currentTarget,pair('删除这张照片？','Delete this photo?'),()=>{dialog.close();run(()=>galleryAction(owner,photo,'delete'));})},pair('删除','Delete')));
       dialog.append(actions,el('img',{src:photo.url,alt:''}),el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
       dialog.addEventListener('close',()=>dialog.remove());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});document.body.append(dialog);dialog.showModal();
     }
