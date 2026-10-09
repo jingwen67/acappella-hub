@@ -290,6 +290,7 @@ try {
  let vid=v.phase.id;assert.equal(v.phase.votingMode,'default');assert.equal(v.phase.started,false);
  await api(`/api/phases/${vid}/candidacy`,'md',{join:true});
  await api(`/api/phases/${vid}/candidacy`,'outsider',{join:true});
+ const waitingCandidates=await api('/api/state','md');assert.equal(waitingCandidates.phase.candidateCount,2);assert.deepEqual(waitingCandidates.phase.candidates,[]);assert.equal(waitingCandidates.phase.iAmCandidate,true);assert.deepEqual(waitingCandidates.phase.recordings,[]);
  await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},403);
  await api(`/api/phases/${vid}/enter`,'outsider',{});assert.equal((await api('/api/state','outsider')).phase.participating,true);await api(`/api/phases/${vid}/start`,'outsider',{},403);
  v=await api(`/api/phases/${vid}/start`,'md',{});assert.equal(v.phase.registrationLocked,true);assert.equal(v.phase.participating,true);

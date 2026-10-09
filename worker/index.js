@@ -379,6 +379,7 @@ export default {
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
       const pollProgress=open?.poll_type==='solo'&&env.voting?.progress?await env.voting.progress(open,account):{};
+      const soloCandidates=open?.poll_type==='solo'?await loadCandidates(open.id,user.id,openVisible):[];
       const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
       const history = await Promise.all((songId?await env.plans.pollHistory(songId):await statements.history.all()).map(async phase => ({
         id: phase.id,
@@ -393,7 +394,7 @@ export default {
         phase: open ? (open.poll_type==='solo'&&!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:'solo',...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
-          recordings:env.recordings?await env.recordings.list(open.id,account):[],
+          recordings:open.poll_type==='solo'&&!open.started_at?[]:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
           status: open.status,
@@ -406,7 +407,8 @@ export default {
           canSeeResults: openVisible,
           pollType:open.poll_type,
           iAmCandidate: openDuet?openDuet.iAmCandidate:Boolean(await statements.isCandidate.get(open.id, user.id)),
-          candidates: openDuet?openDuet.candidates:(await loadCandidates(open.id, user.id, openVisible)).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
+          candidateCount:openDuet?openDuet.candidates.length:soloCandidates.length,
+          candidates: openDuet?openDuet.candidates:(!open.started_at?[]:soloCandidates).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
         }) : null,
         history,
         profile: publicProfile(await statements.profileById.get(account.id)),
