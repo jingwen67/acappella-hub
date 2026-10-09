@@ -65,6 +65,11 @@ try {
  await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://example.com/folder'},400);
  plan=await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://drive.google.com/drive/folders/scoreFolder'});const planSong=plan.songs[0].id;
  assert.equal(plan.songs[0].folderUrl,'https://drive.google.com/drive/folders/scoreFolder');
+ await api(`/api/plan/save/${planTerm}`,'member',{changes:[]},403);
+ await api(`/api/plan/save/${planTerm}`,'md',{changes:[{action:'entry',id:planSong,body:{memberId:member.user.id,part:'solo'}},{action:'entry',id:planSong,body:{memberId:member.user.id,part:'invalid'}}]},400);
+ assert.equal((await api('/api/plan?termId='+planTerm,'md')).songs[0].entries.length,0);
+ plan=await api(`/api/plan/save/${planTerm}`,'md',{changes:[{action:'entry',id:planSong,body:{memberId:member.user.id,part:'solo'}},{action:'entry',id:planSong,body:{memberId:member.user.id,part:'solo',remove:true}}]});assert.equal(plan.songs[0].entries.length,0);
+
  await api(`/api/plan/lock/${planSong}`,'member',{locked:true},403);
  await api(`/api/plan/lock/${planSong}`,'md',{locked:'yes'},400);
  plan=await api(`/api/plan/lock/${planSong}`,'md',{locked:true});assert.equal(plan.songs[0].locked,true);

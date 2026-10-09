@@ -1640,7 +1640,7 @@
       profileEditing = false;
       profileDraft = null;
       galleryCache.clear();
-      planSemesterId=null;planChoosing=false;planSelectedSongs.clear();planLibraryRequest++;planLibrarySemester='';planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
+      planSemesterId=null;planChoosing=false;planEditing=false;planDraftChanges=[];planSelectedSongs.clear();planLibraryRequest++;planLibrarySemester='';planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
       invitationList = null;
       issuedInvitation = null;
       detailedResults.clear();
@@ -1680,7 +1680,7 @@
 
     function restoreNavigation() {
       const [route, id, song] = location.hash.slice(1).split('/');
-      if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=null;}
+      if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planEditing=false;planDraftChanges=[];planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=null;}
       view = ['members', 'profile', 'poll', 'scores', 'plan'].includes(route) ? route : 'hub';
       profileId = id && /^\d+$/.test(id) ? Number(id) : null;
       profileFrom = window.history.state?.profileFrom || 'members';
@@ -2985,7 +2985,7 @@
 
     document.querySelector('#open-profile').addEventListener('click', () => openProfile(latest?.user?.id, 'hub'));
     document.querySelector('#profile-back').addEventListener('click', () => showView(profileFrom));
-    document.querySelector('#open-plan').addEventListener('click',()=>{planTermId=null;planSongId=null;planChoosing=false;planResetPicker();planData=null;planLoading=true;showView('plan');loadPlan();});
+    document.querySelector('#open-plan').addEventListener('click',()=>{planEditing=false;planDraftChanges=[];planTermId=null;planSongId=null;planChoosing=false;planResetPicker();planData=null;planLoading=true;showView('plan');loadPlan();});
     document.querySelector('#plan-back').addEventListener('click',()=>showView('hub'));
     document.querySelector('#open-members').addEventListener('click', () => showView('members'));
     document.querySelector('#members-back').addEventListener('click', () => showView('hub'));

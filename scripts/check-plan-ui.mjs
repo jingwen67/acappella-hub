@@ -13,23 +13,26 @@ try{
  else if(path==='/api/plan'){result=data;}
  else if(path.startsWith('/api/plan/')){const body=JSON.parse(options.body);calls.push({path,body});const id=Number(path.split('/').at(-1));
   if(path.includes('/entry/')){const memberId=body.memberId||window.planTest.user().id,song=data.songs.find(s=>s.id===id);if(body.remove)song.entries=song.entries.filter(e=>!(e.memberId===memberId&&e.part===body.part));else if(!song.entries.some(e=>e.memberId===memberId&&e.part===body.part))song.entries.push({memberId,name:people.find(p=>p.id===memberId)?.name||'Singer',part:body.part});}
+  if(path.includes('/save/'))data.songs=structuredClone(window.planTest.data().songs);
   if(path.includes('/lock/'))data.songs.find(s=>s.id===id).locked=body.locked;
   if(path.includes('/big/'))data.songs.find(s=>s.id===id).bigSong=body.bigSong;
   if(path.includes('/add/'))data.songs.push({id:3,title:body.title,folderUrl:'',locked:false,entries:[]});result=data;}
  return {ok:true,json:async()=>structuredClone(result)};};
  const html=fs.readFileSync('public/index.html','utf8'),main=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].find(m=>m[1].includes('const loading'))[1];
- window.eval(fs.readFileSync('public/plan.js','utf8')+'\n'+main+'\nwindow.planTest={name:planMemberName,user:()=>latest.user,open:planOpenSong,rerender:()=>render(latest),member:()=>{latest.user={id:'+people[0].id+',isAdmin:false,isMd:false};latest.profile={isAlumni:false,isCrew:false,voiceParts:["alto"]};planData.canManage=false;planData.canChoose=false;renderPlan();},archive:()=>{planData.term.archived=true;renderPlan();}};');
+ window.eval(fs.readFileSync('public/plan.js','utf8')+'\n'+main+'\nwindow.planTest={data:()=>planData,name:planMemberName,user:()=>latest.user,open:planOpenSong,rerender:()=>render(latest),member:()=>{latest.user={id:'+people[0].id+',isAdmin:false,isMd:false};latest.profile={isAlumni:false,isCrew:false,voiceParts:["alto"]};planData.canManage=false;planData.canChoose=false;renderPlan();},archive:()=>{planData.term.archived=true;renderPlan();}};');
  assert.equal(window.planTest.name({fullName:'Jingwen Zhang',name:'login67'}),'Jingwen');assert.equal(window.planTest.name({fullName:'',name:'login67'}),'login67');
  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));await tick();await tick();const doc=window.document;
  assert.ok(doc.querySelector('#open-plan').textContent.includes('这学期唱什么'));assert.equal(doc.querySelector('#browse-lineup'),null);
  doc.querySelector('#open-plan').click();await tick();await tick();const body=doc.querySelector('#plan-body');assert.doesNotMatch(body.textContent,/null/);
  assert.deepEqual([...doc.querySelectorAll('.plan-table thead th')].slice(1).map(n=>n.textContent),['Solo','Soprano','Alto','Tenor','Baritone','Bass','Bbox']);
  assert.equal(doc.querySelector('.plan-table tbody tr th .plan-song-title').textContent,'江南');assert.equal(doc.querySelector('.plan-table tbody tr th a').href,'https://drive.google.com/drive/folders/song1');
- data.songs[1].bigSong=true;doc.querySelector('tr[data-song-id="2"] th input').checked=true;doc.querySelector('tr[data-song-id="2"] th input').dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(doc.querySelector('.plan-table tbody tr').dataset.songId,'2');doc.querySelector('tr[data-song-id="2"] th input').checked=false;doc.querySelector('tr[data-song-id="2"] th input').dispatchEvent(new window.Event('change'));await tick();await tick();
- assert.doesNotMatch(body.textContent,/Solo 由 MD 安排/);
- const big=doc.querySelector('tr[data-song-id="1"] th input[type="checkbox"]');assert.ok(!big.disabled);big.checked=true;big.dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(calls.at(-1).path,'/api/plan/big/1');assert.equal(calls.at(-1).body.bigSong,true);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').checked);
- assert.equal(doc.querySelectorAll('input[aria-label*="Lock signup"]').length,0);assert.equal(doc.querySelectorAll('.plan-results').length,2);
- const soloForm=doc.querySelector('tr[data-song-id="1"] td[data-part="solo"] form');soloForm.elements.memberId.value=String(people[0].id);soloForm.dispatchEvent(new window.Event('submit',{cancelable:true}));await tick();await tick();assert.equal(calls.at(-1).body.part,'solo');
+ assert.equal(doc.querySelectorAll('.plan-cell-add').length,0);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').disabled);
+ doc.querySelector('#plan-edit-toggle').click();assert.ok(doc.querySelectorAll('.plan-cell-add').length>0);
+ const beforeCalls=calls.length;const big=doc.querySelector('tr[data-song-id="1"] th input');big.checked=true;big.dispatchEvent(new window.Event('change'));await tick();assert.equal(calls.length,beforeCalls);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').checked);
+ const reopen=doc.querySelector('tr[data-song-id="1"] th input');reopen.checked=false;reopen.dispatchEvent(new window.Event('change'));await tick();
+ const soloForm=doc.querySelector('tr[data-song-id="1"] td[data-part="solo"] form');soloForm.elements.memberId.value=String(people[0].id);soloForm.dispatchEvent(new window.Event('submit',{cancelable:true}));await tick();assert.equal(calls.length,beforeCalls);
+ doc.querySelector('#plan-edit-toggle').click();await tick();await tick();assert.equal(calls.at(-1).path,'/api/plan/save/1');assert.equal(calls.at(-1).body.changes.length,3);assert.equal(doc.querySelectorAll('.plan-cell-add').length,0);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').disabled);
+ doc.querySelector('#plan-edit-toggle').click();
  [...doc.querySelectorAll('#plan button')].find(b=>b.textContent.includes('Add / manage songs')).click();await tick();await tick();assert.equal(doc.querySelectorAll('.plan-library-choice').length,2);
  const source=doc.querySelector('#plan select[aria-label="曲库学期 / Library semester"]');source.value='11';source.dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(calls.at(-1).source,'11');assert.equal(doc.querySelectorAll('.plan-library-choice').length,1);
  const search=doc.querySelector('#plan input[aria-label="搜索曲库 / Search score library"]');search.value='Older';search.dispatchEvent(new window.Event('input'));const choice=doc.querySelector('.plan-library-choice input');choice.checked=true;choice.dispatchEvent(new window.Event('change'));
