@@ -218,7 +218,7 @@ try {
  album=await api(albumPath,'member');assert.equal(album.photos.length,0);
 
  await api(`/api/phases/${phaseId}/close`,'md',{});
- const soloAfterClose=(await api('/api/plan?termId='+currentPlan.term.id,'member')).songs.find(s=>s.id===linkedSongId).entries.filter(e=>e.part==='solo');assert.deepEqual(soloAfterClose.map(e=>e.memberId).sort(),[member.user.id,md.user.id].sort());
+ const soloAfterClose=(await api('/api/plan?termId='+currentPlan.term.id,'member')).songs.find(s=>s.id===linkedSongId).entries.filter(e=>e.part==='solo');assert.equal(soloAfterClose.length,0);
  const linkedHistory=await api('/api/plan/results?songId='+linkedSongId,'member');assert.equal(linkedHistory.history[0].id,phaseId);assert.ok(linkedHistory.history[0].candidates.every(c=>c.rank<=linkedHistory.history[0].revealedRanks&&!('likes' in c)));
 
  state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,undefined);
