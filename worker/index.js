@@ -4,7 +4,7 @@ import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redire
 import { database, boundedBody, hashPassword, verifyPassword, initialize, responseSink } from './runtime.js';
 import { assets } from './assets.js';
 import { galleryService } from '../gallery.js';
-import {readVoiceParts,validateVoiceParts} from './voice-parts.js';
+import {readVoiceParts,validateVoiceParts,readVoiceSettings,voiceSettingsFromBody} from './voice-parts.js';
 export default {
   async fetch(request, env) {
     if (!env.DB || !env.FILES) return new Response('Storage unavailable', {
@@ -269,6 +269,7 @@ export default {
         pronouns: row.pronouns || '',
         voicePart: readVoiceParts(row.voice_part).join(' / '),
         voiceParts: readVoiceParts(row.voice_part),
+        primaryVoicePart:readVoiceSettings(row.voice_part).primary,secondaryVoiceParts:readVoiceSettings(row.voice_part).secondary,
         school: row.school || '',
         gradYear: row.grad_year || '',
         program: row.program || '',
@@ -625,7 +626,7 @@ export default {
           if (gradRaw && !/^\d{4}$/.test(gradRaw)) throw fail(400, 'grad_year');
           if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
           const optional = (value, max) => value == null || String(value).trim() === '' ? '' : cleanText(value, max);
-          await statements.saveProfile.run(fullName, pronouns, '', JSON.stringify(body.voiceParts===undefined?readVoiceParts(body.voicePart):validateVoiceParts(body.voiceParts)), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
+          await statements.saveProfile.run(fullName, pronouns, '', JSON.stringify(voiceSettingsFromBody(body,(await statements.profileById.get(user.id)).voice_part)), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
           if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,user.id);
           send(res, 200, await stateFor(user));
           return;
@@ -635,7 +636,7 @@ export default {
           const actor=await statements.profileById.get(user.id);
           if(id!==user.id&&!actor.is_admin&&!actor.is_md)throw fail(403,'forbidden');
           const target=await statements.profileById.get(id);if(!target)throw fail(404,'not_found');
-          const body=await readBody(req);const parts=validateVoiceParts(body.voiceParts);
+          const body=await readBody(req);const parts=voiceSettingsFromBody(body,target.voice_part);
           if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
           await db.prepare('UPDATE users SET voice_part = ? WHERE id = ?').run(JSON.stringify(parts),id);
           if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,id);

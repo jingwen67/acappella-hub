@@ -137,3 +137,7 @@ MD 可编辑已结束 Solo 投票的名称和关联歌曲，包括归档学期�
 ### Solo 历史结果保存
 
 运行 `vercel/solo-results-schema.sql`，向私有 phases 表增加 solo_results JSONB 并为仍存在的已结束 Solo 轮次保存结果。新轮次结束时在同一事务保存姓名、票数和并列排名；删除成员清理账号关联表后仍从结果记录读取，原有展示权限不变。迁移可重复运行且不会覆盖已有结果记录。
+
+### Primary / Secondary voice settings
+
+voice_part 向后兼容字符串与旧数组，新保存为 primary / secondary JSON 对象，无需迁移。旧单声部直接视为 Primary；旧多选按标准声部顺序取首项作为初始 Primary，其余作为 Secondary，成员可自行重新选择。大歌读取在学期行锁下同步，仅对未归档学期的 Active 成员执行：保留可唱声部内的安排，删除范围外安排，无有效安排则补主声部。MD 可安排到任意一个或多个 Primary / Secondary，Solo 不受影响。

@@ -727,6 +727,8 @@
     .crew-media-choice {border-top:1px solid var(--line);padding-top:12px;margin-top:0;}
     .crew-media-choice label {display:flex;align-items:center;gap:6px;font:inherit;font-size:14px;}
     .crew-media-choice input {width:auto;min-height:0;margin:0;}
+    .voice-part-settings legend {font-size:13px;color:var(--muted);font-weight:500;margin-bottom:6px;}
+    .voice-part-settings fieldset {border:0;padding:0;margin:0;}
     .voice-choices label {display:flex;align-items:center;gap:6px;font-size:14px;}
     .voice-choices input {width:auto;min-height:0;margin:0;}
     .roster-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;}
@@ -2196,9 +2198,10 @@
     const voiceLabel=part=>part==='bbox'?'Bbox':part.charAt(0).toUpperCase()+part.slice(1);
     let voiceFilter='all';
     let rosterSort='voice';
-    function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
-      return el('fieldset',{class:'voice-choices','aria-label':'Voice parts'},
-        voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
+    function voiceChoices(person,disabled=false,selected=person.voiceParts||[],primary=person.primaryVoicePart||selected[0]||'') {
+      const secondary=selected.filter(p=>p!==primary);const box=el('div',{class:'stack voice-part-settings'});
+      const second=el('fieldset',{class:'voice-choices','aria-label':'Secondary voice parts'},el('legend',{},'Secondary voice parts'),voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:secondary.includes(part),disabled:disabled||!primary||part===primary}),voiceLabel(part))));
+      const first=el('fieldset',{class:'voice-choices','aria-label':'Primary voice part'},el('legend',{},'Primary voice part'),el('label',{},el('input',{type:'radio',name:'primaryVoicePart',value:'',checked:!primary,disabled,onchange:()=>{second.querySelectorAll('input').forEach(input=>{input.checked=false;input.disabled=true;});}}),'Not set'),voiceParts.map(part=>el('label',{},el('input',{type:'radio',name:'primaryVoicePart',value:part,checked:part===primary,disabled,onchange:()=>{second.querySelectorAll('input').forEach(input=>{if(input.value===part)input.checked=false;input.disabled=disabled||input.value===part;});}}),voiceLabel(part))));box.append(first,second);return box;
     }
     function crewMediaChoice(person,disabled=false,checked=person.isCrew) {
       return el('div',{class:'crew-media-choice'},el('label',{},el('input',{type:'checkbox',name:'crewMedia',checked:Boolean(checked),disabled}),'Crew / Media'));
@@ -2208,10 +2211,10 @@
       const form=el('form',{class:'stack managed-voice-editor',onsubmit:event=>{
         event.preventDefault();
         const button=event.target.querySelector('button[type="submit"]');
-        if(!editing){editing=true;freezeRender=true;event.target.querySelectorAll('input').forEach(input=>input.disabled=false);button.textContent='Save';return;}
+        if(!editing){editing=true;freezeRender=true;event.target.querySelectorAll('input').forEach(input=>input.disabled=false);const primary=event.target.querySelector('input[name="primaryVoicePart"]:checked')?.value;event.target.querySelectorAll('input[name="voiceParts"]').forEach(input=>input.disabled=!primary||input.value===primary);button.textContent='Save';return;}
         if(busy)return;
         const parts=new FormData(event.target).getAll('voiceParts');
-        run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts,crewMedia:event.target.elements.crewMedia.checked})}));
+        run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({primaryVoicePart:new FormData(event.target).get('primaryVoicePart')||'',secondaryVoiceParts:parts,crewMedia:event.target.elements.crewMedia.checked})}));
       }},el('div',{class:'managed-voice-actions'},el('button',{type:'submit',class:'nav-btn'},'Edit')),
         voiceChoices(person,true),crewMediaChoice(person,true));
       return form;
@@ -2496,7 +2499,7 @@
             el('button', { type: 'button', class: 'ghost roster-action', onclick: beginRosterEdit }, t('editRoles')),
           );
       const activePeople=people.filter(person=>!personIsAlumni(person)&&!personIsCrew(person) && (voiceFilter==='all'||(voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter))));
-      const voiceRank=person=>{const ranks=(person.voiceParts||[]).map(part=>voiceParts.indexOf(part)).filter(rank=>rank>=0);return ranks.length?Math.min(...ranks):voiceParts.length;};
+      const voiceRank=person=>{const ranks=(person.primaryVoicePart?[person.primaryVoicePart]:person.voiceParts||[]).map(part=>voiceParts.indexOf(part)).filter(rank=>rank>=0);return ranks.length?Math.min(...ranks):voiceParts.length;};
       activePeople.sort((a,b)=>(rosterSort==='voice'?voiceRank(a)-voiceRank(b):0)||(a.fullName||a.name||'').localeCompare(b.fullName||b.name||'','en',{sensitivity:'base',numeric:true})||a.id-b.id);
       const group = (title, rows, control=null) => el('section', { class: 'stack' },
         el('div',{class:'roster-heading'},el('div',{class:'roster-heading-left'},el('h2', { class: 'roster-label' }, title),title==='Active'?el('button',{type:'button',class:'nav-btn roster-sort','aria-label':pair('切换排序方式','Switch sort order'),onclick:()=>{rosterSort=rosterSort==='voice'?'alpha':'voice';renderRoster(latest);}},rosterSort==='voice'?pair('按首字母排序','Alphabetical'):pair('按声部排序','By voice part')):null),control),
@@ -2675,7 +2678,7 @@
 
     function renderProfile(data) {
       if (!profileBody) return;
-      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="voiceParts"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');profileDraft.crewMedia=form.elements.crewMedia.checked;}}
+      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="primaryVoicePart"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');profileDraft.crewMedia=form.elements.crewMedia.checked;}}
       const person = profileId === data.user.id
         ? data.profile
         : (data.members || []).find((item) => item.id === profileId);
@@ -2727,7 +2730,7 @@
                 body: JSON.stringify({
                   fullName: form.elements.fullName.value,
                   pronouns: form.elements.pronouns.value,
-                  voiceParts: new FormData(form).getAll('voiceParts'),
+                  primaryVoicePart:new FormData(form).get('primaryVoicePart')||'',secondaryVoiceParts: new FormData(form).getAll('voiceParts'),
                   crewMedia: form.elements.crewMedia.checked,
                   school: form.elements.school.value,
                   gradYear: form.elements.gradYear.value,

@@ -23,7 +23,7 @@ function planCell(song,part){
  const entries=song.entries.filter(e=>e.part===part);
  const names=entries.map(entry=>el('div',{class:'plan-name'},el('span',{},planEntryName(entry)),open&&(manage||(part!=='solo'&&entry.memberId===latest.user.id))?planButton('×','×',()=>planAction('entry',song.id,{memberId:entry.memberId,part,remove:true}),{'aria-label':planText('移除 '+entry.name,'Remove '+entry.name),class:'nav-btn plan-remove'}):null));
  const join=open&&part!=='solo'&&planEligible()&&!mine?planButton('报名 +','Join',()=>planAction('entry',song.id,{part}),{class:'nav-btn plan-join'}):null;
- const assign=open&&manage?el('details',{class:'plan-cell-add'},el('summary',{},pair('成员 +','Singer')),el('form',{onsubmit:event=>{event.preventDefault();planAction('entry',song.id,{memberId:Number(event.target.elements.memberId.value),part});}},el('select',{name:'memberId',required:true,'aria-label':planText('为 '+planLabel(part)+' 选择成员','Choose a '+planLabel(part)+' singer')},el('option',{value:''},pair('选择成员','Choose a singer')),...(latest.members||[]).filter(m=>!entries.some(e=>e.memberId===m.id)).map(m=>el('option',{value:m.id},planMemberName(m)))),el('button',{type:'submit',class:'nav-btn'},pair('添加','Add')))):null;
+ const assign=open&&manage?el('details',{class:'plan-cell-add'},el('summary',{},pair('成员 +','Singer')),el('form',{onsubmit:event=>{event.preventDefault();planAction('entry',song.id,{memberId:Number(event.target.elements.memberId.value),part});}},el('select',{name:'memberId',required:true,'aria-label':planText('为 '+planLabel(part)+' 选择成员','Choose a '+planLabel(part)+' singer')},el('option',{value:''},pair('选择成员','Choose a singer')),...(latest.members||[]).filter(m=>!entries.some(e=>e.memberId===m.id)&&(!song.bigSong||part==='solo'||(m.voiceParts||[]).includes(part))).map(m=>el('option',{value:m.id},planMemberName(m)))),el('button',{type:'submit',class:'nav-btn'},pair('添加','Add')))):null;
  return el('td',{'data-part':part},el('div',{class:'plan-cell'},names.length?names:el('span',{class:'hint'},'—'),part==='solo'?planButton('投票结果','Voting results',()=>planShowResults(song),{class:'nav-btn plan-results'}):null,join,assign));
 }
 function planOverview(onlySong){
@@ -75,7 +75,7 @@ function planStage(action,id,body){
  const song=planData.songs.find(s=>s.id===id);if(!song)return;
  planDraftChanges.push({action,id,body});
  const add=(memberId,part)=>{if(!song.entries.some(e=>e.memberId===memberId&&e.part===part)){const member=(latest.members||[]).find(m=>m.id===memberId);song.entries.push({memberId,part,name:member?.fullName||member?.name||''});}};
- if(action==='big'){const previous=song.bigSong;song.bigSong=body.bigSong;song.locked=body.bigSong;if(body.bigSong&&!previous)for(const member of latest.members||[])if(!member.isAdmin&&!member.isAlumni&&!member.isCrew)for(const part of member.voiceParts||[])if(planParts.includes(part)&&part!=='solo')add(member.id,part);}
+ if(action==='big'){const previous=song.bigSong;song.bigSong=body.bigSong;song.locked=body.bigSong;if(body.bigSong&&!previous)for(const member of latest.members||[])if(!member.isAdmin&&!member.isAlumni&&!member.isCrew)for(const part of [member.primaryVoicePart||(member.voiceParts||[])[0]])if(planParts.includes(part)&&part!=='solo')add(member.id,part);}
  else{const memberId=body.memberId??latest.user.id;if(body.remove)song.entries=song.entries.filter(e=>!(e.memberId===memberId&&e.part===body.part));else add(memberId,body.part);}
  renderPlan();
 }
