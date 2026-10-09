@@ -2851,12 +2851,12 @@
       browseSemesterLink.href = browseCache.url;
       browseSemesterLink.textContent = browseCache.label;
       browseFolders.replaceChildren(browseCache.folders.length
-        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('a', {
+        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {style:'display:flex;align-items:center;gap:12px;flex-wrap:wrap'},el('a', {
             class: 'score-link',
             href: item.url,
             target: '_blank',
             rel: 'noopener',
-          }, item.name)))
+          }, item.name),el('a',{class:'nav-btn',href:'/pdf.html?folderId='+encodeURIComponent(item.id),style:'font-size:12px;text-decoration:none;flex-shrink:0'},pair('看 PDF','View PDF')))))
         : el('p', { class: 'hint' }, t('noFolders')));
     }
 
@@ -3082,7 +3082,7 @@
     }
 
     function renderExistingFiles() {
-      existingFiles.replaceChildren(el('p', { class: 'hint' }, t('existingFiles')));
+      existingFiles.replaceChildren(el('p', { class: 'hint' }, t('existingFiles')),el('p',{class:'hint'},pair('★ 标星指定最新版 PDF，Hub 会优先打开；只有一个 PDF 时自动选中。标星立即保存，新增 PDF 后可再次选择。','★ marks the latest PDF Hub opens by default. A single PDF is selected automatically. Stars save immediately; choose again after adding PDFs.')));
       if (!editingFiles.length) {
         existingFiles.append(el('p', { class: 'hint' }, t('noExistingFiles')));
         return;
@@ -3091,6 +3091,7 @@
         const removing = removedFiles.has(file.id);
         return el('div', { class: removing ? 'existing-file removing' : 'existing-file' },
           el('span', {}, file.name),
+          file.mimeType==='application/pdf'?el('button',{type:'button',class:'quiet',disabled:removing,style:'margin-left:auto',title:'设为默认 PDF / Set default PDF',onclick:async event=>{event.currentTarget.disabled=true;try{const data=await api('/api/scores/pdf-star?folderId='+encodeURIComponent(editingSong.folderId),{method:'POST',body:JSON.stringify({fileId:file.id})});editingSong.defaultPdfId=data.defaultPdfId;renderExistingFiles();}catch(error){showBanner(error.message);event.currentTarget.disabled=false;}}},file.id===editingSong.defaultPdfId?'★':'☆'):null,
           el('button', {
             type: 'button',
             class: 'quiet',
@@ -3185,6 +3186,7 @@
       for (const input of scoreForm.querySelectorAll('input[name="kind"]')) {
         input.checked = detail.kinds.includes(input.value);
       }
+      editingSong.defaultPdfId=detail.defaultPdfId;
       editingFiles = detail.files || [];
       removedFiles = new Set();
       renderExistingFiles();

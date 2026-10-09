@@ -1,3 +1,4 @@
+import {createPdfs} from './pdfs.js';
 import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
 import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink, mergeSemesters } from './google.js';
@@ -22,6 +23,7 @@ export default {
     });
     const db = database(env.DB);
     const google = createGoogle(env.FILES);
+    const pdfs = createPdfs(google,env.FILES);
     const gallery = galleryService({db, files:env.FILES, imageExt, fail});
     const req = {
       request,
@@ -1005,6 +1007,27 @@ export default {
           send(res, 200, {folders});
           return;
         }
+        if(pathname==='/api/plan/pdf-check'&&req.method==='GET'){
+          const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');
+          const songs=await env.plans.currentSongs(),results=[];let cursor=0;
+          await Promise.all(Array.from({length:Math.min(3,songs.length)},async()=>{while(cursor<songs.length){const song=songs[cursor++],folderId=parseFolderId(song.folder_url);if(!folderId){results.push({title:song.title,folderId:'',status:'no_folder'});continue;}try{const data=await pdfs.info(folderId);results.push({title:song.title,folderId,status:data.files.length?'ready':'missing'});}catch{results.push({title:song.title,folderId,status:'error'});}}}));
+          send(res,200,{songs:results});return;
+        }
+        if(['/api/scores/pdf-info','/api/scores/pdf-url','/api/scores/pdf-star','/api/scores/pdf-upload'].includes(pathname)){
+          const user=await requireUser(req),writing=['/api/scores/pdf-star','/api/scores/pdf-upload'].includes(pathname);
+          if(req.method!==(writing?'POST':'GET'))throw fail(405,'method_not_allowed');
+          if(writing&&!isManager(user)&&!user.isArranger)throw fail(403,'forbidden');
+          const folderId=driveId(url.searchParams.get('folderId'));if(!folderId)throw fail(404,'folder_not_found');
+          let known=await env.plans?.hasFolder(folderId);
+          if(!known)known=(await google.listScoreIndex()).some(item=>item.id===folderId);
+          if(!known)for(const semester of await statements.listSemesters.all()){const source=await statements.semesterById.get(semester.id);if(source?.folder_id&&(await google.listScoreFolders(source.folder_id)).some(item=>item.id===folderId)){known=true;break;}}
+          if(!known)throw fail(404,'folder_not_found');
+          if(pathname==='/api/scores/pdf-info')send(res,200,{...await pdfs.info(folderId),canManagePdf:Boolean(isManager(user)||user.isArranger)});
+          else if(pathname==='/api/scores/pdf-url'){const value=url.searchParams.get('fileId');if(value&&!driveId(value))throw fail(404,'pdf_not_found');send(res,200,await pdfs.content(folderId,driveId(value)));}
+          else if(pathname==='/api/scores/pdf-star'){const body=await readBody(req);const fileId=driveId(body.fileId);if(!fileId)throw fail(400,'pdf_invalid');send(res,200,await pdfs.star(folderId,fileId,user.id));}
+          else {const parts=parseMultipart(await readRaw(req,4*1024*1024),req.headers['content-type']);const files=parts.filter(p=>p.filename);if(files.length!==1||!files[0].filename.toLowerCase().endsWith('.pdf')||!files[0].body.subarray(0,1024).includes(Buffer.from('%PDF-')))throw fail(400,'pdf_invalid');const file=files[0];const uploaded=await google.uploadFile({name:file.filename.replace(/[\\/]/g,' ').slice(0,180),folderId,mime:'application/pdf',bytes:file.body});send(res,200,await pdfs.star(folderId,uploaded.id,user.id));}
+          return;
+        }
         if (req.method === 'GET' && pathname === '/api/scores/folder') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
@@ -1037,7 +1060,8 @@ export default {
             semesterId: semester.id,
             semesterOptions: row.semesterOptions||[],
             semesterLabels: String(row.semester||semester.label).split(/[,，、;]/).map(label=>label.trim()).filter(Boolean),
-            files
+            files,
+            defaultPdfId:(await pdfs.info(folderId,files)).defaultPdfId
           });
           return;
         }

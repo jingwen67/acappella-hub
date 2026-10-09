@@ -154,7 +154,9 @@ All signed-in members can play saved recordings. There is no recording time limi
 
 1. Open **Scores** from the home page.
 2. Choose a semester, such as `2026 Fall`, in the score browsing area.
-3. Open a song folder or the semester folder link to view and download scores in Google Drive.
+3. Select **View PDF** to read, turn pages, and zoom inside Hub. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
+
+Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current semester in What Are We Singing? and add a PDF. Hub PDF reading requires login and does not make scores public.
 
 An administrator must configure the Google score library first. If the page says setup is incomplete, contact an administrator. Members do not need to configure Google Cloud themselves.
 
@@ -163,7 +165,7 @@ Your website account and Google account are separate. Drive files still follow G
 <a id="upload"></a>
 ### Upload and Edit Scores
 
-Only accounts assigned the **Arranger** role can upload and edit scores. Being a Music Director or holding another club position does not automatically grant upload permission.
+Only accounts assigned the **Arranger** role can upload and edit scores. Being a Music Director or holding another club position does not automatically grant full library editing permission. MDs can add PDFs and set the default score in the PDF reader.
 
 #### Upload a New Song
 
@@ -177,14 +179,15 @@ Only accounts assigned the **Arranger** role can upload and edit scores. Being a
 
 Files are stored under `Club root folder → Semester → Song title`, with a record added to the Google Sheets score index. Common formats include PDF, MuseScore `.mscz`, MusicXML `.musicxml` / `.xml` / `.mxl`, and images.
 
-For the hosted version, **all files in one upload must total less than 20 MB**; the limit is not 20 MB per file. Add larger folders in batches. If your phone’s browser cannot select a whole folder, select multiple files instead.
+For the hosted version, **all files in one upload must total less than 4 MB**; the limit applies to the entire upload. Add larger folders in batches. If your phone’s browser cannot select a whole folder, select multiple files instead.
 
 #### Edit an Existing Song
 
 1. Select **更新已有曲目** (“Update an existing song”).
 2. Select Update an existing song beside the heading, then search the entire library or browse a semester’s Google Drive folder. Scroll through the results and select a song to open its details; the original semester is filled in automatically.
 3. Edit the title, arrangers, type, or destination semester. You can also add files and select existing files to delete.
-4. Select **Save** to apply your changes. Canceling exits without saving.
+4. Use **☆ / ★** in the file list to mark the latest PDF that Hub should open by default. Only one is starred; a single PDF is selected automatically. Stars save immediately, even if you cancel the form. After saving newly added PDFs, select the song again to star one of them.
+5. Select **Save** to apply song and file changes. Canceling exits without saving those changes.
 
 Edits affect the shared library, not just your own view. Arrangers can currently edit existing songs in the library, including songs uploaded by others. Follow the club’s agreed practices.
 

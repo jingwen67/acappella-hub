@@ -363,7 +363,7 @@ export function createGoogle(storage) {
     do {
       const params = new URLSearchParams({
         q: query,
-        fields: 'nextPageToken,files(id,name,mimeType,shortcutDetails(targetMimeType))',
+        fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,shortcutDetails(targetMimeType,targetId))',
         pageSize: '100',
         supportsAllDrives: 'true',
         includeItemsFromAllDrives: 'true'
@@ -373,15 +373,29 @@ export function createGoogle(storage) {
       for (const file of data.files || []) {
         const targetMime = file.mimeType === 'application/vnd.google-apps.shortcut' ? file.shortcutDetails?.targetMimeType : file.mimeType;
         if (targetMime === 'application/vnd.google-apps.folder') continue;
+        const targetMeta=targetMime==='application/pdf'&&file.shortcutDetails?.targetId?await googleJson(token,`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.shortcutDetails.targetId)}?fields=modifiedTime&supportsAllDrives=true`):null;
         files.push({
           id: file.id,
-          name: file.name
+          name: file.name,
+          mimeType: targetMime,
+          targetId: file.shortcutDetails?.targetId || file.id,
+          modifiedTime: targetMeta?.modifiedTime || file.modifiedTime || ''
         });
       }
       pageToken = data.nextPageToken || '';
-    } while (pageToken && files.length < 200);
+    } while (pageToken);
     files.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
     return files;
+  }
+  async function downloadPdf(fileId) {
+    const token=await accessToken();
+    const response=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:`Bearer ${token}`}});
+    if(!response.ok)throw fail(502,'pdf_read_failed');
+    const limit=40*1024*1024;
+    if(Number(response.headers.get('content-length'))>limit)throw fail(413,'pdf_too_large');
+    const reader=response.body.getReader(),chunks=[];let size=0;
+    for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw fail(413,'pdf_too_large');}chunks.push(Buffer.from(value));}
+    const bytes=Buffer.concat(chunks);if(!bytes.subarray(0,1024).includes(Buffer.from('%PDF-')))throw fail(400,'pdf_invalid');return bytes;
   }
   async function updateDriveFile(fileId, {
     name,
@@ -459,6 +473,7 @@ export function createGoogle(storage) {
     listScoreIndex,
     recordPlanSemesters,
     listFolderFiles,
+    downloadPdf,
     updateDriveFile,
     findScoreRow,
     updateScoreRow

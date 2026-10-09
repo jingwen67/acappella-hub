@@ -77,5 +77,7 @@ export function createPlans(pool){
  async function pollHistory(id){return (await pool.query("SELECT p.*,a.name AS arranger_name FROM cucac.phases p LEFT JOIN cucac.users a ON a.id=p.arranger_id WHERE p.plan_song_id=$1 AND p.status='closed' AND p.poll_type='solo' ORDER BY p.id DESC",[id])).rows;}
  async function songInfo(id){return (await pool.query('SELECT id,title FROM cucac.plan_songs WHERE id=$1',[id])).rows[0]||null;}
  async function pollSongs(){return (await pool.query('SELECT s.id,s.title,t.label,t.is_current,t.archived FROM cucac.plan_songs s JOIN cucac.plan_terms t ON t.id=s.term_id WHERE NOT s.excluded ORDER BY t.is_current DESC,t.created_at DESC,s.id')).rows;}
- return {list,mutate,sync,fromSemester,pollSong,pollHistory,songInfo,pollSongs};
+ async function hasFolder(id){return (await pool.query("SELECT 1 FROM cucac.plan_songs WHERE NOT excluded AND folder_url ~ $1 LIMIT 1",['/folders/'+id+'/?$'])).rows.length>0;}
+ async function currentSongs(){return (await pool.query('SELECT s.id,s.title,s.folder_url FROM cucac.plan_songs s JOIN cucac.plan_terms t ON t.id=s.term_id WHERE t.is_current AND NOT s.excluded ORDER BY s.id')).rows;}
+ return {hasFolder,currentSongs,list,mutate,sync,fromSemester,pollSong,pollHistory,songInfo,pollSongs};
 }
