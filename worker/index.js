@@ -1031,10 +1031,12 @@ export default {
           const arrangers = (await Promise.all(splitArrangers(row.arranger).map(async name => await ensureArranger(name)))).filter(Boolean);
           send(res, 200, {
             folderId,
-            title: match.name,
+            title: row.title || match.name,
             arrangers,
             kinds: kindsFromSheet(row.kind),
             semesterId: semester.id,
+            semesterOptions: row.semesterOptions||[],
+            semesterLabels: String(row.semester||semester.label).split(/[,，、;]/).map(label=>label.trim()).filter(Boolean),
             files
           });
           return;
@@ -1062,7 +1064,8 @@ export default {
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
           const kinds = ['all', 'group'].filter(item => picked.has(item));
           const source = await statements.semesterById.get(Number(field('sourceSemesterId')));
-          const semester = await statements.semesterById.get(Number(field('semesterId')));
+          const multiSemester = field('semesterSelection')==='1';
+          const semester = multiSemester ? source : await statements.semesterById.get(Number(field('semesterId')));
           const folderId = driveId(field('folderId'));
           if (!title) throw fail(400, 'song_required');
           if (!arranger) throw fail(400, 'arranger_required');
@@ -1111,8 +1114,8 @@ export default {
               title: match.name,
               semester: source.label
             });
-            sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
-            if (row.row) await google.updateScoreRow(row.row, sheetValues);else await google.appendRow(sheetValues);
+            if(multiSemester){const selected=[...new Set(parts.filter(part=>part.name==='semester'&&!part.filename).map(part=>cleanText(part.body.toString('utf8'),40)))];const allowed=new Set((await statements.listSemesters.all()).map(item=>item.label));for(const label of [...String(row.semester||'').split(/[,，、;]/),...(row.semesterOptions||[])])allowed.add(label.trim());if(!selected.length||selected.some(label=>!label||!allowed.has(label)))throw fail(400,'semester_missing');sheetValues.semester=selected.join(', ');}else sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
+            if (row.row) await google.updateScoreRow(row.row, sheetValues,{replaceSemesters:multiSemester});else await google.appendRow(sheetValues);
             const driveName = nextTitle === match.name ? undefined : nextTitle;
             const moveTo = source.folder_id === semester.folder_id ? '' : semester.folder_id;
             if (match.shortcutId) {

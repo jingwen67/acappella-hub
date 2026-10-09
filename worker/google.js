@@ -402,59 +402,19 @@ export function createGoogle(storage) {
       } : {})
     });
   }
-  async function listScoreIndex() {
-    const sheet = await spreadsheet();
-    const data = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
-    const keys = (data.values?.[0] || []).map(columnKey);
-    if (!keys.includes('title')) throw fail(400, 'sheet_headers');
-    return (data.values || []).slice(1).map((cells, index) => {
-      const row = {};
-      keys.forEach((key, i) => { if (key) row[key] = cells[i] || ''; });
-      return {row:index + 2, id:parseFolderId(row.link), name:String(row.title || '').trim(), semester:String(row.semester || '').trim()};
-    }).filter(item => item.name).sort((a,b) => a.name.localeCompare(b.name, 'zh'));
+  async function readScoreSheet(){
+    const sheet=await spreadsheet();const params=new URLSearchParams({ranges:`${sheet.quoted}!A:Z`,fields:'sheets(data(startRow,rowData(values(formattedValue,hyperlink,userEnteredValue,textFormatRuns(format(link)),dataValidation(condition(type,values(userEnteredValue)))))))'});
+    const grid=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}?${params}`);const values=[],cellRows=[];
+    for(const block of grid.sheets?.[0]?.data||[])for(let i=0;i<(block.rowData||[]).length;i++){const index=(block.startRow||0)+i;cellRows[index]=block.rowData[i].values||[];values[index]=cellRows[index].map(cell=>cell.formattedValue??cell.userEnteredValue?.stringValue??'');}
+    const keys=(values[0]||[]).map(columnKey);const semesterColumn=keys.indexOf('semester');const semesterOptions=[...new Set(cellRows.flatMap(row=>{const condition=row?.[semesterColumn]?.dataValidation?.condition;return condition?.type==='ONE_OF_LIST'?(condition.values||[]).map(v=>v.userEnteredValue).filter(Boolean):[];}))];if(!keys.includes('title'))throw fail(400,'sheet_headers');
+    const rows=values.slice(1).map((cells,index)=>{const mapped={row:index+2};keys.forEach((key,col)=>{if(!key)return;const cell=cellRows[index+1]?.[col]||{};mapped[key]=key==='link'?(cell.hyperlink||(cell.textFormatRuns||[]).find(run=>run.format?.link?.uri)?.format.link.uri||cell.userEnteredValue?.formulaValue||cells[col]||''):cells[col]||'';});return mapped;});return {sheet,keys,rows,semesterOptions};
   }
-  async function findScoreRow({
-    folderId,
-    shortcutId,
-    title,
-    semester
-  }) {
-    const sheet = await spreadsheet();
-    const existing = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
-    const headers = existing.values?.[0] || [];
-    if (!headers.some(header => columnKey(header))) throw fail(400, 'sheet_headers');
-    const keys = headers.map(header => columnKey(header));
-    const wantedTitle = String(title || '').trim().toLowerCase();
-    const wantedSemester = String(semester || '').trim().toLowerCase();
-    let titleHit = null;
-    for (let index = 1; index < (existing.values || []).length; index += 1) {
-      const cells = existing.values[index] || [];
-      const mapped = {};
-      keys.forEach((key, cell) => {
-        if (key) mapped[key] = cells[cell] || '';
-      });
-      const linkId = parseFolderId(mapped.link);
-      if (linkId && (linkId === folderId || shortcutId && linkId === shortcutId)) {
-        return {
-          row: index + 1,
-          ...mapped
-        };
-      }
-      const sameTitle = wantedTitle && String(mapped.title || '').trim().toLowerCase() === wantedTitle;
-      const semesterParts = String(mapped.semester || '').split(/[,，]/).map(part => part.trim().toLowerCase()).filter(Boolean);
-      const sameSemester = !wantedSemester || semesterParts.includes(wantedSemester);
-      if (sameTitle && sameSemester) titleHit = {
-        row: index + 1,
-        ...mapped
-      };
-    }
-    return titleHit || {
-      row: 0,
-      arranger: '',
-      kind: ''
-    };
+  async function listScoreIndex(){const {rows}=await readScoreSheet();return rows.map(row=>({row:row.row,id:parseFolderId(row.link),name:String(row.title||'').trim(),semester:String(row.semester||'').trim()})).filter(item=>item.name).sort((a,b)=>a.name.localeCompare(b.name,'zh'));}
+  async function findScoreRow({folderId,shortcutId,title,semester}){
+    const {rows,semesterOptions}=await readScoreSheet();for(const row of rows)row.semesterOptions=semesterOptions;const direct=rows.filter(row=>{const id=parseFolderId(row.link);return id&&(id===folderId||id===shortcutId);});if(direct.length===1)return direct[0];if(direct.length>1)throw fail(400,'sheet_song_ambiguous');
+    const normalize=v=>String(v||'').normalize('NFKC').trim().toLowerCase();const matches=rows.filter(row=>normalize(row.title)===normalize(title));if(matches.length===1)return matches[0];if(matches.length>1)throw fail(400,'sheet_song_ambiguous');return {row:0,arranger:'',kind:'',semester:''};
   }
-  async function updateScoreRow(rowNumber, values) {
+  async function updateScoreRow(rowNumber, values, {replaceSemesters=false}={}) {
     const sheet = await spreadsheet();
     const headerRes = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!1:1`)}?valueRenderOption=FORMULA`);
     const headers = headerRes.values?.[0] || [];
@@ -462,19 +422,10 @@ export function createGoogle(storage) {
     const end = columnLetter(headers.length);
     const currentRes = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A${rowNumber}:${end}${rowNumber}`)}?valueRenderOption=FORMULA`);
     const current = currentRes.values?.[0] || [];
-    const row = headers.map((header, index) => {
-      const key = columnKey(header);
-      if (!key || !Object.prototype.hasOwnProperty.call(values, key)) return current[index] || '';
-      if(key==='semester')return mergeSemesters(current[index],values[key]);
-      return values[key] || '';
-    });
-    await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A${rowNumber}:${end}${rowNumber}`)}?valueInputOption=USER_ENTERED`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        values: [row]
-      })
-    });
+    const data=headers.flatMap((header,index)=>{const key=columnKey(header);if(!key||!Object.prototype.hasOwnProperty.call(values,key))return [];const value=key==='semester'?(replaceSemesters?mergeSemesters(values[key]):mergeSemesters(current[index],values[key])):values[key]||'';return [{range:`${sheet.quoted}!${columnLetter(index+1)}${rowNumber}`,values:[[value]]}];});
+    if(data.length)await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values:batchUpdate`,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   }
+
   async function recordPlanSemesters(jobs){
     const sheet=await spreadsheet();
     const params=new URLSearchParams({ranges:`${sheet.quoted}!A:Z`,fields:'sheets(data(startRow,rowData(values(formattedValue,hyperlink,userEnteredValue,textFormatRuns(format(link))))))'});

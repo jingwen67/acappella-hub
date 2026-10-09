@@ -953,9 +953,10 @@
           </div>
           <p class="hint" data-i18n="arrangerHint">可以多选。名单里没有的话，输入名字再点添加。</p>
         </div>
-        <label><span data-i18n="semester">学期</span>
+        <label id="new-song-semester"><span data-i18n="semester">学期</span>
           <select id="semester-select" name="semesterId" required></select>
         </label>
+        <fieldset id="edit-semesters" class="kinds" hidden disabled><legend data-i18n="semester">学期</legend><div id="edit-semester-options" class="voice-choices"></div></fieldset>
         <fieldset class="kinds">
           <legend data-i18n="kind">性质</legend>
           <label><input type="checkbox" name="kind" value="all"> <span data-i18n="allMembers">大歌</span></label>
@@ -3055,6 +3056,7 @@
 
     function syncEditChrome() {
       const searching = !editPicker.hidden;
+      document.querySelector('#new-song-semester').hidden=Boolean(editingSong);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong;document.querySelector('#edit-semesters').disabled=!editingSong;
       songInfo.hidden = searching;
       songInfo.disabled = searching;
       uploadHeading.replaceChildren(t(searching || editingSong ? 'editSong' : 'uploadTitle'));
@@ -3152,9 +3154,8 @@
       const detail = await api(`/api/scores/folder?semesterId=${semesterId}&folderId=${encodeURIComponent(folderId)}`);
       editingSong = { folderId: detail.folderId, sourceSemesterId: String(detail.semesterId) };
       scoreForm.elements.title.value = detail.title;
-      if ([...semesterSelect.options].some((option) => option.value === String(detail.semesterId))) {
-        semesterSelect.value = String(detail.semesterId);
-      }
+      const selectedSemesters=detail.semesterLabels||[];const semesterLabels=[...new Set([...(latest.library?.semesters||[]).map(item=>item.label),...(detail.semesterOptions||[]),...selectedSemesters])];
+      document.querySelector('#edit-semester-options').replaceChildren(...semesterLabels.map(label=>el('label',{},el('input',{type:'checkbox',name:'semester',value:label,checked:selectedSemesters.includes(label)}),label)));
       const wanted = new Set(detail.arrangers.map((name) => name.toLowerCase()));
       for (const name of detail.arrangers) {
         const found = [...arrangerList.querySelectorAll('input')].some((input) => input.value.toLowerCase() === name.toLowerCase());
@@ -3215,6 +3216,9 @@
         return;
       }
       if (editingSong) {
+        if(!body.getAll('semester').length){showBanner(errorText('semester_missing'));return;}
+        body.delete('semesterId');
+        body.set('semesterSelection','1');
         body.set('folderId', editingSong.folderId);
         body.set('sourceSemesterId', editingSong.sourceSemesterId);
         for (const id of removedFiles) body.append('delete', id);

@@ -18,6 +18,7 @@ const originalFetch=globalThis.fetch;
 globalThis.fetch=async url=>{const u=new URL(url);let result;
  if(u.hostname==='www.googleapis.com'&&u.pathname==='/drive/v3/files'){assert.ok(u.searchParams.get('q').includes("'semesterfolder' in parents"));result={files};}
  else if(u.pathname.includes('/values/'))result={values:[['Title','Semester','Link'],['Old song','2025 Fall','https://drive.google.com/drive/folders/older']]};
+ else if(u.searchParams.has('ranges'))result={sheets:[{data:[{startRow:0,rowData:[['Title','Semester','Link'],['Old song','2025 Fall','https://drive.google.com/drive/folders/older']].map(values=>({values:values.map(formattedValue=>({formattedValue}))}))}]}]};
  else result={sheets:[{properties:{title:'Scores'}}]};return new Response(JSON.stringify(result),{status:200});};
 async function api(path,body,status=200,cookie=true){const headers=cookie?{Cookie:'solo_sid=test-session'}:{};const r=await worker.fetch(new Request('https://hub.test'+path,{headers,method:body===undefined?'GET':'POST',body:body===undefined?undefined:JSON.stringify(body)}),env);const result=await r.json();assert.equal(r.status,status,JSON.stringify(result));return result;}
 try{
