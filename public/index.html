@@ -77,7 +77,7 @@
 
     .banner {
       width: min(100% - 32px, 34rem);
-      margin: 16px auto 0;
+      position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:10000;box-shadow:0 4px 20px #0002;max-height:40vh;overflow:auto;
       padding: 10px 12px;
       border-radius: 12px;
       background: var(--soft);
@@ -1651,12 +1651,15 @@
       return node;
     }
 
+    let bannerTimer;
     function showBanner(message) {
+      clearTimeout(bannerTimer);bannerTimer=setTimeout(clearBanner,7000);
       banner.hidden = false;
       banner.textContent = message;
     }
 
     function clearBanner() {
+      clearTimeout(bannerTimer);
       banner.hidden = true;
       banner.textContent = '';
     }
@@ -1790,6 +1793,7 @@
     const hubUiVersion='__HUB_UI_VERSION__';
     function needsPageUpdate(data) {
       if(!data.uiVersion||hubUiVersion==='__HUB_UI_VERSION__'||data.uiVersion===hubUiVersion)return false;
+      clearTimeout(bannerTimer);
       banner.hidden=false;
       banner.replaceChildren(el('button',{type:'button',class:'primary',onclick:()=>location.reload()},pair('网站已更新，点击刷新','Hub has been updated. Tap to refresh')));
       return true;
@@ -1817,7 +1821,6 @@
       const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
       if (!force && (freezeRender || typing || next === snapshot)) return;
       snapshot = next;
-      clearBanner();
       showApp(data);
     }
 
@@ -2033,6 +2036,10 @@
 
     function voteProgressCard(progress){return el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.')));}
 
+    function duetWithdraw(phase,entry,disabled,action){
+      const box=el('div',{class:'confirm',hidden:true},el('p',{class:'hint'},t('withdrawHint')),el('div',{class:'votes'},el('button',{type:'button',class:'ghost',onclick:()=>{freezeRender=false;action('cancel',{entryId:entry.id});}},t('confirmWithdraw')),el('button',{type:'button',class:'ghost',onclick:()=>{freezeRender=false;box.hidden=true;}},t('neverMind'))));
+      return el('div',{class:'stack'},el('button',{type:'button',class:'nav-btn',disabled,onclick:()=>{freezeRender=true;box.hidden=false;}},pair('退出参选','Withdraw')),box);
+    }
     function renderDuetRound(data) {
       const phase = data.phase;
       const action = (name, body={}) => run(() => api(`/api/phases/${phase.id}/${name}`, {method:'POST',body:JSON.stringify(body)}));
@@ -2047,7 +2054,7 @@
         !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+(phase.candidateCount??phase.candidates.length)+' '+(phase.pollType==='pair'?'组':'人')+'已参选',(phase.candidateCount??phase.candidates.length)+' candidates registered'))));
-      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),el('button',{type:'button',class:'nav-btn',onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw'))));
+      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),duetWithdraw(phase,entry,false,action)));
       if (phase.pollType==='pair') {
         if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
           event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId'))});
@@ -2071,7 +2078,7 @@
           phase.participating?el('button',{type:'button',class:'choice is-like',disabled:!phase.started||!phase.participating,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')):null,
           recordingList((phase.recordings||[]).filter(recording=>recording.entryId===entry.id)),
           entry.isMe?recordingControls(phase,{entryId:entry.id}):null,
-          entry.isMe?el('button',{type:'button',class:'nav-btn',disabled:!canWithdraw(entry),onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw')):null,
+          entry.isMe?duetWithdraw(phase,entry,!canWithdraw(entry),action):null,
         ))):el('p',{class:'hint'},pair('还没有参选人','No candidates yet')));
       }
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
@@ -2099,7 +2106,7 @@
                 method: 'POST',
                 body: JSON.stringify({
                   title: form.get('title'),
-                  planSongId:['pair','parts'].includes(form.get('votingMode'))?null:Number(form.get('planSongId'))||null,
+                  planSongId:Number(form.get('planSongId'))||null,
                   votingMode:['pair','parts'].includes(form.get('votingMode'))?'default':form.get('votingMode'),
                   pollType:['pair','parts'].includes(form.get('votingMode'))?form.get('votingMode'):'solo',
                   partA:form.get('partA'),partB:form.get('partB'),
@@ -2114,10 +2121,10 @@
             ),
             el('label', {}, t('pollArranger'),
               el('select', { name: 'arrangerId', required: true },
-                arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
+                el('option',{value:'',selected:true},pair('请选择编曲者','Select an arranger')),arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
-            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';event.target.closest('form').querySelector('.poll-song-choice').hidden=['pair','parts'].includes(event.target.value);planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
+            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';const label=event.target.closest('form').querySelector('.poll-song-choice');label.firstChild.textContent=['pair','parts'].includes(event.target.value)?pair('为哪一首歌选 Duet？','Which song is this Duet for?'):pair('为哪首歌选 Solo？','Which song is this Solo for?');planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
             el('div',{class:'stack part-labels',hidden:true},el('label',{},pair('声部 A 名称','Part A label'),el('input',{name:'partA',maxlength:30,value:'Part A'})),el('label',{},pair('声部 B 名称','Part B label'),el('input',{name:'partB',maxlength:30,value:'Part B'}))),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));

@@ -15,3 +15,6 @@ The owner requests a game-style cumulative version log. For every completed feat
 7. Report the changelog update in the completion message. Do not send emails, group messages, or other external announcements without explicit authorization.
 
 `CHANGELOG.md` is the source of truth for announced versions and cumulative changes. This workflow starts after v1.0; the launch baseline is already documented.
+
+## Owner terminology
+“Solo” or “soloist” includes both individual and Duet voting. Apply requested shared changes to all four voting methods unless the owner explicitly limits the scope; clarify only when the distinction affects behavior.

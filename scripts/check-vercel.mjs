@@ -337,8 +337,8 @@ try {
  await api(`/api/phases/${vid}/reveal`,'md',{});
  results=(await api('/api/state','outsider')).history.find(r=>r.id===vid);assert.equal(results.candidates.length,5);assert.equal(results.candidates.at(-1).rank,3);assert.equal(results.candidates.at(-1).likes,undefined);
  // Duet pair voting: invitations require the other member's confirmation.
- let duet=await api('/api/phases','md',{title:'Two pairs',arrangerId:md.user.id,pollType:'pair'},201);
- let did=duet.phase.id;
+ let duet=await api('/api/phases','md',{title:'Two pairs',arrangerId:md.user.id,pollType:'pair',planSongId:linkedSongId},201);
+ assert.equal(duet.phase.title,'Love Yourself-Two pairs');let did=duet.phase.id;
  const users={md:md.user.id,outsider:outsider.user.id,retry:(await api('/api/state','retry')).user.id,invited:(await api('/api/state','invited')).user.id,single:(await api('/api/state','single')).user.id};
  const enterDuetUsers=async()=>{const hidden=await api('/api/state','outsider');assert.deepEqual(hidden.phase.candidates,[]);assert.equal(hidden.phase.pendingPairs,undefined);for(const who of Object.keys(users))await api(`/api/phases/${did}/enter`,who,{});};await enterDuetUsers();
  await api(`/api/phases/${did}/pair`,'md',{partnerId:users.md},400);
@@ -369,7 +369,7 @@ try {
  await api(`/api/phases/${did}/cancel`,'md',{entryId:first},403);
  await api(`/api/phases/${did}/audition`,'retry',{entryId:first,auditionUrl:'https://example.org'},403);
  await api(`/api/phases/${did}/close`,'md',{});
- let duoHistory=(await api('/api/state','md')).history.find(h=>h.id===did);assert.equal(duoHistory.pollType,'pair');assert.equal(duoHistory.candidates.every(e=>e.likes===undefined&&e.mine===undefined),true);
+ let duoHistory=(await api('/api/state','md')).history.find(h=>h.id===did);assert.equal(duoHistory.pollType,'pair');assert.ok((await api('/api/plan/results?songId='+linkedSongId,'outsider')).history.some(h=>h.id===did));assert.equal(duoHistory.candidates.every(e=>e.likes===undefined&&e.mine===undefined),true);
  assert.equal((await api('/api/state','admin')).history.find(h=>h.id===did).candidates[0].likes,1);
  await api(`/api/phases/${did}/reveal`,'admin',{},403);
  await api(`/api/phases/${did}/audition`,'md',{entryId:first,auditionUrl:'https://example.org'},400);

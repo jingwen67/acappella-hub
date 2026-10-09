@@ -683,7 +683,7 @@ export default {
           try {
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
-            const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(pollType!=='solo'||!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
+            const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
             if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
             await statements.insertPhase.run(title, user.id, arranger.id, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',songId);
           } catch (error) {
