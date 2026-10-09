@@ -140,4 +140,4 @@ MD 可编辑已结束 Solo 投票的名称和关联歌曲，包括归档学期�
 
 ### Default voice assignment and additive full-group sync
 
-Profile 恢复原来的多选声部 UI，无 Not set；后端兼容已有 voice_part JSON、数组和字符串，不需要迁移。大歌在未归档学期读取时仅补入尚无非 Solo 安排、有默认声部的 Active 成员。已有任何声部安排均保留，不删除或替换 MD 调整；MD 可跨资料声部安排。旧 primary 元数据作为默认声部兼容读取，保存原声部选项不会丢失已有数据。
+Profile 使用单选声部 UI，无 Not set；后端兼容已有 voice_part JSON、数组和字符串，不需要迁移。大歌在未归档学期读取时仅补入尚无非 Solo 安排、有默认声部的 Active 成员。已有任何声部安排均保留，不删除或替换 MD 调整；MD 可跨资料声部安排。旧 primary 元数据作为默认声部兼容读取，保存声部选项后只保留所选声部；歌曲中已有跨声部安排不受影响。

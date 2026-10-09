@@ -33,21 +33,22 @@ try {
  await api('/api/register','duplicate',{name:'Jingwen',password:'abc12345'},409);
  await api('/api/login','bad',{name:'Jingwen',password:'wrong'},401);
  await api(`/api/admin/users/${md.user.id}`,'admin',{musicDirector:true,arranger:true});
- // Multi-part profiles, canonical ordering, and narrowly scoped Admin/MD delegation.
- let voices=await api(`/api/members/${member.user.id}/voice-parts`,'member',{voiceParts:['rap','alto','alto']});
- assert.deepEqual(voices.profile.voiceParts,['alto','rap']);
+ // Single-part profiles and narrowly scoped Admin/MD delegation.
+ let voices=await api(`/api/members/${member.user.id}/voice-parts`,'member',{voiceParts:['alto','alto']});
+ assert.deepEqual(voices.profile.voiceParts,['alto']);
  await api(`/api/members/${md.user.id}/voice-parts`,'member',{voiceParts:['bass']},403);
- await api(`/api/members/${member.user.id}/voice-parts`,'md',{voiceParts:['tenor','bbox']});
+ await api(`/api/members/${member.user.id}/voice-parts`,'md',{voiceParts:['tenor']});
  await api(`/api/members/${member.user.id}/voice-parts`,'member',{voiceParts:['unknown']},400);
  await api(`/api/admin/users/${member.user.id}`,'admin',{president:true});
  await api(`/api/members/${md.user.id}/voice-parts`,'member',{voiceParts:['soprano','alto']},403);
- voices=await api(`/api/members/${md.user.id}/voice-parts`,'admin',{voiceParts:['soprano','alto']});
- assert.deepEqual(voices.members.find(p=>p.id===md.user.id).voiceParts,['soprano','alto']);
+ voices=await api(`/api/members/${md.user.id}/voice-parts`,'admin',{voiceParts:['soprano']});
+ assert.deepEqual(voices.members.find(p=>p.id===md.user.id).voiceParts,['soprano']);
  await api(`/api/admin/users/${member.user.id}`,'admin',{president:false});
  await api(`/api/members/${md.user.id}/voice-parts`,'member',{voiceParts:['bass']},403);
- await api('/api/profile','member',{fullName:'Singer',voiceParts:['baritone','bass','bbox','rap']});
- assert.deepEqual((await api('/api/state','member')).profile.voiceParts,['baritone','bass','bbox','rap']);
- console.log('PASS: multi-part profiles, canonical values, duplicate removal, invalid-part rejection, and Admin/MD-only editing of other members.');
+ await api('/api/profile','member',{fullName:'Singer',voiceParts:['baritone']});
+ assert.deepEqual((await api('/api/state','member')).profile.voiceParts,['baritone']);
+ await api('/api/profile','member',{voiceParts:['alto','tenor']},400);
+ console.log('PASS: single-part profiles, canonical values, duplicate removal, invalid-part rejection, and Admin/MD-only editing of other members.');
  // Profile opt-in moves members to Crew / Media without granting board roles.
  await api('/api/profile','member',{fullName:'Singer',voiceParts:['alto'],crewMedia:true});
  let crewProfile=(await api('/api/state','member')).profile;assert.equal(crewProfile.isCrew,true);assert.equal(crewProfile.isMedia,false);

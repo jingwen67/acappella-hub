@@ -2197,7 +2197,7 @@
     let voiceFilter='all';
     let rosterSort='voice';
     function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
-      return el('div',{class:'voice-choices'},voiceParts.map(part=>el('label',{},el('input',{type:'checkbox',name:'voiceParts',value:part,checked:selected.includes(part),disabled}),voiceLabel(part))));
+      return el('div',{class:'voice-choices'},voiceParts.map(part=>el('label',{},el('input',{type:'radio',name:'voiceParts',value:part,checked:part===selected[0],disabled}),voiceLabel(part))));
     }
     function crewMediaChoice(person,disabled=false,checked=person.isCrew) {
       return el('div',{class:'crew-media-choice'},el('label',{},el('input',{type:'checkbox',name:'crewMedia',checked:Boolean(checked),disabled}),'Crew / Media'));

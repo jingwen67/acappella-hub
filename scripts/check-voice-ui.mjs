@@ -13,7 +13,7 @@ vm.runInContext("voiceFilter='alto';renderRoster(data)",ctx);active=ctx.roster.n
 vm.runInContext("voiceFilter='unassigned';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[3]);
 vm.runInContext("voiceFilter='all';rosterSort='alpha';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[2,3,1]);
 vm.runInContext("rosterSort='voice';renderRoster(data)",ctx);active=ctx.roster.nodes.find(n=>n.tag==='section');assert.deepEqual(active.children[1].children.map(n=>n.attrs.id),[1,2,3]);
-const choices=vm.runInContext("voiceChoices({voiceParts:['alto','rap']},true)",ctx);assert.equal(choices.children.length,7);assert.equal(choices.children.filter(n=>n.children[0].attrs.checked).length,2);assert.ok(choices.children.every(n=>n.children[0].attrs.type==='checkbox'&&n.children[0].attrs.disabled));assert.ok(!JSON.stringify(choices).includes('Not set'));
+const choices=vm.runInContext("voiceChoices({voiceParts:['alto','rap']},true)",ctx);assert.equal(choices.children.length,7);assert.equal(choices.children.filter(n=>n.children[0].attrs.checked).length,1);assert.ok(choices.children.every(n=>n.children[0].attrs.type==='radio'&&n.children[0].attrs.disabled));assert.ok(!JSON.stringify(choices).includes('Not set'));
 const crewChoice=vm.runInContext("crewMediaChoice({isCrew:true},true)",ctx);assert.equal(find(crewChoice,n=>n.tag==='input').attrs.checked,true);
 const assignments=[];ctx.busy=false;ctx.run=fn=>fn();ctx.api=async(path,options)=>{assignments.push({path,body:JSON.parse(options.body)});};ctx.FormData=class{get(){return 'alto';}getAll(){return ['rap'];}};
 const editor=vm.runInContext("managedVoiceEditor({id:1,voiceParts:['alto'],isCrew:false})",ctx);
@@ -21,4 +21,4 @@ assert.equal(find(editor,n=>n.tag==='button').children[0],'Edit');assert.equal(f
 const button={textContent:'Edit'},inputs=[{disabled:true},{disabled:true}];const target={querySelector:s=>s.includes('primaryVoicePart')?{value:'alto'}:button,querySelectorAll:s=>s.includes('voiceParts')?[]:inputs,elements:{crewMedia:{checked:true}}};
 editor.attrs.onsubmit({preventDefault(){},target});assert.equal(button.textContent,'Save');assert.equal(inputs[0].disabled,false);assert.equal(assignments.length,0);
 editor.attrs.onsubmit({preventDefault(){},target});assert.equal(assignments.length,1);assert.deepEqual(assignments[0].body,{voiceParts:['rap'],crewMedia:true});
-console.log('PASS: seven multi-select parts, checked/disabled profile state, independent alphabetical/voice sorting and Active-only voice filtering.');
+console.log('PASS: seven single-select parts, checked/disabled profile state, independent alphabetical/voice sorting and Active-only voice filtering.');
