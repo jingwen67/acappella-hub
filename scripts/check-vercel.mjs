@@ -185,7 +185,7 @@ try {
  await api(`/api/phases/${phaseId}/start`,'md',{});
  await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'like'});
  let state=await api('/api/state','md');assert.equal(state.phase.candidates[0].likes,undefined);
- state=await api('/api/state','member');assert.equal(state.phase.candidates[0].likes,undefined);
+ const hiddenPoll=await api('/api/state','member');assert.equal(hiddenPoll.phase.candidates.length,0);assert.equal(hiddenPoll.phase.arranger,undefined);await api(`/api/phases/${phaseId}/enter`,'member',{});state=await api('/api/state','member');assert.equal(state.phase.candidates[0].likes,undefined);
  await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'again'});
  state=await api('/api/state','md');assert.equal(state.phase.candidates.find(c=>c.id===member.user.id).mine,'again');
  await api(`/api/phases/${phaseId}/close`,'member',{},403);
@@ -291,11 +291,11 @@ try {
  await api(`/api/phases/${vid}/candidacy`,'md',{join:true});
  await api(`/api/phases/${vid}/candidacy`,'outsider',{join:true});
  await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},403);
- await api(`/api/phases/${vid}/start`,'outsider',{},403);
+ await api(`/api/phases/${vid}/enter`,'outsider',{});assert.equal((await api('/api/state','outsider')).phase.participating,true);await api(`/api/phases/${vid}/start`,'outsider',{},403);
  v=await api(`/api/phases/${vid}/start`,'md',{});assert.equal(v.phase.registrationLocked,true);
  await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);const abstention=await api(`/api/phases/${vid}/submit`,'retry',{votes:[]});assert.equal(abstention.voteReceipt.votes.length,0);assert.equal(abstention.phase.submittedBallot.votes.length,0);assert.equal(abstention.phase.voteProgress,undefined);
- assert.equal((await api('/api/state','md')).phase.voteProgress.total,0);await api(`/api/phases/${vid}/presence`,'retry',{active:true});assert.equal((await api('/api/state','md')).phase.voteProgress.total,0);await api(`/api/phases/${vid}/enter`,'retry',{});await api(`/api/phases/${vid}/enter`,'retry',{});const progressBefore=await api('/api/state','md');assert.equal(progressBefore.phase.voteProgress.submitted,1);assert.equal(progressBefore.phase.voteProgress.abstained,undefined);assert.equal(progressBefore.phase.voteProgress.total,1);
- await api(`/api/phases/${vid}/presence`,'retry',{active:true});let progress=(await api('/api/state','md')).phase.voteProgress;assert.equal(progress.visited,1);assert.equal(progress.online,1);await query("UPDATE cucac.vote_presence SET last_seen=now()-interval '65 seconds' WHERE phase_id=$1",[vid]);assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);assert.equal((await api('/api/state','md')).phase.voteProgress.total,1);await api(`/api/phases/${vid}/enter`,'outsider',{});await api(`/api/phases/${vid}/presence`,'outsider',{active:true});assert.equal((await api('/api/state','md')).phase.voteProgress.total,2);await api(`/api/phases/${vid}/presence`,'outsider',{active:false});assert.equal((await api('/api/state','md')).phase.voteProgress.total,2);await api(`/api/phases/${vid}/presence`,'retry',{active:false});assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);
+ assert.equal((await api('/api/state','md')).phase.voteProgress.total,1);await api(`/api/phases/${vid}/presence`,'retry',{active:true});assert.equal((await api('/api/state','md')).phase.voteProgress.total,1);await api(`/api/phases/${vid}/enter`,'retry',{});await api(`/api/phases/${vid}/enter`,'retry',{});const progressBefore=await api('/api/state','md');assert.equal(progressBefore.phase.voteProgress.submitted,1);assert.equal(progressBefore.phase.voteProgress.abstained,undefined);assert.equal(progressBefore.phase.voteProgress.total,2);
+ await api(`/api/phases/${vid}/presence`,'retry',{active:true});let progress=(await api('/api/state','md')).phase.voteProgress;assert.equal(progress.visited,2);assert.equal(progress.online,2);await query("UPDATE cucac.vote_presence SET last_seen=now()-interval '65 seconds' WHERE phase_id=$1",[vid]);assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);assert.equal((await api('/api/state','md')).phase.voteProgress.total,2);await api(`/api/phases/${vid}/enter`,'outsider',{});await api(`/api/phases/${vid}/presence`,'outsider',{active:true});assert.equal((await api('/api/state','md')).phase.voteProgress.total,2);await api(`/api/phases/${vid}/presence`,'outsider',{active:false});assert.equal((await api('/api/state','md')).phase.voteProgress.total,2);await api(`/api/phases/${vid}/presence`,'retry',{active:false});assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'like'});assert.equal((await api('/api/state','retry')).phase.submittedBallot,null);assert.equal((await api('/api/state','md')).phase.voteProgress.submitted,0);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'},400);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:null});
@@ -311,9 +311,9 @@ try {
  v=await api(`/api/phases/${vid}/start`,'md',{});const order=v.phase.candidates.map(c=>c.id);
  assert.deepEqual([...order].sort((a,b)=>a-b),[md.user.id,outsider.user.id,(await api('/api/state','retry')).user.id].sort((a,b)=>a-b));
  assert.deepEqual((await api('/api/state','md')).phase.candidates.map(c=>c.id),order);
- v=await api(`/api/phases/${vid}/candidacy`,'invited',{join:true});const fourth=v.user.id;
+ await api(`/api/phases/${vid}/enter`,'invited',{});v=await api(`/api/phases/${vid}/candidacy`,'invited',{join:true});const fourth=v.user.id;
  assert.deepEqual(v.phase.candidates.slice(0,3).map(c=>c.id),order);assert.equal(v.phase.candidates.at(-1).id,fourth);
- v=await api(`/api/phases/${vid}/candidacy`,'single',{join:true});const fifth=v.user.id;
+ await api(`/api/phases/${vid}/enter`,'single',{});v=await api(`/api/phases/${vid}/candidacy`,'single',{join:true});const fifth=v.user.id;
  const ids=v.phase.candidates.map(c=>c.id);
  await api(`/api/phases/${vid}/vote`,'md',{candidateId:ids[0],reaction:'like'});
  await api(`/api/phases/${vid}/vote`,'md',{candidateId:ids[1],reaction:'like'});

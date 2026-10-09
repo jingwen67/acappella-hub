@@ -2108,6 +2108,8 @@
       }
 
       if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
+      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('参与此轮竞选','Join poll'));
+      if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
       const count = phase.candidates.length;
       const children = [
         el('h2', {}, phase.title),
@@ -2117,6 +2119,7 @@
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
+      if(!phase.participating)children.push(joinPoll());
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
 
@@ -2166,7 +2169,7 @@
         }, t('run')));
       }
 
-      if(phase.started&&!phase.participating)children.push(el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('参与投票','Join voting')));
+
 
       if (!count) {
         children.push(el('p', { class: 'hint' }, t('nobody')));
@@ -2175,7 +2178,7 @@
       }
 
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
-      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是点过「参与投票」的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who tapped Join voting, even after leaving; viewing activity uses the last minute.'))));} 
+      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.'))));} 
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',

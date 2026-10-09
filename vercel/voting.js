@@ -32,7 +32,6 @@ export function createVoting(pool){return {async progress(phase,user){
    receipt={phaseId:id,submittedAt:new Date().toISOString(),votes:votes.map(v=>({candidateId:v.candidate_id,reaction:v.reaction,name:v.name}))};
    await c.query('INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot,submitted_at) VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(phase_id,voter_id) DO UPDATE SET ballot=excluded.ballot,submitted_at=excluded.submitted_at',[id,user.id,JSON.stringify(receipt.votes),receipt.submittedAt]);
   }else if(action==='enter'){
-   if(!p.started_at)throw fail(403,'voting_not_started');
    await c.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at) VALUES($1,$2,now(),now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=coalesce(cucac.vote_presence.joined_at,excluded.joined_at),last_seen=excluded.last_seen',[id,user.id]);
   }else if(action==='presence'){
    if(body.active===false)await c.query("UPDATE cucac.vote_presence SET last_seen='epoch'::timestamptz WHERE phase_id=$1 AND user_id=$2",[id,user.id]);

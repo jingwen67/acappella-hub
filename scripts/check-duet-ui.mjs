@@ -44,9 +44,8 @@ context.data={user:{id:8,isMd:true},members,phase:{id:30,pollType:'solo',title:'
 vm.runInContext('renderRound(data)',context);
 assert.ok(find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('开始投票'))));
 assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
-context.data.user.isMd=false;context.data.phase.started=true;vm.runInContext('renderRound(data)',context);
-const panel=find(context.round.nodes,n=>n.attrs?.class==='panel stack');const candidacy=panel.children.findIndex(n=>n.tag==='button'&&n.children.includes('run'));const enter=panel.children.findIndex(n=>n.tag==='button'&&n.children.some(x=>String(x).includes('参与投票')));assert.ok(enter>candidacy&&candidacy>=0);
-assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
-await panel.children[enter].attrs.onclick();assert.equal(calls.at(-1).path,'/api/phases/30/enter');
-context.data.phase.participating=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
+context.data.user.isMd=false;vm.runInContext('renderRound(data)',context);
+const panel=find(context.round.nodes,n=>n.attrs?.class==='panel stack');assert.equal(panel.children.length,2);const enter=panel.children.find(n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Join poll')));assert.ok(enter);assert.ok(!find(context.round.nodes,n=>n.children?.includes('run')));assert.ok(!find(context.round.nodes,n=>n.tag==='article'));
+await enter.attrs.onclick();assert.equal(calls.at(-1).path,'/api/phases/30/enter');context.data.phase.participating=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.children?.includes('run')));assert.ok(find(context.round.nodes,n=>n.tag==='article'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));
+context.data.phase.started=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));assert.ok(!find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Join poll'))));
 console.log('PASS: Solo create/start competition/join flow, candidacy before voter entry, and hidden choice/submit controls until participation.');
