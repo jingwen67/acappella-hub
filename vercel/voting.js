@@ -22,6 +22,14 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
   }else if(action==='close'){
    if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
    await c.query("UPDATE cucac.phases SET status='closed',closed_at=$1 WHERE id=$2",[new Date().toISOString(),id]);
+   if(p.plan_song_id){
+    const target=(await c.query('SELECT t.archived FROM cucac.plan_terms t JOIN cucac.plan_songs s ON s.term_id=t.id WHERE s.id=$1 AND NOT s.excluded FOR UPDATE OF t',[p.plan_song_id])).rows[0];
+    if(target&&!target.archived){
+     const ranked=(await c.query(`SELECT u.id,u.name,u.full_name,count(v.candidate_id) FILTER (WHERE v.reaction='like')::int AS likes FROM cucac.candidacies ca JOIN cucac.users u ON u.id=ca.user_id LEFT JOIN cucac.votes v ON v.phase_id=ca.phase_id AND v.candidate_id=ca.user_id WHERE ca.phase_id=$1 GROUP BY u.id ORDER BY likes DESC,u.id`,[id])).rows;
+     const top=ranked[0]?.likes;
+     for(const winner of ranked.filter(r=>r.likes===top))await c.query("INSERT INTO cucac.plan_cast(song_id,member_key,member_id,member_name,part) VALUES($1,$2,$2,$3,'solo') ON CONFLICT(song_id,member_key,part) DO UPDATE SET member_name=excluded.member_name",[p.plan_song_id,winner.id,winner.full_name||winner.name]);
+    }
+   }
   }else if(action==='candidacy'){
    if(p.registration_locked)throw fail(403,'registration_locked');
    if(body.join){if(!candidates.includes(user.id)){
