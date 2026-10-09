@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
 const state=JSON.parse(fs.readFileSync(process.argv[2]||'/tmp/plan-state.json','utf8'));
+state.phase=null;state.user.isMd=true;
 const people=state.members.filter(m=>!m.isAlumni&&!m.isCrew).map(m=>({id:m.id,name:m.fullName||m.name,voiceParts:m.voiceParts}));
 state.library={...(state.library||{}),ready:true,semesters:[{id:10,label:'2026 Fall'},{id:11,label:'2025 Fall'}]};
 const data={terms:[{id:1,label:'2026 Fall',is_current:true,archived:false},{id:2,label:'2025 Fall',is_current:false,archived:true}],term:{id:1,label:'2026 Fall',isCurrent:true,archived:false},canManage:true,canChoose:true,members:people,songs:[{id:1,title:'江南',folderUrl:'https://drive.google.com/drive/folders/song1',locked:false,entries:[]},{id:2,title:'天黑黑',folderUrl:'',locked:true,entries:[]}]};
@@ -22,6 +23,7 @@ try{
  window.eval(fs.readFileSync('public/plan.js','utf8')+'\n'+main+'\nwindow.planTest={data:()=>planData,name:planMemberName,user:()=>latest.user,open:planOpenSong,rerender:()=>render(latest),member:()=>{latest.user={id:'+people[0].id+',isAdmin:false,isMd:false};latest.profile={isAlumni:false,isCrew:false,voiceParts:["alto"]};planData.canManage=false;planData.canChoose=false;renderPlan();},archive:()=>{planData.term.archived=true;renderPlan();}};');
  assert.equal(window.planTest.name({fullName:'Jingwen Zhang',name:'login67'}),'Jingwen');assert.equal(window.planTest.name({fullName:'',name:'login67'}),'login67');
  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));await tick();await tick();const doc=window.document;
+ doc.querySelector('#open-poll').click();await tick();await tick();const pollSong=doc.querySelector('select[name="planSongId"]');assert.ok(pollSong);assert.ok([...pollSong.options].some(o=>o.textContent.includes('江南')));doc.querySelector('#poll-back').click();
  assert.ok(doc.querySelector('#open-plan').textContent.includes('这学期唱什么'));assert.equal(doc.querySelector('#browse-lineup'),null);
  doc.querySelector('#open-plan').click();await tick();await tick();const body=doc.querySelector('#plan-body');assert.doesNotMatch(body.textContent,/null/);
  assert.deepEqual([...doc.querySelectorAll('.plan-table thead th')].slice(1).map(n=>n.textContent),['Solo','Soprano','Alto','Tenor','Baritone','Bass','Bbox']);

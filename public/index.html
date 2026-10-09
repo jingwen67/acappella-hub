@@ -1675,6 +1675,7 @@
       scores.hidden = view !== 'scores';
       planPage.hidden = view !== 'plan';
       if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
+      if(view==='poll'&&latest&&!latest.phase)planLoadPollSongs(true);
     }
 
     let profileEditing = false;
