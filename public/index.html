@@ -716,9 +716,14 @@
 
     .gallery-panel { margin: 24px 0; }
     .gallery-panel h2 { margin: 0; }
-    .photo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .photo-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
     .photo-card { min-width:0; }
-    .photo-thumb { display:block; width:100%; padding:0; border:0; background:var(--paper); border-radius:12px; overflow:hidden; }
+    .photo-like {display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:5px 2px;margin:0;font-size:16px;color:var(--muted);width:auto;}
+    .photo-like[aria-pressed="true"] {color:var(--like);}
+    .photo-like small {font-size:12px;}
+    .photo-crop {width:min(600px,calc(100vw - 24px));}
+    .photo-crop select,.photo-crop input {margin:8px 0;}
+    .photo-thumb { display:block; width:100%; padding:0; border:0; background:var(--paper); border-radius:3px; overflow:hidden; }
     .photo-thumb img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
     .photo-actions { display:flex; flex-wrap:wrap; gap:6px; }
     .photo-actions .nav-btn { font-size:14px; padding:5px 8px; margin:0; }
@@ -1021,6 +1026,7 @@
     </section>
   </main>
   <noscript>需要打开 JavaScript 才能投票。 JavaScript is required to vote.</noscript>
+  <script src="/photo-crop.js"></script>
   <script src="/plan.js"></script>
   <script>
     const loading = document.querySelector('#loading');
@@ -2623,50 +2629,31 @@
         if (view === 'profile' && profileId === owner && latest) renderProfile(latest);
       }
     }
-    function photoPreview(photo) {
-      const dialog = el('dialog', {class:'photo-preview'});
-      const close = el('button', {class:'nav-btn',type:'button',onclick:()=>dialog.close()}, pair('关闭','Close'));
-      dialog.append(close, el('img', {src:photo.url,alt:''}));
-      dialog.addEventListener('close',()=>dialog.remove());
-      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
-      document.body.append(dialog); dialog.showModal();
+    async function galleryAction(owner,photo,action,body={}) {
+      const album=await api('/api/photos/'+photo.id+'/'+action,{method:'POST',body:JSON.stringify(body)});
+      galleryCache.set(owner,album);return api('/api/state');
     }
-    function galleryNode(person, mine) {
-      const owner=person.id, album=galleryCache.get(owner);
-      const box=el('section',{class:'panel stack gallery-panel'},
-        el('h2',{},pair('相册','Photo gallery')));
+    function photoPreview(photo,owner,mine) {
+      const dialog=el('dialog',{class:'photo-preview'});
+      const actions=el('div',{class:'photo-actions'});
+      actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>dialog.close()},pair('关闭','Close')));
+      if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{dialog.close();run(()=>galleryAction(owner,photo,photo.isManualAvatar?'clear-avatar':'avatar'));}},pair(photo.isManualAvatar?'取消设为头像':'设为头像',photo.isManualAvatar?'Use automatic avatar':'Set as avatar')));
+      if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{if(!confirm('删除这张照片？ / Delete this photo?'))return;dialog.close();run(()=>galleryAction(owner,photo,'delete'));}},pair('删除','Delete')));
+      dialog.append(actions,el('img',{src:photo.url,alt:''}),el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
+      dialog.addEventListener('close',()=>dialog.remove());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});document.body.append(dialog);dialog.showModal();
+    }
+    function galleryNode(person,mine) {
+      const owner=person.id,album=galleryCache.get(owner),box=el('section',{class:'panel stack gallery-panel'},el('h2',{},pair('相册','Photo gallery')));
       const input=el('input',{type:'file',accept:'image/*','aria-label':'上传照片 / Upload photo'});
       const upload=el('form',{class:'stack',onsubmit:async event=>{
-        event.preventDefault(); const file=input.files?.[0]; if(!file)return;
-        const button=event.currentTarget.querySelector('button');button.disabled=true;
-        try{const photo=await prepareAvatar(file);const body=new FormData();body.set('photo',photo);
-          const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});
-          const data=await res.json();if(!res.ok)throw new Error(errorText(data.error));
-          galleryCache.set(owner,data);if(latest&&profileId===owner)renderProfile(latest);
-        }catch(error){showBanner(error.message);button.disabled=false;}
-      }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));
-      box.append(upload,el('p',{class:'hint'},pair('JPG、PNG、WebP 或 GIF，每张小于 3 MB。','JPG, PNG, WebP, or GIF, under 3 MB per photo.')));
+        event.preventDefault();const file=input.files?.[0];if(!file)return;const button=event.currentTarget.querySelector('button');button.disabled=true;
+        try{const photo=await window.cropPhoto(file);if(!photo){button.disabled=false;return;}const body=new FormData();body.set('photo',photo);const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});const data=await res.json();if(!res.ok)throw new Error(data.error==='too_large'?'每张图片不能超过 5 MB。 / Each photo must be under 5 MB.':errorText(data.error));galleryCache.set(owner,data);const state=await api('/api/state');latest=state;render(state);}catch(error){showBanner(error.message);button.disabled=false;}
+      }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));box.append(upload);
       if(!album){box.append(el('p',{class:'hint'},pair('正在加载…','Loading…')));loadGallery(owner);return box;}
       if(album.error){box.append(el('p',{class:'hint'},album.error),el('button',{class:'nav-btn',type:'button',onclick:()=>loadGallery(owner)},pair('重试','Retry')));return box;}
       const grid=el('div',{class:'photo-grid'});
-      for(const photo of album.photos){
-        const card=el('div',{class:'photo-card'},
-          el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo)},el('img',{src:photo.url,alt:'',loading:'lazy'})),
-          el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
-        const actions=el('div',{class:'photo-actions'});
-        if(photo.isAvatar)actions.append(el('span',{class:'hint'},pair('当前头像','Current avatar')));
-        else if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>run(async()=>{
-          galleryCache.set(owner,await api('/api/photos/'+photo.id+'/avatar',{method:'POST',body:'{}'}));
-          return api('/api/state');
-        })},pair('设为头像','Set as avatar')));
-        if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{
-          if(!confirm('删除这张照片？如果它是当前头像，头像也会移除。\nDelete this photo? If it is the current avatar, the avatar will also be removed.'))return;
-          run(async()=>{galleryCache.set(owner,await api('/api/photos/'+photo.id+'/delete',{method:'POST',body:'{}'}));return api('/api/state');});
-        }},pair('删除','Delete')));
-        card.append(actions);grid.append(card);
-      }
-      box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));
-      return box;
+      for(const photo of album.photos){const card=el('div',{class:'photo-card'},el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo,owner,mine)},el('img',{src:photo.url,alt:'',loading:'lazy'})),el('button',{class:'photo-like',type:'button','aria-label':photo.liked?'取消点赞 / Unlike':'点赞 / Like','aria-pressed':String(Boolean(photo.liked)),onclick:()=>run(()=>galleryAction(owner,photo,'like',{liked:!photo.liked}))},photo.liked?'♥':'♡',el('small',{},String(photo.likes||0))));grid.append(card);}
+      box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));return box;
     }
 
     function profileField(key, name, value, max) {

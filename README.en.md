@@ -79,12 +79,13 @@ Open **My profile** from the home page. Fill in your English full name, pronouns
 
 Voice parts allow multiple selections: Soprano, Alto, Tenor, Baritone, Bass, Bbox, and Rap. Choose Edit in My profile, check your parts, then Save. The MD can click Edit in another member’s voice-part section and Save to apply changes. The Active list shows parts beside names and defaults to voice-part order, alphabetical within each part. The small button beside Active switches to alphabetical order; the right-hand dropdown independently filters by part. Members with multiple parts appear once, under their earliest selected part. Check Crew / Media below the voice parts and save to join the Crew / Media list. Uncheck and save to return to your previous member group.
 
-Each profile has a **Photo gallery**. Any signed-in member can add photos of that person. Each photo must be under 5 MB; JPG, PNG, WebP, and GIF are supported. Click a photo to enlarge it and see who uploaded it.
+Each profile has a **Photo gallery**. Any signed-in member can add photos. Crop before uploading: **1:1** is the default, or choose **Freeform** and drag the selection or its bottom-right corner. Photos are saved as still JPGs. Original images must be **5 MB or smaller**; oversized files show a warning.
 
-- The **profile owner** can delete any photo in their gallery and choose **Set as avatar**.
-- **Uploaders** can delete their own uploads. Other members cannot change the owner's avatar.
-- Deleting the photo used as the current avatar removes the avatar too; choose another photo afterward.
-- Existing avatars are automatically preserved when the gallery is first opened. Without an avatar, the first character of the member's name is shown.
+- Photos appear in a square grid. Open a photo to see the full image and uploader name.
+- Select **♡ / ♥** to like or unlike a photo. Each member contributes one like per photo.
+- In the full preview, the owner can **Set as avatar**, switch back to **Use automatic avatar**, and delete any photo. Uploaders can delete their own photos.
+- A manually selected avatar takes priority. Otherwise, Hub uses the photo with the most likes, provided it has at least one; ties use the earlier upload. Canceling or deleting a manual avatar returns to automatic selection. With no liked photos, Hub shows the member's initial.
+- Existing avatars remain manually selected. There is no photo-count cap; total storage is limited. Video uploads are not supported.
 
 Profiles and galleries are visible to other signed-in members. Share only information and photos you are comfortable sharing with the group.
 

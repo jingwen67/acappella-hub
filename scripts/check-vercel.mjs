@@ -222,6 +222,19 @@ try {
  await api('/api/photos/'+legacy.id+'/delete','member',{});
  album=await api(albumPath,'member');assert.equal(album.photos.length,0);
 
+ // Likes are unique, reversible and private; manual avatars override automatic winners.
+ album=await uploadPhoto('md');const likedA=album.photos[0];album=await uploadPhoto('outsider');const likedB=album.photos.find(p=>p.id!==likedA.id);
+ await api('/api/photos/'+likedA.id+'/like','', {liked:true},401);
+ await api('/api/photos/'+likedA.id+'/like','md', {liked:'true'},400);
+ await api('/api/photos/'+likedA.id+'/like','md', {liked:true});album=await api('/api/photos/'+likedA.id+'/like','md', {liked:true});assert.equal(album.photos.find(p=>p.id===likedA.id).likes,1);
+ state=await api('/api/state','member');assert.equal(state.profile.avatar,'/api/photos/'+likedA.id);
+ await api('/api/photos/'+likedB.id+'/like','md',{liked:true});state=await api('/api/state','member');assert.equal(state.profile.avatar,'/api/photos/'+likedA.id);
+ await api('/api/photos/'+likedB.id+'/avatar','member',{});await api('/api/photos/'+likedA.id+'/like','outsider',{liked:true});state=await api('/api/state','member');assert.ok(state.profile.avatar.startsWith('/api/avatars/'));
+ await api('/api/photos/'+likedB.id+'/clear-avatar','md',{},403);await api('/api/photos/'+likedB.id+'/clear-avatar','member',{});state=await api('/api/state','member');assert.equal(state.profile.avatar,'/api/photos/'+likedA.id);
+ await api('/api/photos/'+likedB.id+'/like','md',{liked:false});await api('/api/photos/'+likedA.id+'/like','md',{liked:false});await api('/api/photos/'+likedA.id+'/like','outsider',{liked:false});state=await api('/api/state','member');assert.equal(state.profile.avatar,'');
+ await api('/api/photos/'+likedB.id+'/like','md',{liked:true});state=await api('/api/state','member');assert.equal(state.profile.avatar,'/api/photos/'+likedB.id);await api('/api/photos/'+likedB.id+'/delete','outsider',{});state=await api('/api/state','member');assert.equal(state.profile.avatar,'');assert.equal((await query('SELECT count(*)::int AS n FROM cucac.photo_likes WHERE photo_id=$1',[likedB.id])).rows[0].n,0);
+ await api('/api/photos/'+likedA.id+'/delete','md',{});
+ console.log('PASS: unique/idempotent photo likes, unlike, automatic highest-liked avatars, manual override and cancellation, zero-like initials, delegated rejection and cascading deletion.');
  await api(`/api/phases/${phaseId}/close`,'md',{});
  const soloAfterClose=(await api('/api/plan?termId='+currentPlan.term.id,'member')).songs.find(s=>s.id===linkedSongId).entries.filter(e=>e.part==='solo');assert.equal(soloAfterClose.length,0);
  await api(`/api/phases/${phaseId}/edit`,'member',{title:'Changed',planSongId:linkedSongId},403);

@@ -16,19 +16,22 @@ export function galleryService({db, files, imageExt, fail}) {
   return await db.prepare('SELECT * FROM users WHERE id = ?').get(owner);
  }
  async function list(owner,user){const row=await seed(owner);
-  const photos=await db.prepare('SELECT p.*,u.name AS uploader_name FROM photos p LEFT JOIN users u ON u.id=p.uploaded_by WHERE p.owner_id=? ORDER BY p.created_at DESC,p.id DESC').all(owner);
-  return {photos:photos.map(p=>({id:p.id,url:'/api/photos/'+p.id,name:p.uploader_name||'',canDelete:user.id===owner||user.id===p.uploaded_by,canSetAvatar:user.id===owner,isAvatar:row.avatar_photo_id===p.id})),mine:user.id===owner};
+  const photos=await db.prepare('SELECT p.*,u.name AS uploader_name,(SELECT count(*) FROM photo_likes l WHERE l.photo_id=p.id) AS likes,(SELECT count(*) FROM photo_likes l WHERE l.photo_id=p.id AND l.user_id=?) AS liked FROM photos p LEFT JOIN users u ON u.id=p.uploaded_by WHERE p.owner_id=? ORDER BY p.created_at DESC,p.id DESC').all(user.id,owner);
+  const winner=[...photos].filter(p=>Number(p.likes)>0).sort((a,b)=>Number(b.likes)-Number(a.likes)||a.created_at.localeCompare(b.created_at)||a.id.localeCompare(b.id))[0];const avatarId=row.avatar_photo_id||(row.avatar_ext?'':winner?.id);
+  return {photos:photos.map(p=>({id:p.id,url:'/api/photos/'+p.id,name:p.uploader_name||'',canDelete:user.id===owner||user.id===p.uploaded_by,canSetAvatar:user.id===owner,likes:Number(p.likes),liked:Boolean(Number(p.liked)),isAvatar:avatarId===p.id,isManualAvatar:row.avatar_photo_id===p.id})),mine:user.id===owner,manualAvatar:Boolean(row.avatar_photo_id||row.avatar_ext)};
  }
- async function upload(owner,user,file){await seed(owner);if(!file?.body?.length)throw fail(400,'file_required');if(file.body.length>3*1024*1024)throw fail(413,'too_large');const ext=imageExt(file.body,file.filename);if(!ext)throw fail(400,'avatar_type');const p={id:randomUUID(),ext};await files.put(key(p),file.body);
+ async function upload(owner,user,file){await seed(owner);if(!file?.body?.length)throw fail(400,'file_required');if(file.body.length>5*1024*1024)throw fail(413,'too_large');const ext=imageExt(file.body,file.filename);if(!ext)throw fail(400,'avatar_type');const p={id:randomUUID(),ext};await files.put(key(p),file.body);
   try{await db.prepare('INSERT INTO photos (id,owner_id,uploaded_by,ext,created_at) VALUES (?,?,?,?,?)').run(p.id,owner,user.id,ext,new Date().toISOString());}catch(e){await files.delete(key(p));throw e;}return await list(owner,user);
  }
  async function photo(id){const p=await db.prepare('SELECT * FROM photos WHERE id = ?').get(id);if(!p)throw fail(404,'not_found');return p;}
- async function bytes(id){const p=await photo(id);const f=await files.get(key(p));if(!f)throw fail(404,'not_found');return {body:await f.arrayBuffer(),type:types[p.ext]};}
+ async function bytes(id){const p=await photo(id);const f=await files.get(key(p));if(!f)throw fail(404,'not_found');const body=await f.arrayBuffer();if(body.byteLength>4*1024*1024&&files.photoPlaybackUrl)return {url:await files.photoPlaybackUrl(key(p),300)};return {body,type:types[p.ext]};}
  async function select(id,user){const p=await photo(id);if(user.id!==p.owner_id)throw fail(403,'forbidden');const f=await files.get(key(p));if(!f)throw fail(404,'not_found');await files.put('avatars/'+p.owner_id+'.'+p.ext,await f.arrayBuffer());await db.prepare('UPDATE users SET avatar_ext=?,avatar_photo_id=? WHERE id=?').run(p.ext,p.id,p.owner_id);return await list(p.owner_id,user);}
  async function remove(id,user){const p=await photo(id);if(user.id!==p.owner_id&&user.id!==p.uploaded_by)throw fail(403,'forbidden');
   await db.prepare('UPDATE users SET avatar_ext=\'\',avatar_photo_id=NULL WHERE id=? AND avatar_photo_id=?').run(p.owner_id,p.id);
   await db.prepare('DELETE FROM photos WHERE id = ?').run(id);await files.delete(key(p));return await list(p.owner_id,user);
  }
- return {list,upload,bytes,select,remove,seed};
+ async function clear(id,user){const p=await photo(id);if(user.id!==p.owner_id)throw fail(403,'forbidden');await db.prepare("UPDATE users SET avatar_ext='',avatar_photo_id=NULL WHERE id=?").run(p.owner_id);return await list(p.owner_id,user);}
+ async function like(id,user,liked){if(typeof liked!=='boolean')throw fail(400,'invalid_like');const p=await photo(id);if(liked)await db.prepare('INSERT OR IGNORE INTO photo_likes(photo_id,user_id,created_at) VALUES(?,?,?)').run(id,user.id,new Date().toISOString());else await db.prepare('DELETE FROM photo_likes WHERE photo_id=? AND user_id=?').run(id,user.id);return await list(p.owner_id,user);}
+ return {list,upload,bytes,select,clear,like,remove,seed};
 }
 

@@ -51,14 +51,16 @@ export default {
       listUsers: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
       is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
-      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
+      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext, avatar_photo_id,
+      (SELECT p.id FROM photos p JOIN photo_likes l ON l.photo_id=p.id WHERE p.owner_id=users.id GROUP BY p.id,p.created_at ORDER BY count(*) DESC,p.created_at ASC,p.id ASC LIMIT 1) AS auto_avatar_id
     FROM users
     WHERE is_admin = 0
   `),
       profileById: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
       is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
-      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
+      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext, avatar_photo_id,
+      (SELECT p.id FROM photos p JOIN photo_likes l ON l.photo_id=p.id WHERE p.owner_id=users.id GROUP BY p.id,p.created_at ORDER BY count(*) DESC,p.created_at ASC,p.id ASC LIMIT 1) AS auto_avatar_id
     FROM users
     WHERE id = ?
   `),
@@ -260,7 +262,7 @@ export default {
       return Boolean(account?.isAdmin || account?.isMd);
     }
     function avatarUrl(row) {
-      return row?.avatar_ext ? `/api/avatars/${row.id}?v=${row.avatar_ext}` : '';
+      return row?.avatar_ext ? `/api/avatars/${row.id}?v=${row.avatar_photo_id||row.avatar_ext}` : row?.auto_avatar_id ? '/api/photos/'+row.auto_avatar_id : '';
     }
     function publicProfile(row) {
       if (!row) return null;
@@ -517,7 +519,7 @@ export default {
         } = url;
 
     const albumRoute = pathname.match(/^\/api\/profiles\/(\d+)\/photos$/);
-    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar))?$/);
+    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar|clear-avatar|like))?$/);
     if (albumRoute || photoRoute) {
       const user = await requireUser(req);
       if (albumRoute) {
@@ -529,10 +531,12 @@ export default {
         }
       } else if (req.method === 'GET' && !photoRoute[2]) {
         const photo = await gallery.bytes(photoRoute[1]);
+        if(photo.url){res.writeHead(302,{'Location':photo.url,'Cache-Control':'private, no-store'});res.end();return;}
         res.writeHead(200, {'Content-Type':photo.type,'Cache-Control':'private, no-cache','X-Content-Type-Options':'nosniff'});
         res.end(Buffer.from(photo.body)); return;
       } else if (req.method === 'POST' && photoRoute[2]) {
-        const result = await gallery[photoRoute[2] === 'avatar' ? 'select' : 'remove'](photoRoute[1], user);
+        const action=photoRoute[2];
+        const result = action==='like'?await gallery.like(photoRoute[1],user,(await readBody(req)).liked):await gallery[action==='avatar'?'select':action==='clear-avatar'?'clear':'remove'](photoRoute[1], user);
         send(res, 200, result); return;
       }
       throw fail(405, 'not_found');

@@ -1,5 +1,5 @@
 import pg from 'pg';
-const tables=['users','sessions','phases','candidacies','votes','arrangers','semesters','scores','photos','invitations'];
+const tables=['users','sessions','phases','candidacies','votes','arrangers','semesters','scores','photos','photo_likes','invitations'];
 export function translateSQL(source) {
  let sql=source.trim().replace(/;$/,'');
  sql=sql.replace(/([\w.]+)\s*=\s*\?\s+COLLATE NOCASE/gi,'lower($1) = lower(?)');

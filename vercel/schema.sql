@@ -293,3 +293,12 @@ UPDATE cucac.phases p SET solo_results=(
  FROM cucac.candidacies ca JOIN cucac.users u ON u.id=ca.user_id LEFT JOIN cucac.votes v ON v.phase_id=ca.phase_id AND v.candidate_id=ca.user_id
  WHERE ca.phase_id=p.id GROUP BY u.id,u.name) stats) r
 ) WHERE p.status='closed' AND p.poll_type='solo' AND p.solo_results IS NULL;
+
+CREATE TABLE IF NOT EXISTS cucac.photo_likes (
+ photo_id text NOT NULL REFERENCES cucac.photos(id) ON DELETE CASCADE,
+ user_id integer NOT NULL REFERENCES cucac.users(id) ON DELETE CASCADE,
+ created_at text NOT NULL,
+ PRIMARY KEY(photo_id,user_id)
+);
+ALTER TABLE cucac.photo_likes ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.photo_likes FROM anon; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.photo_likes FROM authenticated; END IF; END $$;
