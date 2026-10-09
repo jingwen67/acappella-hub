@@ -5,7 +5,7 @@ export function createVoting(pool){return {async progress(phase,user){
  const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];
  const submittedBallot=own?{phaseId:phase.id,submittedAt:new Date(own.submitted_at).toISOString(),votes:own.ballot}:null;
  if(user.id!==phase.created_by)return {submittedBallot};
- const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(s.voter_id) FILTER (WHERE s.ballot='[]'::jsonb)::int AS abstained,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_alumni=0 AND u.is_crew=0 AND u.is_admin=0`,[phase.id])).rows[0];
+ const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_admin=0 AND (pr.user_id IS NOT NULL OR s.voter_id IS NOT NULL OR EXISTS(SELECT 1 FROM cucac.votes v WHERE v.phase_id=$1 AND v.voter_id=u.id))`,[phase.id])).rows[0];
  return {submittedBallot,voteProgress:{...stats,complete:stats.total>0&&stats.submitted===stats.total}};
 },view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
  let receipt;const c=await pool.connect();try{await c.query('BEGIN');

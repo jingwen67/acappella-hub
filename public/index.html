@@ -775,8 +775,9 @@
     .round-manage-actions .nav-btn {width:auto;min-width:52px;min-height:38px;margin:0;padding:4px 8px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:6px;background:var(--card);text-decoration:none;white-space:nowrap;}
     .round-manage-actions .nav-btn:hover {text-decoration:none;background:var(--paper);}
     .round-manage-actions .nav-btn .pair .en {font-size:11px;}
-    .poll-title-entry {display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:0 10px;}
-    .poll-title-entry input {flex:1;min-width:0;border:0;background:transparent;padding-left:0;box-shadow:none;}
+    .poll-title-entry {display:flex;align-items:center;gap:6px;width:100%;min-width:0;min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;}
+    .poll-title-entry input {flex:1 1 0;width:0;min-width:0;min-height:46px;margin:0;border:0;border-radius:0;background:transparent;padding:12px 0;box-shadow:none;}
+    .poll-title-prefix[hidden] {display:none!important;}
     .poll-title-prefix {font-size:14px;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;}
     .poll-title-entry:focus-within {outline:1px solid var(--muted);}
     .plan-song-heading {display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-bottom:8px;}
@@ -2169,7 +2170,7 @@
       }
 
       children.push(ballotSubmit(phase,data.user.id));
-      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人 · 已打开本轮 '+progress.visited+' 人 · 弃票 '+progress.abstained+' 人','Viewing now: '+progress.online+' · Visited this round: '+progress.visited+' · Abstentions: '+progress.abstained)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位 Active 成员提交','Waiting for '+(progress.total-progress.submitted)+' Active members')),el('p',{class:'hint'},pair('进度按 Active 成员统计，包含弃票；正在查看按最近一分钟更新。','Progress counts Active members, including abstentions; viewing activity uses the last minute.'))));} 
+      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是打开过本轮或已投票的参与者，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who visited or voted in this round, even after leaving; viewing activity uses the last minute.'))));} 
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
