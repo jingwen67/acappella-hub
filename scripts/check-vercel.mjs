@@ -290,16 +290,18 @@ try {
  let vid=v.phase.id;assert.equal(v.phase.votingMode,'default');assert.equal(v.phase.started,false);
  await api(`/api/phases/${vid}/candidacy`,'md',{join:true});
  await api(`/api/phases/${vid}/candidacy`,'outsider',{join:true});
- await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);
+ await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},403);
  await api(`/api/phases/${vid}/start`,'outsider',{},403);
  v=await api(`/api/phases/${vid}/start`,'md',{});assert.equal(v.phase.registrationLocked,true);
- await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);
+ await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},400);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'like'});
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'},400);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:null});
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'});
+ await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:md.user.id,reaction:'like'}]},409);
+ const receipt=(await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt;assert.equal(receipt.votes.length,1);assert.equal(receipt.votes[0].candidateId,outsider.user.id);assert.ok(receipt.submittedAt);assert.equal((await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt.votes.length,1);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'again'},400);
- await api(`/api/phases/${vid}/close`,'md',{});
+ await api(`/api/phases/${vid}/close`,'md',{});await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]},400);
  // Five singers: initial random order persists and late registrations append.
  v=await api('/api/phases','md',{title:'Shared ranks',arrangerId:md.user.id},201);vid=v.phase.id;
  for(const who of ['md','outsider','retry'])await api(`/api/phases/${vid}/candidacy`,who,{join:true});

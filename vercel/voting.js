@@ -2,7 +2,7 @@ import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
- const c=await pool.connect();try{await c.query('BEGIN');
+ let receipt;const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
  if(action==='edit'){
@@ -16,7 +16,14 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
   if(p.status!=='open')throw fail(400,'phase_closed');
   if(p.poll_type&&p.poll_type!=='solo'){await duetAction(c,p,action,user,body);}else{
   const candidates=(await c.query('SELECT user_id FROM cucac.candidacies WHERE phase_id=$1 ORDER BY created_at,user_id',[id])).rows.map(r=>r.user_id);
-  if(action==='start'){
+  if(action==='submit'){
+   if(!p.started_at)throw fail(403,'voting_not_started');
+   const votes=(await c.query('SELECT v.candidate_id,v.reaction,u.name FROM cucac.votes v JOIN cucac.candidacies ca ON ca.phase_id=v.phase_id AND ca.user_id=v.candidate_id JOIN cucac.users u ON u.id=v.candidate_id WHERE v.phase_id=$1 AND v.voter_id=$2 ORDER BY v.candidate_id',[id,user.id])).rows;
+   if(!votes.length)throw fail(400,'ballot_empty');
+   const normalized=items=>JSON.stringify(items.map(v=>({candidateId:Number(v.candidateId??v.candidate_id),reaction:v.reaction})).sort((a,b)=>a.candidateId-b.candidateId));
+   if(!Array.isArray(body.votes)||!body.votes.every(v=>v&&Number.isInteger(v.candidateId)&&['like','again'].includes(v.reaction))||normalized(body.votes)!==normalized(votes))throw fail(409,'ballot_changed');
+   receipt={phaseId:id,submittedAt:new Date().toISOString(),votes:votes.map(v=>({candidateId:v.candidate_id,reaction:v.reaction,name:v.name}))};
+  }else if(action==='start'){
    if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
    if(p.started_at)throw fail(409,'voting_started');
    if(candidates.length<2)throw fail(400,'need_two_candidates');
@@ -54,6 +61,6 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
   }else throw fail(400,'bad_action');
   }
  }
- await c.query('COMMIT');
+ await c.query('COMMIT');return receipt;
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }};}

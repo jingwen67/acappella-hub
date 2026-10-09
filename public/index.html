@@ -1436,6 +1436,8 @@
         entry_missing: '这条报名已不存在',
         bad_audition_url: '试听链接需要完整的 HTTPS 网址',
         bad_action: '此操作不适用于本轮投票',
+        ballot_empty: '请先选择参选人，再提交投票',
+        ballot_changed: '选择已发生变化，请刷新核对后重新提交',
         vote_limit: '已达到本轮投票上限，请先取消一个选择',
         voting_not_started: 'MD 尚未开始投票',
         need_two_candidates: '至少两位参选人才能开始',
@@ -1521,6 +1523,8 @@
         entry_missing: 'This entry no longer exists.',
         bad_audition_url: 'Use a complete HTTPS audition URL.',
         bad_action: 'This action is not available for this voting method.',
+        ballot_empty: 'Select a singer before submitting your vote.',
+        ballot_changed: 'Your selections changed. Refresh, review, and submit again.',
         vote_limit: 'Vote limit reached. Unselect a singer first.',
         voting_not_started: 'The MD has not started voting yet.',
         need_two_candidates: 'At least two candidates are required.',
@@ -1950,6 +1954,15 @@
     }
     window.addEventListener('pagehide', disposeCapture);
 
+    const submittedBallots=new Map();
+    function ballotSignature(votes){return JSON.stringify(votes.map(v=>({candidateId:v.candidateId,reaction:v.reaction})).sort((a,b)=>a.candidateId-b.candidateId));}
+    function ballotSubmit(phase,userId){
+      const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
+      return el('section',{class:'stack ballot-submit'},
+        el('button',{type:'button',class:'primary',disabled:!phase.started||!votes.length,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):pair('提交投票','Submit vote')),
+        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair('投票提交成功！已确认：'+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。','Vote submitted! Confirmed: '+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):receipt?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
+    }
+
     function candidateCard(phase, candidate) {
       const choose = (reaction) => () => {
         const next = candidate.mine === reaction ? null : reaction;
@@ -2149,6 +2162,8 @@
       } else {
         children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
       }
+
+      children.push(ballotSubmit(phase,data.user.id));
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
