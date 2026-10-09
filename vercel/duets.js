@@ -1,5 +1,6 @@
 import {randomInt} from 'node:crypto';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
+const parts=p=>p.part_c?['A','B','C']:['A','B'];
 const shuffle=rows=>{const ids=rows.map(row=>row.id);for(let i=ids.length-1;i>0;i--){const j=randomInt(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;};
 function auditionUrl(value){
  if(value==null||value==='')return '';
@@ -26,8 +27,8 @@ export async function duetAction(c,p,action,user,body){
   if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
   if(p.started_at)throw fail(409,'voting_started');
   if(p.poll_type==='pair'&&confirmed.length<2)throw fail(400,'need_two_pairs');
-  if(p.poll_type==='parts'&&['A','B'].some(part=>!confirmed.some(row=>row.part===part)))throw fail(400,'need_both_parts');
-  const partLocks=Object.fromEntries(['A','B'].map(part=>[part,confirmed.filter(row=>row.part===part).length<=2]));
+  if(p.poll_type==='parts'&&parts(p).some(part=>!confirmed.some(row=>row.part===part)))throw fail(400,'need_both_parts');
+  const partLocks=Object.fromEntries(parts(p).map(part=>[part,confirmed.filter(row=>row.part===part).length<=2]));
   await c.query('UPDATE cucac.phases SET started_at=$1,registration_locked=$2,candidate_order=$3,part_locks=$4 WHERE id=$5',[new Date().toISOString(),p.poll_type==='pair'&&confirmed.length===2?1:0,JSON.stringify(shuffle(confirmed)),JSON.stringify(partLocks),p.id]);
  }else if(action==='close'){
   if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
@@ -60,10 +61,10 @@ export async function duetAction(c,p,action,user,body){
   }
  }else if(action==='candidacy'){
   if(p.poll_type!=='parts')throw fail(400,'bad_action');
-  const existing=confirmed.find(row=>row.member1===user.id);
+  const existing=confirmed.find(row=>row.member1===user.id&&(!body.part||row.part===body.part));
   if(body.join){
-   if(!['A','B'].includes(body.part))throw fail(400,'bad_part');
-   if(existing)throw fail(409,'already_in_part');
+   if(!parts(p).includes(body.part))throw fail(400,'bad_part');
+   if(confirmed.some(row=>row.member1===user.id&&row.part===body.part))throw fail(409,'already_in_part');
    if(isLocked(body.part))throw fail(403,'registration_locked');
    const inserted=(await c.query('INSERT INTO cucac.duet_entries(phase_id,member1,proposed_by,part,confirmed,audition_url,created_at) VALUES($1,$2,$2,$3,1,$4,$5) RETURNING id',[p.id,user.id,body.part,auditionUrl(body.auditionUrl),new Date().toISOString()])).rows[0];await append(inserted.id);
   }else if(existing){
@@ -94,7 +95,7 @@ export async function duetView(pool,p,user){
  let candidates=rows.filter(row=>row.confirmed).map(row=>({...view(row),mine:row.mine?'like':null,...(user.isAdmin?{likes:row.likes,again:0}:{})}));
  if(p.status==='closed'){
   candidates=[];
-  for(const part of p.poll_type==='parts'?['A','B']:['pair']){
+  for(const part of p.poll_type==='parts'?parts(p):['pair']){
    const all=rows.filter(row=>row.confirmed&&row.part===part).sort((a,b)=>b.likes-a.likes||a.id-b.id);
    let rank=0,last=null;
    for(const row of all){if(row.likes!==last){rank++;last=row.likes;}if(user.isAdmin||rank<=p.revealed_ranks)candidates.push({...view(row),rank,...(user.isAdmin?{likes:row.likes,again:0}:{})});}
@@ -104,11 +105,11 @@ export async function duetView(pool,p,user){
  }
  const locks=JSON.parse(p.part_locks||'{}');
  const confirmed=rows.filter(row=>row.confirmed);
- const candidateCounts=Object.fromEntries(['pair','A','B'].map(part=>[part,confirmed.filter(row=>row.part===part).length]));
+ const candidateCounts=Object.fromEntries(['pair',...parts(p)].map(part=>[part,confirmed.filter(row=>row.part===part).length]));
  const ownEntries=p.status==='open'?candidates.filter(entry=>entry.isMe):[];
  if(p.status==='open'&&!p.started_at)candidates=[];
- return {candidateCount:confirmed.length,candidateCounts,ownEntries,pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partLocks:locks,candidates,
+ return {candidateCount:p.poll_type==='parts'?new Set(confirmed.map(row=>row.member1)).size:confirmed.length,candidateCounts,ownEntries,pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partC:p.part_c||'',partLocks:locks,candidates,
   pendingPairs:p.status==='open'?rows.filter(row=>!row.confirmed&&belongs(row,user)).map(row=>({...view(row),canConfirm:row.proposed_by!==user.id})):[],
   iAmCandidate:rows.some(row=>row.confirmed&&belongs(row,user)),
-  voteLimits:p.poll_type==='parts'?{A:locks.A?1:2,B:locks.B?1:2}:{pair:p.registration_locked?1:2}};
+  voteLimits:p.poll_type==='parts'?Object.fromEntries(parts(p).map(part=>[part,locks[part]?1:2])):{pair:p.registration_locked?1:2}};
 }

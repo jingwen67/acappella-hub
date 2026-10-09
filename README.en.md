@@ -126,21 +126,21 @@ The MD chooses one of four methods when opening a round:
 | **Solo · Default Voting** | Register individually. Choose one of two singers, or up to two of three or more. |
 | **Solo · Like Voting** | Register individually. Give each singer “sounds great” or “not sure yet” feedback. |
 | **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
-| **Duet · Part Voting** | Register for Part A or Part B, one part per person. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
+| **Duet · Multi-part Voting** | Part A and B are the default; the MD can add Part C. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
 1. Open **Solo / Duet voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
-2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Part Voting, choose your part.
+2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Multi-part Voting, choose your part.
 3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
 4. Before voting starts, see candidate counts and manage your own registration; other candidate names stay hidden. Pair Voting requires the invited partner to confirm. After the MD starts voting, see the shuffled candidates and choose directly. Click again to unselect, then **Submit vote** to confirm, including empty ballots. Changing a selection requires re-confirmation. Choices save automatically and cannot be changed after the round closes.
 5. In Solo voting, select **Submit vote** to confirm your saved choices with the server. An empty selection can be submitted as an abstention, which counts as submitted. Submission status persists across refreshes and devices. The round creator sees submission progress among members who have joined this poll, and viewers active in the last minute; completion is shown when everyone submits. You may change choices before voting closes, then submit again. Submitting does not add duplicate votes; automatically saved choices still count without this optional confirmation.
 
-The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Part Voting needs at least one singer in each part before voting starts.
+The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Multi-part Voting needs at least one singer in each part before voting starts.
 
-Starting with two soloists or two pairs locks registration. In Part Voting, each part starting with one or two singers locks separately. Larger groups allow later entries. After voting starts, withdrawal is disabled if it would leave fewer than three entries in a group, protecting existing ballots.
+Starting with two soloists or two pairs locks registration. In Multi-part Voting, each part starting with one or two singers locks separately. Larger groups allow later entries. After voting starts, withdrawal is disabled if it would leave fewer than three entries in a group, protecting existing ballots.
 
 #### Results and History
 
-Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Part Voting ranks A and B separately. The MD can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
+Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Multi-part Voting ranks each part separately. The MD can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
 
 Results help the MD and arranger decide; the system does not automatically choose the performers. The same singer may appear in multiple leading pairs.
 

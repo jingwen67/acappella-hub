@@ -323,3 +323,12 @@ ALTER TABLE cucac.vote_presence ADD COLUMN IF NOT EXISTS joined_at timestamptz;
 INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at)
 SELECT phase_id,voter_id,'epoch'::timestamptz,now() FROM (SELECT phase_id,voter_id FROM cucac.votes UNION SELECT phase_id,voter_id FROM cucac.vote_submissions) v
 ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=coalesce(cucac.vote_presence.joined_at,excluded.joined_at);
+
+-- Multi-part voting: optional third part, independent membership per part.
+ALTER TABLE cucac.phases ADD COLUMN IF NOT EXISTS part_c text NOT NULL DEFAULT '';
+ALTER TABLE cucac.duet_entries DROP CONSTRAINT IF EXISTS duet_entries_part_check;
+ALTER TABLE cucac.duet_entries ADD CONSTRAINT duet_entries_part_check CHECK(part IN ('pair','A','B','C'));
+ALTER TABLE cucac.duet_entries DROP CONSTRAINT IF EXISTS duet_entries_check;
+ALTER TABLE cucac.duet_entries ADD CONSTRAINT duet_entries_check CHECK((part='pair' AND member2 IS NOT NULL AND member1<member2) OR (part IN ('A','B','C') AND member2 IS NULL AND confirmed=1));
+DROP INDEX IF EXISTS cucac.duet_part_unique;
+CREATE UNIQUE INDEX duet_part_unique ON cucac.duet_entries(phase_id,member1,part) WHERE part IN ('A','B','C');
