@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+export function mergeSemesters(existing,...labels){const values=String(existing||'').split(/[,，、;]/).concat(labels.flatMap(v=>String(v||'').split(/[,，、;]/)));const seen=new Set();return values.map(v=>v.trim()).filter(v=>{const key=v.toLowerCase().replace(/\s+/g,'');if(!key||seen.has(key))return false;seen.add(key);return true;}).join(', ');}
 const empty = {
   clientId: '',
   clientSecret: '',
@@ -362,7 +363,7 @@ export function createGoogle(storage) {
     do {
       const params = new URLSearchParams({
         q: query,
-        fields: 'nextPageToken,files(id,name,mimeType,shortcutDetails(targetMimeType))',
+        fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,shortcutDetails(targetMimeType,targetId))',
         pageSize: '100',
         supportsAllDrives: 'true',
         includeItemsFromAllDrives: 'true'
@@ -372,15 +373,29 @@ export function createGoogle(storage) {
       for (const file of data.files || []) {
         const targetMime = file.mimeType === 'application/vnd.google-apps.shortcut' ? file.shortcutDetails?.targetMimeType : file.mimeType;
         if (targetMime === 'application/vnd.google-apps.folder') continue;
+        const targetMeta=targetMime==='application/pdf'&&file.shortcutDetails?.targetId?await googleJson(token,`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.shortcutDetails.targetId)}?fields=modifiedTime&supportsAllDrives=true`):null;
         files.push({
           id: file.id,
-          name: file.name
+          name: file.name,
+          mimeType: targetMime,
+          targetId: file.shortcutDetails?.targetId || file.id,
+          modifiedTime: targetMeta?.modifiedTime || file.modifiedTime || ''
         });
       }
       pageToken = data.nextPageToken || '';
-    } while (pageToken && files.length < 200);
+    } while (pageToken);
     files.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
     return files;
+  }
+  async function downloadPdf(fileId) {
+    const token=await accessToken();
+    const response=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:`Bearer ${token}`}});
+    if(!response.ok)throw fail(502,'pdf_read_failed');
+    const limit=40*1024*1024;
+    if(Number(response.headers.get('content-length'))>limit)throw fail(413,'pdf_too_large');
+    const reader=response.body.getReader(),chunks=[];let size=0;
+    for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw fail(413,'pdf_too_large');}chunks.push(Buffer.from(value));}
+    const bytes=Buffer.concat(chunks);if(!bytes.subarray(0,1024).includes(Buffer.from('%PDF-')))throw fail(400,'pdf_invalid');return bytes;
   }
   async function updateDriveFile(fileId, {
     name,
@@ -401,48 +416,19 @@ export function createGoogle(storage) {
       } : {})
     });
   }
-  async function findScoreRow({
-    folderId,
-    shortcutId,
-    title,
-    semester
-  }) {
-    const sheet = await spreadsheet();
-    const existing = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
-    const headers = existing.values?.[0] || [];
-    if (!headers.some(header => columnKey(header))) throw fail(400, 'sheet_headers');
-    const keys = headers.map(header => columnKey(header));
-    const wantedTitle = String(title || '').trim().toLowerCase();
-    const wantedSemester = String(semester || '').trim().toLowerCase();
-    let titleHit = null;
-    for (let index = 1; index < (existing.values || []).length; index += 1) {
-      const cells = existing.values[index] || [];
-      const mapped = {};
-      keys.forEach((key, cell) => {
-        if (key) mapped[key] = cells[cell] || '';
-      });
-      const linkId = parseFolderId(mapped.link);
-      if (linkId && (linkId === folderId || shortcutId && linkId === shortcutId)) {
-        return {
-          row: index + 1,
-          ...mapped
-        };
-      }
-      const sameTitle = wantedTitle && String(mapped.title || '').trim().toLowerCase() === wantedTitle;
-      const semesterParts = String(mapped.semester || '').split(/[,，]/).map(part => part.trim().toLowerCase()).filter(Boolean);
-      const sameSemester = !wantedSemester || semesterParts.includes(wantedSemester);
-      if (sameTitle && sameSemester) titleHit = {
-        row: index + 1,
-        ...mapped
-      };
-    }
-    return titleHit || {
-      row: 0,
-      arranger: '',
-      kind: ''
-    };
+  async function readScoreSheet(){
+    const sheet=await spreadsheet();const params=new URLSearchParams({ranges:`${sheet.quoted}!A:Z`,fields:'sheets(data(startRow,rowData(values(formattedValue,hyperlink,userEnteredValue,textFormatRuns(format(link)),dataValidation(condition(type,values(userEnteredValue)))))))'});
+    const grid=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}?${params}`);const values=[],cellRows=[];
+    for(const block of grid.sheets?.[0]?.data||[])for(let i=0;i<(block.rowData||[]).length;i++){const index=(block.startRow||0)+i;cellRows[index]=block.rowData[i].values||[];values[index]=cellRows[index].map(cell=>cell.formattedValue??cell.userEnteredValue?.stringValue??'');}
+    const keys=(values[0]||[]).map(columnKey);const semesterColumn=keys.indexOf('semester');const semesterOptions=[...new Set(cellRows.flatMap(row=>{const condition=row?.[semesterColumn]?.dataValidation?.condition;return condition?.type==='ONE_OF_LIST'?(condition.values||[]).map(v=>v.userEnteredValue).filter(Boolean):[];}))];if(!keys.includes('title'))throw fail(400,'sheet_headers');
+    const rows=values.slice(1).map((cells,index)=>{const mapped={row:index+2};keys.forEach((key,col)=>{if(!key)return;const cell=cellRows[index+1]?.[col]||{};mapped[key]=key==='link'?(cell.hyperlink||(cell.textFormatRuns||[]).find(run=>run.format?.link?.uri)?.format.link.uri||cell.userEnteredValue?.formulaValue||cells[col]||''):cells[col]||'';});return mapped;});return {sheet,keys,rows,semesterOptions};
   }
-  async function updateScoreRow(rowNumber, values) {
+  async function listScoreIndex(){const {rows}=await readScoreSheet();return rows.map(row=>({row:row.row,id:parseFolderId(row.link),name:String(row.title||'').trim(),arranger:String(row.arranger||'').trim(),semester:String(row.semester||'').trim()})).filter(item=>item.name).sort((a,b)=>a.name.localeCompare(b.name,'zh'));}
+  async function findScoreRow({folderId,shortcutId,title,semester}){
+    const {rows,semesterOptions}=await readScoreSheet();for(const row of rows)row.semesterOptions=semesterOptions;const direct=rows.filter(row=>{const id=parseFolderId(row.link);return id&&(id===folderId||id===shortcutId);});if(direct.length===1)return direct[0];if(direct.length>1)throw fail(400,'sheet_song_ambiguous');
+    const normalize=v=>String(v||'').normalize('NFKC').trim().toLowerCase();const matches=rows.filter(row=>normalize(row.title)===normalize(title));if(matches.length===1)return matches[0];if(matches.length>1)throw fail(400,'sheet_song_ambiguous');return {row:0,arranger:'',kind:'',semester:''};
+  }
+  async function updateScoreRow(rowNumber, values, {replaceSemesters=false}={}) {
     const sheet = await spreadsheet();
     const headerRes = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!1:1`)}?valueRenderOption=FORMULA`);
     const headers = headerRes.values?.[0] || [];
@@ -450,18 +436,29 @@ export function createGoogle(storage) {
     const end = columnLetter(headers.length);
     const currentRes = await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A${rowNumber}:${end}${rowNumber}`)}?valueRenderOption=FORMULA`);
     const current = currentRes.values?.[0] || [];
-    const row = headers.map((header, index) => {
-      const key = columnKey(header);
-      if (!key || !Object.prototype.hasOwnProperty.call(values, key)) return current[index] || '';
-      return values[key] || '';
-    });
-    await googleJson(sheet.token, `https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A${rowNumber}:${end}${rowNumber}`)}?valueInputOption=USER_ENTERED`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        values: [row]
-      })
-    });
+    const data=headers.flatMap((header,index)=>{const key=columnKey(header);if(!key||!Object.prototype.hasOwnProperty.call(values,key))return [];const value=key==='semester'?(replaceSemesters?mergeSemesters(values[key]):mergeSemesters(current[index],values[key])):values[key]||'';return [{range:`${sheet.quoted}!${columnLetter(index+1)}${rowNumber}`,values:[[value]]}];});
+    if(data.length)await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values:batchUpdate`,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   }
+
+  async function recordPlanSemesters(jobs){
+    const sheet=await spreadsheet();
+    const params=new URLSearchParams({ranges:`${sheet.quoted}!A:Z`,fields:'sheets(data(startRow,rowData(values(formattedValue,hyperlink,userEnteredValue,textFormatRuns(format(link))))))'});
+    const grid=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}?${params}`);
+    const values=[],cellRows=[];for(const block of grid.sheets?.[0]?.data||[])for(let i=0;i<(block.rowData||[]).length;i++){const index=(block.startRow||0)+i;cellRows[index]=block.rowData[i].values||[];values[index]=cellRows[index].map(cell=>cell.formattedValue??cell.userEnteredValue?.stringValue??'');}
+    const existing={values};
+    const keys=(existing.values?.[0]||[]).map(columnKey),semesterColumn=keys.indexOf('semester'),linkColumn=keys.indexOf('link'),titleColumn=keys.indexOf('title');if(semesterColumn<0||linkColumn<0||titleColumn<0)throw fail(400,'sheet_headers');
+    const normalize=v=>String(v||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+    const rows=(existing.values||[]).slice(1).map((cells,i)=>({cells,row:i+2,folder:(()=>{const cell=cellRows[i+1]?.[linkColumn]||{};const ids=[cell.hyperlink,...(cell.textFormatRuns||[]).map(run=>run.format?.link?.uri),cell.userEnteredValue?.formulaValue,cells[linkColumn]].map(parseFolderId).filter(Boolean);return [...new Set(ids)].length===1?ids[0]:'';})(),title:normalize(cells[titleColumn])}));
+    const titleRows=new Map(),jobTitles=new Map(),matched=new Map(),done=[];
+    for(const row of rows)if(row.title){if(!titleRows.has(row.title))titleRows.set(row.title,[]);titleRows.get(row.title).push(row);}
+    for(const job of jobs){const title=normalize(job.title||(job.folder_id.startsWith('title:')?job.folder_id.slice(6):''));if(title){if(!jobTitles.has(title))jobTitles.set(title,new Set());jobTitles.get(title).add(job.folder_id);}}
+    for(const job of jobs){const direct=rows.filter(row=>row.folder&&row.folder===job.folder_id);const title=normalize(job.title||(job.folder_id.startsWith('title:')?job.folder_id.slice(6):''));const candidates=titleRows.get(title)||[];const hits=direct.length?direct:candidates.length===1&&jobTitles.get(title)?.size===1?candidates:[];
+      for(const row of hits){if(!matched.has(row.row))matched.set(row.row,{row,jobs:[]});matched.get(row.row).jobs.push(job);}if(hits.length)done.push(job.id);
+    }
+    const data=[];for(const {row,jobs:matches} of matched.values()){const value=mergeSemesters(row.cells[semesterColumn],...matches.map(job=>job.semester));if(value!==String(row.cells[semesterColumn]||''))data.push({range:`${sheet.quoted}!${columnLetter(semesterColumn+1)}${row.row}`,values:[[value]]});}
+    if(data.length)await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values:batchUpdate`,{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});return [...new Set(done)];
+  }
+
   return {
     load,
     save,
@@ -473,7 +470,10 @@ export function createGoogle(storage) {
     deleteFile,
     appendRow,
     listScoreFolders,
+    listScoreIndex,
+    recordPlanSemesters,
     listFolderFiles,
+    downloadPdf,
     updateDriveFile,
     findScoreRow,
     updateScoreRow

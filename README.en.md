@@ -1,3 +1,5 @@
+**Official release v1.0** · [Changelog](CHANGELOG.md) · [Open Hub](https://cucac-hub.vercel.app)
+
 # A Cappella Hub · CUCAC User Guide
 
 [中文](README.md) | **English**
@@ -28,7 +30,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 1. Open the **CUCAC** home screen icon or the website link above.
 2. Tap **第一次来？注册** (“First time? Register”) to create an account with your name, or sign in if you already have one.
 3. Fill in your information under **My profile**.
-4. From the home page, open **Members**, **Scores**, or **Solo voting**.
+4. From the home page, open **Members**, **Scores**, or **Solo / Duet voting**.
 
 ## Contents
 
@@ -38,6 +40,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 - [Accounts and Sign-in](#accounts)
 - [My Profile](#profile)
 - [Members](#roster)
+- [What Are We Singing?](#song-plan)
 - [Solo Voting](#voting)
 - [Browse Scores](#scores)
 - [Upload and Edit Scores](#upload)
@@ -74,12 +77,15 @@ This is a home screen shortcut to the website and requires an internet connectio
 
 Open **My profile** from the home page. Fill in your English full name, pronouns, voice part, school, graduation year, major, fun fact, and favorite food, then save. Use a four-digit graduation year, such as `2027`.
 
-Each profile has a **Photo gallery**. Any signed-in member can add photos of that person. Each photo must be under 5 MB; JPG, PNG, WebP, and GIF are supported. Click a photo to enlarge it and see who uploaded it.
+Voice parts allow multiple selections: Soprano, Alto, Tenor, Baritone, Bass, Bbox, and Rap. Choose Edit in My profile, check your parts, then Save. The MD can click Edit in another member’s voice-part section and Save to apply changes. The Active list shows parts beside names and defaults to voice-part order, alphabetical within each part. The small button beside Active switches to alphabetical order; the right-hand dropdown independently filters by part. Members with multiple parts appear once, under their earliest selected part. Check Crew / Media below the voice parts and save to join the Crew / Media list. Uncheck and save to return to your previous member group.
 
-- The **profile owner** can delete any photo in their gallery and choose **Set as avatar**.
-- **Uploaders** can delete their own uploads. Other members cannot change the owner's avatar.
-- Deleting the photo used as the current avatar removes the avatar too; choose another photo afterward.
-- Existing avatars are automatically preserved when the gallery is first opened. Without an avatar, the first character of the member's name is shown.
+Each profile has a **Photo gallery**. Any signed-in member can add photos. Select Upload photo to choose a file, crop, and confirm upload: **1:1** is the default, or choose **Freeform** and drag the selection or its bottom-right corner. Photos are saved as still JPGs. Original images must be **5 MB or smaller**; oversized files show a warning.
+
+- Photos appear in a square grid. Open a photo to see the full image and uploader name.
+- Select **♡ / ♥** to like or unlike a photo. Each member contributes one like per photo.
+- In the full preview, the owner can **Set as avatar**, switch back to **Use automatic avatar**, and delete any photo. Uploaders can delete their own photos.
+- A manually selected avatar takes priority. Otherwise, Hub uses the photo with the most likes, provided it has at least one; ties use the earlier upload. Canceling or deleting a manual avatar returns to automatic selection. With no liked photos, Hub shows the member's initial.
+- Existing avatars remain manually selected. There is no photo-count cap; total storage is limited. Video uploads are not supported.
 
 Profiles and galleries are visible to other signed-in members. Share only information and photos you are comfortable sharing with the group.
 
@@ -91,44 +97,68 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 - Regular members can edit only their own profiles, not other members’ roles or accounts.
 - Music Director, Arranger, and board position labels are assigned by an administrator or someone with the appropriate permission; you cannot assign them to yourself through your profile.
 
+<a id="song-plan"></a>
+### What Are We Singing?
+
+Open **What Are We Singing?** from the home page. It defaults to the current semester; use the dropdown to view archived semesters.
+
+- **Songs** appear down the left, with **Solo, Soprano, Alto, Tenor, Baritone, Bass, Bbox** across the top. Each cell can contain multiple singers. On phones, scroll horizontally while the song column stays visible.
+- Active members can select **+ Join** in any non-Solo cell, regardless of their profile voice parts. You may sing multiple parts in one song. **×** beside your name removes only that part.
+- **The MD assigns Solo singers**; members cannot join or remove Solo themselves. The MD can add or remove singers in any part and confirm a lineup to lock member signup.
+- **Add / manage songs** supports checking multiple library songs and selecting all results. Search the whole library by default, or browse a semester’s Google Drive folder, just like updating existing scores.
+- For scores not uploaded yet, **enter the song title manually** and begin arranging the lineup. It shows “Scores pending.” Selecting the same title from the library later links its folder while preserving signup.
+- In **Semester settings**, the MD can choose the current semester or start a new one. Switching archives the other semesters as read only, preserving their roster and lineup. The performance plan is managed independently of the contents of score-library semester folders.
+- **Scores ↗** opens the linked folder. Removing a song from a semester keeps its scores and signup; re-adding restores them.
+- Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
+
+- **Full group**: checking the song’s box fills every active singer into their matching profile parts, including multiple parts. Solo and existing assignments stay intact. Unchecking keeps the lineup; cells can still be adjusted individually.
+- Full group automatically locks signup; unchecking reopens it. Voting results in each Solo cell opens linked closed rounds. When creating a Solo poll, select its song from the current semester.
+
+
+
 <a id="voting"></a>
-### Solo Voting
+### Solo / Duet Voting
 
-#### Join a Round
+The MD chooses one of four methods when opening a round:
 
-1. Open **Solo voting** to see the current round’s song and arranger.
-2. Select the participation button to enter the solo selection. Your name will appear in the candidate list.
-3. To withdraw, select the withdrawal button and confirm. Withdrawing removes votes cast for you in this round.
-
-If no round is active, wait for a Music Director to open one. Only one round can be active at a time.
-
-#### Vote for Candidates
-
-Each candidate has two options:
-
- | Option | Meaning | 
+| Method | Registration and voting |
 | --- | --- |
- | Sounds great!** | You think they are a good fit for this song’s solo. | 
- | Not sure yet** | You are not sure yet and would like to hear other candidates. | 
+| **Solo · Default Voting** | Register individually. Choose one of two singers, or up to two of three or more. |
+| **Solo · Like Voting** | Register individually. Give each singer “sounds great” or “not sure yet” feedback. |
+| **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
+| **Duet · Multi-part Voting** | Two parts are the default; add or remove parts as needed. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
-- You can give feedback on multiple candidates; you are not limited to one.
-- Each account can keep one choice per candidate. Selecting the other option replaces your previous choice.
-- Selecting an option you have already chosen cancels that choice.
-- Choices save automatically; no separate submission is needed. Your choices also appear when you sign in with the same account on another device.
-- You cannot change your votes after the round ends.
+1. Open **Solo / Duet voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
+2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Multi-part Voting, choose your part.
+3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
+4. Before voting starts, see candidate counts and manage your own registration; other candidate names stay hidden. Pair Voting requires the invited partner to confirm. After the MD starts voting, see the shuffled candidates and choose directly. Click again to unselect, then **Submit vote** to confirm, including empty ballots. Changing a selection requires re-confirmation. Choices save automatically and cannot be changed after the round closes.
+5. In Solo voting, select **Submit vote** to confirm your saved choices with the server. An empty selection can be submitted as an abstention, which counts as submitted. Submission status persists across refreshes and devices. The round creator sees submission progress among members who have joined this poll, and viewers active in the last minute; completion is shown when everyone submits. You may change choices before voting closes, then submit again. Submitting does not add duplicate votes; automatically saved choices still count without this optional confirmation.
 
-#### Who Can See Results?
+The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Multi-part Voting needs at least one singer in each part before voting starts.
 
-Regular members can see their own choices but not aggregate vote counts. **Music Directors and the round’s assigned Arranger** can view the round’s totals. Eligible viewers can also access the relevant historical rounds; up to the 12 most recent completed rounds are shown.
+Starting with two soloists or two pairs locks registration. In Multi-part Voting, each part starting with one or two singers locks separately. Larger groups allow later entries. After voting starts, withdrawal is disabled if it would leave fewer than three entries in a group, protecting existing ballots.
 
-Results help Music Directors and arrangers make their decision; the system does not automatically select the soloist. Being an administrator alone does not grant access to aggregate results.
+#### Results and History
+
+Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Multi-part Voting ranks each part separately. The MD can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
+
+Results help the MD and arranger decide; the system does not automatically choose the performers. The same singer may appear in multiple leading pairs.
+
+#### Record and listen back
+
+After joining, open **Record / upload audio** on your own entry. Allow microphone access, then choose **Record → Stop and preview → Save recording**. You can record again or upload an existing audio file. Duet pairs must be confirmed first; either partner can add or delete recordings for their pair.
+
+All signed-in members can play saved recordings. There is no recording time limit; each file can be up to **50 MB**. Recordings stay available while voting is open and for **7 days after it closes**, including in round history, before automatic cleanup. Voting results remain. To keep your recording longer, download your own copy before saving.
+
 
 <a id="scores"></a>
 ### Browse Scores
 
 1. Open **Scores** from the home page.
 2. Choose a semester, such as `2026 Fall`, in the score browsing area.
-3. Open a song folder or the semester folder link to view and download scores in Google Drive.
+3. Select **View PDF** to read, turn pages, zoom, or enter fullscreen inside Hub using the PDF’s top-right button or a double-click. Phones fit the screen width by default; computers start at 200%. Select Fit after zooming to restore screen-width reading. Tap the reading-direction button to switch between horizontal page turns and continuous vertical scrolling with pages directly following each other. Fullscreen uses a black surround; tap to show controls, and double-click again to exit. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
+
+Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current semester in What Are We Singing? and add a PDF. Hub PDF reading requires login and does not make scores public.
 
 An administrator must configure the Google score library first. If the page says setup is incomplete, contact an administrator. Members do not need to configure Google Cloud themselves.
 
@@ -137,7 +167,7 @@ Your website account and Google account are separate. Drive files still follow G
 <a id="upload"></a>
 ### Upload and Edit Scores
 
-Only accounts assigned the **Arranger** role can upload and edit scores. Being a Music Director or holding another club position does not automatically grant upload permission.
+Only accounts assigned the **Arranger** role can upload and edit scores. Being a Music Director or holding another club position does not automatically grant full library editing permission. MDs can add PDFs and set the default score in the PDF reader.
 
 #### Upload a New Song
 
@@ -151,14 +181,15 @@ Only accounts assigned the **Arranger** role can upload and edit scores. Being a
 
 Files are stored under `Club root folder → Semester → Song title`, with a record added to the Google Sheets score index. Common formats include PDF, MuseScore `.mscz`, MusicXML `.musicxml` / `.xml` / `.mxl`, and images.
 
-For the hosted version, **all files in one upload must total less than 20 MB**; the limit is not 20 MB per file. Add larger folders in batches. If your phone’s browser cannot select a whole folder, select multiple files instead.
+For the hosted version, **all files in one upload must total less than 4 MB**; the limit applies to the entire upload. Add larger folders in batches. If your phone’s browser cannot select a whole folder, select multiple files instead.
 
 #### Edit an Existing Song
 
-1. Select **修改已经上传过的曲目** (“Edit an uploaded song”).
-2. Choose the original semester, then search for and select the song.
+1. Select **更新已有曲目** (“Update an existing song”).
+2. Select Update an existing song beside the heading, then search the entire library or browse a semester’s Google Drive folder. Scroll through the results and select a song to open its details; the original semester is filled in automatically.
 3. Edit the title, arrangers, type, or destination semester. You can also add files and select existing files to delete.
-4. Select **Save** to apply your changes. Canceling exits without saving.
+4. Use **☆ / ★** in the file list to mark the latest PDF that Hub should open by default. Only one is starred; a single PDF is selected automatically. Stars save immediately, even if you cancel the form. After saving newly added PDFs, select the song again to star one of them.
+5. Select **Save** to apply song and file changes. Canceling exits without saving those changes.
 
 Edits affect the shared library, not just your own view. Arrangers can currently edit existing songs in the library, including songs uploaded by others. Follow the club’s agreed practices.
 
@@ -214,7 +245,7 @@ Administrators can also change a regular member’s username, enter a new passwo
  | I am an MD but cannot upload | You also need the Arranger role, and the Google score library must be configured. | 
  | Score library is not configured | Ask an administrator to connect Google, set the index sheet and root folder, and add a semester. | 
  | No Arranger is available for a round | Assign the Arranger role to at least one Active member first. | 
- | I cannot see vote totals | Regular members see only their own choices. Totals are available to MDs and the round’s assigned Arranger. | 
+ | I cannot see vote totals | Regular members see only their own choices. Results show revealed ranks without aggregate counts. | 
  | No active round | Wait for an MD to open a round. An active round must end before the next can begin. | 
  | Upload fails or request is too large | Check that the total upload is under 20 MB, you have the required role, and the Google connection is valid. | 
  | Drive access is denied | Check your Google account and the folder’s sharing permissions. Website accounts do not replace Google permissions. | 
@@ -322,3 +353,4 @@ The original Node server remains in `server.js`. The hosted version lives in `wo
 Live site: [A Cappella Hub](https://acappella-hub.elenazhang0607.chatgpt.site)
 
 `worker/assets.js` is generated by the hosted build from `public/` and is not tracked in this repository. GitHub commits do not automatically redeploy Sites; publish the updated source to the existing Site when you want it to go live.
+

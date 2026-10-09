@@ -1,9 +1,11 @@
+import {createPdfs} from './pdfs.js';
 import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
-import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink } from './google.js';
+import { createGoogle, parseFolderId, parseMultipart, parseSpreadsheetId, redirectUri, scoreFileType, sheetLink, mergeSemesters } from './google.js';
 import { database, boundedBody, hashPassword, verifyPassword, initialize, responseSink } from './runtime.js';
 import { assets } from './assets.js';
 import { galleryService } from '../gallery.js';
+import {readVoiceParts,validateVoiceParts,readVoiceSettings,voiceSettingsFromBody} from './voice-parts.js';
 export default {
   async fetch(request, env) {
     if (!env.DB || !env.FILES) return new Response('Storage unavailable', {
@@ -21,6 +23,7 @@ export default {
     });
     const db = database(env.DB);
     const google = createGoogle(env.FILES);
+    const pdfs = createPdfs(google,env.FILES);
     const gallery = galleryService({db, files:env.FILES, imageExt, fail});
     const req = {
       request,
@@ -34,12 +37,12 @@ export default {
       insertUser: db.prepare(`INSERT INTO users (name, password_hash, created_at) VALUES (?, ?, ?)`),
       userBySession: db.prepare(`
     SELECT u.id AS id, u.name AS name, u.is_admin AS is_admin, u.can_start AS can_start,
-      u.is_md AS is_md, u.is_arranger AS is_arranger
+      u.is_md AS is_md, u.is_arranger AS is_arranger, u.is_president AS is_president
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ?
   `),
-      account: db.prepare(`SELECT id, name, is_admin, can_start, is_md, is_arranger, is_alumni FROM users WHERE id = ?`),
+      account: db.prepare(`SELECT id, name, is_admin, can_start, is_md, is_arranger, is_alumni, is_crew FROM users WHERE id = ?`),
       anyAdmin: db.prepare(`SELECT id FROM users WHERE is_admin = 1 LIMIT 1`),
       insertAdmin: db.prepare(`
     INSERT INTO users (name, password_hash, created_at, is_admin, can_start)
@@ -47,15 +50,17 @@ export default {
   `),
       listUsers: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
-      is_alumni, is_president, is_vp, is_secretary, is_treasurer, is_media,
-      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
+      is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
+      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext, avatar_photo_id,
+      (SELECT p.id FROM photos p JOIN photo_likes l ON l.photo_id=p.id WHERE p.owner_id=users.id GROUP BY p.id,p.created_at ORDER BY count(*) DESC,p.created_at ASC,p.id ASC LIMIT 1) AS auto_avatar_id
     FROM users
     WHERE is_admin = 0
   `),
       profileById: db.prepare(`
     SELECT id, name, is_admin, can_start, is_md, is_arranger,
-      is_alumni, is_president, is_vp, is_secretary, is_treasurer, is_media,
-      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext
+      is_alumni, is_crew, is_president, is_vp, is_secretary, is_treasurer, is_media,
+      full_name, pronouns, position, voice_part, school, grad_year, program, fun_fact, favorite_food, avatar_ext, avatar_photo_id,
+      (SELECT p.id FROM photos p JOIN photo_likes l ON l.photo_id=p.id WHERE p.owner_id=users.id GROUP BY p.id,p.created_at ORDER BY count(*) DESC,p.created_at ASC,p.id ASC LIMIT 1) AS auto_avatar_id
     FROM users
     WHERE id = ?
   `),
@@ -68,6 +73,7 @@ export default {
       setMusicDirector: db.prepare(`UPDATE users SET is_md = ? WHERE id = ? AND is_admin = 0`),
       setArranger: db.prepare(`UPDATE users SET is_arranger = ? WHERE id = ?`),
       setAlumni: db.prepare(`UPDATE users SET is_alumni = ? WHERE id = ? AND is_admin = 0`),
+      setCrew: db.prepare(`UPDATE users SET is_crew = ? WHERE id = ? AND is_admin = 0`),
       setPresident: db.prepare(`UPDATE users SET is_president = ? WHERE id = ? AND is_admin = 0`),
       setVicePresident: db.prepare(`UPDATE users SET is_vp = ? WHERE id = ? AND is_admin = 0`),
       setSecretary: db.prepare(`UPDATE users SET is_secretary = ? WHERE id = ? AND is_admin = 0`),
@@ -83,9 +89,10 @@ export default {
       reassignPhaseCreator: db.prepare(`UPDATE phases SET created_by = ? WHERE created_by = ?`),
       reassignScoreUploader: db.prepare(`UPDATE scores SET uploaded_by = ? WHERE uploaded_by = ?`),
       listRounds: db.prepare(`
-    SELECT p.id, p.title, p.status, p.closed_at, u.name AS opened_by
+    SELECT p.id, p.title, p.status, p.closed_at,p.poll_type,p.plan_song_id,s.title AS plan_song_title, u.name AS opened_by
     FROM phases p
     JOIN users u ON u.id = p.created_by
+    LEFT JOIN cucac.plan_songs s ON s.id=p.plan_song_id
     ORDER BY p.id DESC
   `),
       deletePhaseVotes: db.prepare(`DELETE FROM votes WHERE phase_id = ?`),
@@ -94,23 +101,23 @@ export default {
       insertSession: db.prepare(`INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)`),
       deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
       openPhase: db.prepare(`
-    SELECT p.id, p.title, p.status, p.created_by, p.arranger_id, p.created_at, p.closed_at,
+    SELECT p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
       u.name AS opened_by, a.name AS arranger_name
     FROM phases p
     JOIN users u ON u.id = p.created_by
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'open'
   `),
-      phaseById: db.prepare(`SELECT id, status FROM phases WHERE id = ?`),
+      phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at) VALUES (?, 'open', ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,part_c,part_labels,plan_song_id) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
-    WHERE p.status = 'closed' AND (? = 1 OR p.arranger_id = ?)
+    WHERE p.status = 'closed'
     ORDER BY p.id DESC
     LIMIT 12
   `),
@@ -174,18 +181,7 @@ export default {
       if (text.includes('小组') || text.includes('小歌') || text.includes('small group') || text.includes('group')) kinds.push('group');
       return kinds;
     }
-    function semesterCell(existing, sourceLabel, destLabel) {
-      const parts = String(existing || '').split(/[,，]/).map(part => part.trim()).filter(Boolean);
-      const same = (part, label) => part.toLowerCase() === String(label || '').trim().toLowerCase();
-      if (!parts.length) return destLabel;
-      if (same(sourceLabel, destLabel)) {
-        if (parts.some(part => same(part, destLabel))) return parts.join(', ');
-        return [...parts, destLabel].join(', ');
-      }
-      const next = parts.filter(part => !same(part, sourceLabel));
-      if (!next.some(part => same(part, destLabel))) next.push(destLabel);
-      return next.join(', ') || destLabel;
-    }
+    function semesterCell(existing, sourceLabel, destLabel) {return mergeSemesters(existing,sourceLabel,destLabel);}
     function driveId(value) {
       const id = String(value || '').trim();
       if (!/^[a-zA-Z0-9_-]{10,}$/.test(id)) return '';
@@ -258,14 +254,15 @@ export default {
         name: row.name,
         isAdmin: Boolean(row.is_admin),
         isMd: Boolean(row.is_md),
-        isArranger: Boolean(row.is_arranger)
+        isArranger: Boolean(row.is_arranger),
+        isPresident: Boolean(row.is_president)
       };
     }
     function isManager(account) {
       return Boolean(account?.isAdmin || account?.isMd);
     }
     function avatarUrl(row) {
-      return row?.avatar_ext ? `/api/avatars/${row.id}?v=${row.avatar_ext}` : '';
+      return row?.avatar_ext ? `/api/avatars/${row.id}?v=${row.avatar_photo_id||row.avatar_ext}` : row?.auto_avatar_id ? '/api/photos/'+row.auto_avatar_id : '';
     }
     function publicProfile(row) {
       if (!row) return null;
@@ -274,7 +271,9 @@ export default {
         name: row.name,
         fullName: row.full_name || '',
         pronouns: row.pronouns || '',
-        voicePart: row.voice_part || '',
+        voicePart: readVoiceSettings(row.voice_part).primary,
+        voiceParts: [readVoiceSettings(row.voice_part).primary].filter(Boolean),
+        primaryVoicePart:readVoiceSettings(row.voice_part).primary,secondaryVoiceParts:[],
         school: row.school || '',
         gradYear: row.grad_year || '',
         program: row.program || '',
@@ -284,6 +283,7 @@ export default {
         isMd: Boolean(row.is_md),
         isArranger: Boolean(row.is_arranger),
         isAlumni: Boolean(row.is_alumni),
+        isCrew: Boolean(row.is_crew),
         isPresident: Boolean(row.is_president),
         isVicePresident: Boolean(row.is_vp),
         isSecretary: Boolean(row.is_secretary),
@@ -351,44 +351,66 @@ export default {
           mine: row.mine
         };
         if (visible) {
-          candidate.likes = row.likes;
-          candidate.again = row.again;
+          candidate.likes = Number(row.likes);
+          candidate.again = Number(row.again);
         }
         return candidate;
       });
     }
     function byScore(a, b) {
-      return b.likes - a.likes || b.again - a.again || a.name.localeCompare(b.name, 'zh');
+      return b.likes - a.likes || a.name.localeCompare(b.name, 'zh');
     }
     function seesResults(account, phase) {
       if (!account || !phase) return false;
-      if (account.isMd) return true;
-      return Number(phase.arranger_id) === account.id;
+      return account.isAdmin;
     }
-    async function stateFor(user) {
+    async function rankedResults(phase,account){
+      if (phase.poll_type!=='solo') return (await env.voting.view(phase,account)).candidates;
+      if(Array.isArray(phase.solo_results))return phase.solo_results.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?{...c,isMe:c.id===account.id}:{id:c.id,name:c.name,rank:c.rank,isMe:c.id===account.id});
+      const all=(await loadCandidates(phase.id,account.id,true)).sort(byScore);
+      let rank=0,last=null;
+      const ranked=all.map(c=>{if(c.likes!==last){rank++;last=c.likes;}return {...c,rank};});
+      return ranked.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?c:{id:c.id,name:c.name,rank:c.rank,isMe:c.isMe});
+    }
+
+    async function stateFor(user, songId=null) {
       const account = asUser(await statements.account.get(user.id));
       if (!account) throw fail(401, 'login_required');
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
-      const history = await Promise.all((await statements.history.all(account.isMd ? 1 : 0, account.id)).map(async phase => ({
+      const pollProgress=open&&env.voting?.progress?await env.voting.progress(open,account):{};
+      const soloCandidates=open?.poll_type==='solo'?await loadCandidates(open.id,user.id,openVisible):[];
+      const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
+      const history = await Promise.all((songId?await env.plans.pollHistory(songId):await statements.history.all()).map(async phase => ({
         id: phase.id,
         title: phase.title,
+        planSongId:phase.plan_song_id||null,planSongTitle:phase.plan_song_id?(await env.plans.songInfo(phase.plan_song_id))?.title||'':'',
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        candidates: (await loadCandidates(phase.id, user.id, true)).sort(byScore)
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
       })));
       return {
+        uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
-        phase: open ? {
+        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:open.poll_type,...pollProgress,candidates:[]}:{
+          ...(openDuet||{}),
+          ...pollProgress,
+          recordings:!open.started_at?[]:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
           status: open.status,
+          votingMode:open.voting_mode,
+          started:Boolean(open.started_at),
+          registrationLocked:Boolean(open.registration_locked),
+          voteLimit:open.registration_locked?1:2,
           openedBy: open.opened_by,
           arranger: open.arranger_name || '',
           canSeeResults: openVisible,
-          iAmCandidate: Boolean(await statements.isCandidate.get(open.id, user.id)),
-          candidates: await loadCandidates(open.id, user.id, openVisible)
-        } : null,
+          pollType:open.poll_type,
+          iAmCandidate: openDuet?openDuet.iAmCandidate:Boolean(await statements.isCandidate.get(open.id, user.id)),
+          candidateCount:openDuet?openDuet.candidateCount:soloCandidates.length,
+          candidates: openDuet?openDuet.candidates:(!open.started_at?[]:soloCandidates).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
+        }) : null,
         history,
         profile: publicProfile(await statements.profileById.get(account.id)),
         members: await memberList(),
@@ -398,7 +420,7 @@ export default {
             title: row.title,
             status: row.status,
             openedBy: row.opened_by,
-            closedAt: row.closed_at
+            closedAt: row.closed_at,pollType:row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
           }))
         } : null,
         library: await libraryFor(account)
@@ -502,7 +524,7 @@ export default {
         } = url;
 
     const albumRoute = pathname.match(/^\/api\/profiles\/(\d+)\/photos$/);
-    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar))?$/);
+    const photoRoute = pathname.match(/^\/api\/photos\/([a-zA-Z0-9-]+)(?:\/(delete|avatar|clear-avatar|like))?$/);
     if (albumRoute || photoRoute) {
       const user = await requireUser(req);
       if (albumRoute) {
@@ -514,14 +536,25 @@ export default {
         }
       } else if (req.method === 'GET' && !photoRoute[2]) {
         const photo = await gallery.bytes(photoRoute[1]);
+        if(photo.url){res.writeHead(302,{'Location':photo.url,'Cache-Control':'private, no-store'});res.end();return;}
         res.writeHead(200, {'Content-Type':photo.type,'Cache-Control':'private, no-cache','X-Content-Type-Options':'nosniff'});
         res.end(Buffer.from(photo.body)); return;
       } else if (req.method === 'POST' && photoRoute[2]) {
-        const result = await gallery[photoRoute[2] === 'avatar' ? 'select' : 'remove'](photoRoute[1], user);
+        const action=photoRoute[2];
+        const result = action==='like'?await gallery.like(photoRoute[1],user,(await readBody(req)).liked):await gallery[action==='avatar'?'select':action==='clear-avatar'?'clear':'remove'](photoRoute[1], user);
         send(res, 200, result); return;
       }
       throw fail(405, 'not_found');
     }
+        if (pathname === '/api/admin/invitations' && env.invitations) {
+          const user = await requireAdmin(req);
+          if (req.method === 'GET') { send(res, 200, await env.invitations.list()); return; }
+          if (req.method === 'POST') { send(res, 201, await env.invitations.create(user)); return; }
+        }
+        const revokeInvite = pathname.match(/^\/api\/admin\/invitations\/([a-f0-9]+)\/revoke$/);
+        if (req.method === 'POST' && revokeInvite && env.invitations) {
+          await requireAdmin(req); await env.invitations.revoke(revokeInvite[1]); send(res, 200, await env.invitations.list()); return;
+        }
         if (req.method === 'GET' && pathname === '/api/state') {
           send(res, 200, await stateFor(await requireUser(req)));
           return;
@@ -534,7 +567,10 @@ export default {
           if (problem) throw fail(400, problem);
           if (await statements.userByName.get(name)) throw fail(409, 'name_taken');
           const createdAt = now();
-          const result = await statements.insertUser.run(name, await hashPassword(body.password), createdAt);
+          const passwordHash = await hashPassword(body.password);
+          const result = env.INVITE_REQUIRED
+            ? await env.invitations.register({code:body.invitationCode, name, passwordHash, createdAt})
+            : await statements.insertUser.run(name, passwordHash, createdAt);
           const user = {
             id: Number(result.lastInsertRowid),
             name
@@ -599,10 +635,23 @@ export default {
           const pronouns = cleanText(body.pronouns, 40);
           const gradRaw = typeof body.gradYear === 'string' ? body.gradYear.trim() : '';
           if (gradRaw && !/^\d{4}$/.test(gradRaw)) throw fail(400, 'grad_year');
+          if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
           const optional = (value, max) => value == null || String(value).trim() === '' ? '' : cleanText(value, max);
-          await statements.saveProfile.run(fullName, pronouns, '', optional(body.voicePart, 40), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
+          await statements.saveProfile.run(fullName, pronouns, '', JSON.stringify(voiceSettingsFromBody(body,(await statements.profileById.get(user.id)).voice_part)), optional(body.school, 80), gradRaw, optional(body.program, 80), optional(body.funFact, 240), optional(body.favoriteFood, 80), user.id);
+          if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,user.id);
           send(res, 200, await stateFor(user));
           return;
+        }
+        if(req.method==='POST' && /^\/api\/members\/\d+\/voice-parts$/.test(pathname)) {
+          const user=await requireUser(req);const id=Number(pathname.split('/')[3]);
+          const actor=await statements.profileById.get(user.id);
+          if(id!==user.id&&!actor.is_admin&&!actor.is_md)throw fail(403,'forbidden');
+          const target=await statements.profileById.get(id);if(!target)throw fail(404,'not_found');
+          const body=await readBody(req);const parts=voiceSettingsFromBody(body,target.voice_part);
+          if(body.crewMedia!==undefined&&typeof body.crewMedia!=='boolean')throw fail(400,'bad_action');
+          await db.prepare('UPDATE users SET voice_part = ? WHERE id = ?').run(JSON.stringify(parts),id);
+          if(body.crewMedia!==undefined)await statements.setCrew.run(body.crewMedia?1:0,id);
+          send(res,200,await stateFor(user));return;
         }
         if (req.method === 'POST' && pathname === '/api/profile/avatar') {
           const user = await requireUser(req);
@@ -623,16 +672,21 @@ export default {
           const user = await requireUser(req);
           if (!user.isMd) throw fail(403, 'cannot_start');
           const body = await readBody(req);
-          const title = cleanText(body.title, 40);
-          const arrangerId = Number(body.arrangerId);
+          let title = cleanText(body.title, 40);
+          const arrangerId = body.arrangerId?Number(body.arrangerId):null;
           if (!title) throw fail(400, 'title_required');
-          const arranger = await statements.account.get(arrangerId);
-          if (!arranger || arranger.is_admin || arranger.is_alumni || !arranger.is_arranger) {
+          const arranger = arrangerId===null?null:await statements.account.get(arrangerId);
+          if (arrangerId!==null&&(!arranger || arranger.is_admin || arranger.is_alumni || !arranger.is_arranger)) {
             throw fail(400, 'poll_arranger_required');
           }
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
           try {
-            await statements.insertPhase.run(title, user.id, arranger.id, now());
+            if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
+            const pollType=body.pollType||'solo';
+            const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
+            const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
+            if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
+            await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId);
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
@@ -710,39 +764,71 @@ export default {
             musicDirector: statements.setMusicDirector,
             arranger: statements.setArranger,
             alumni: statements.setAlumni,
+            crew: statements.setCrew,
             president: statements.setPresident,
             vicePresident: statements.setVicePresident,
             secretary: statements.setSecretary,
             treasurer: statements.setTreasurer,
             mediaChair: statements.setMedia
           };
-          const adminOnly = new Set(['musicDirector', 'alumni', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair']);
+          const adminOnly = new Set(['musicDirector', 'alumni', 'crew', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair']);
           const changing = Object.keys(flags).filter(key => typeof body[key] === 'boolean');
           if (!changing.length) throw fail(400, 'bad_json');
           if (!user.isAdmin && changing.some(key => adminOnly.has(key))) throw fail(403, 'forbidden');
           if (target.is_admin && changing.some(key => key !== 'arranger')) throw fail(400, 'cannot_change_admin');
+          if (body.alumni === true && body.crew === true) throw fail(400, 'bad_json');
           const toAlumni = body.alumni === true;
           const roleKeys = ['musicDirector', 'arranger', 'president', 'vicePresident', 'secretary', 'treasurer', 'mediaChair'];
-          for (const key of changing) {
-            if ((toAlumni || target.is_alumni && body.alumni !== false) && roleKeys.includes(key)) continue;
-            await flags[key].run(body[key] ? 1 : 0, target.id);
-          }
-          if (toAlumni) {
-            await statements.setMusicDirector.run(0, target.id);
-            await statements.setArranger.run(0, target.id);
-            await statements.setPresident.run(0, target.id);
-            await statements.setVicePresident.run(0, target.id);
-            await statements.setSecretary.run(0, target.id);
-            await statements.setTreasurer.run(0, target.id);
-            await statements.setMedia.run(0, target.id);
-          }
+          await withTx(async () => {
+            for (const key of changing) {
+              if ((toAlumni || target.is_alumni && body.alumni !== false) && roleKeys.includes(key)) continue;
+              await flags[key].run(body[key] ? 1 : 0, target.id);
+            }
+            if (body.crew === true) await statements.setAlumni.run(0, target.id);
+            if (toAlumni) {
+              await statements.setCrew.run(0, target.id);
+              await statements.setMusicDirector.run(0, target.id);
+              await statements.setArranger.run(0, target.id);
+              await statements.setPresident.run(0, target.id);
+              await statements.setVicePresident.run(0, target.id);
+              await statements.setSecretary.run(0, target.id);
+              await statements.setTreasurer.run(0, target.id);
+              await statements.setMedia.run(0, target.id);
+            }
+          });
           send(res, 200, await stateFor(user));
           return;
         }
-        const action = pathname.match(/^\/api\/phases\/(\d+)\/(close|candidacy|vote)$/);
+        if(pathname==='/api/plan/poll-songs'&&req.method==='GET'){const user=await requireUser(req);if(!user.isMd)throw fail(403,'forbidden');send(res,200,{songs:await env.plans.pollSongs()});return;}
+        if(pathname==='/api/plan/results'&&req.method==='GET'){const user=await requireUser(req);const id=Number(url.searchParams.get('songId'));if(!Number.isInteger(id)||id<=0)throw fail(400,'plan_invalid');const state=await stateFor(user,id);send(res,200,{history:state.history});return;}
+        if(pathname==='/api/plan/library'&&req.method==='GET'){
+          const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');const source=Number(url.searchParams.get('semesterId'));if(source){const semester=await statements.semesterById.get(source);if(!semester?.folder_id)throw fail(404,'semester_missing');send(res,200,{folders:(await google.listScoreFolders(semester.folder_id)).map(s=>({...s,semester:semester.label}))});}else send(res,200,{folders:await google.listScoreIndex()});return;
+        }
+        if(pathname==='/api/plan'&&req.method==='GET'){
+          const user=await requireUser(req);const semesterId=Number(url.searchParams.get('semesterId'));
+          if(semesterId){const semester=await statements.semesterById.get(semesterId);if(!semester?.folder_id)throw fail(404,'semester_missing');const folders=await google.listScoreFolders(semester.folder_id);send(res,200,await env.plans.fromSemester(user,semester.label,folders));}
+          else send(res,200,await env.plans.list(user,Number(url.searchParams.get('termId'))||undefined));return;
+        }
+        if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
+          if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
+          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|current|archive|add|bulk|save|big|lock|edit|delete|entry)(?:\/(\d+))?$/);
+          if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
+        }
+        if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
+          if(!env.recordings)throw fail(404,'not_found');
+          await env.recordings.cleanup();if(env.plans)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true});return;
+        }
+        const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
+        if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}
+        const audioAction=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)\/(complete|delete)$/);
+        if(req.method==='POST'&&audioAction){const user=await requireUser(req);if(audioAction[2]==='complete')await env.recordings.complete(audioAction[1],user);else await env.recordings.remove(audioAction[1],user);send(res,200,await stateFor(user));return;}
+        const audioRead=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)$/);
+        if(req.method==='GET'&&audioRead){await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1]),'Cache-Control':'private, no-store'});res.end();return;}
+        const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|close|candidacy|vote|submit|enter|presence|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);
+          if(env.voting){const voteReceipt=await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,action[2]==='presence'?{ok:true}:{...await stateFor(user),...(voteReceipt?{voteReceipt}:{})});return;}
           const phase = await statements.phaseById.get(phaseId);
           if (!phase) throw fail(404, 'phase_missing');
           if (phase.status !== 'open') throw fail(400, 'phase_closed');
@@ -923,13 +1009,59 @@ export default {
           });
           return;
         }
+        if (req.method === 'GET' && pathname === '/api/library/songs') {
+          const user = await requireUser(req);
+          if (!user.isArranger) throw fail(403, 'not_arranger');
+          const semesters = await statements.listSemesters.all();
+          const folders = (await google.listScoreIndex()).map(item => ({...item, semesterId:semesters.find(s => item.semester.split(/[,，]/).some(label => label.trim().toLowerCase() === s.label.toLowerCase()))?.id || 0}));
+          send(res, 200, {folders});
+          return;
+        }
+        if(pathname==='/api/plan/pdf-check'&&req.method==='GET'){
+          const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');
+          const songs=await env.plans.currentSongs(),results=[];let cursor=0;
+          await Promise.all(Array.from({length:Math.min(3,songs.length)},async()=>{while(cursor<songs.length){const song=songs[cursor++],folderId=parseFolderId(song.folder_url);if(!folderId){results.push({title:song.title,folderId:'',status:'no_folder'});continue;}try{const data=await pdfs.info(folderId);results.push({title:song.title,folderId,status:data.files.length?'ready':'missing'});}catch{results.push({title:song.title,folderId,status:'error'});}}}));
+          send(res,200,{songs:results});return;
+        }
+        if(['/api/scores/pdf-info','/api/scores/pdf-url','/api/scores/pdf-star','/api/scores/pdf-upload'].includes(pathname)){
+          const user=await requireUser(req),writing=['/api/scores/pdf-star','/api/scores/pdf-upload'].includes(pathname);
+          if(req.method!==(writing?'POST':'GET'))throw fail(405,'method_not_allowed');
+          if(writing&&!isManager(user)&&!user.isArranger)throw fail(403,'forbidden');
+          const folderId=driveId(url.searchParams.get('folderId'));if(!folderId)throw fail(404,'folder_not_found');
+          let known=await env.plans?.hasFolder(folderId);
+          if(!known)known=(await google.listScoreIndex()).some(item=>item.id===folderId);
+          if(!known)for(const semester of await statements.listSemesters.all()){const source=await statements.semesterById.get(semester.id);if(source?.folder_id&&(await google.listScoreFolders(source.folder_id)).some(item=>item.id===folderId)){known=true;break;}}
+          if(!known)throw fail(404,'folder_not_found');
+          if(pathname==='/api/scores/pdf-info'){
+            let canManagePdfPanel=Boolean(user.isMd);
+            if(!canManagePdfPanel){
+              const rows=await google.listScoreIndex(),profile=await statements.profileById.get(user.id);
+              const normalize=value=>String(value||'').trim().toLocaleLowerCase();
+              const names=new Set([user.name,profile?.full_name,profile?.full_name?.trim().split(/\s+/)[0]].filter(Boolean).map(normalize));
+              canManagePdfPanel=rows.filter(row=>row.id===folderId).some(row=>splitArrangers(row.arranger).some(name=>names.has(normalize(name))));
+            }
+            send(res,200,{...await pdfs.info(folderId),canManagePdf:Boolean(isManager(user)||user.isArranger),canManagePdfPanel});
+          }
+          else if(pathname==='/api/scores/pdf-url'){const value=url.searchParams.get('fileId');if(value&&!driveId(value))throw fail(404,'pdf_not_found');send(res,200,await pdfs.content(folderId,driveId(value)));}
+          else if(pathname==='/api/scores/pdf-star'){const body=await readBody(req);const fileId=driveId(body.fileId);if(!fileId)throw fail(400,'pdf_invalid');send(res,200,await pdfs.star(folderId,fileId,user.id));}
+          else {const parts=parseMultipart(await readRaw(req,4*1024*1024),req.headers['content-type']);const files=parts.filter(p=>p.filename);if(files.length!==1||!files[0].filename.toLowerCase().endsWith('.pdf')||!files[0].body.subarray(0,1024).includes(Buffer.from('%PDF-')))throw fail(400,'pdf_invalid');const file=files[0];const uploaded=await google.uploadFile({name:file.filename.replace(/[\\/]/g,' ').slice(0,180),folderId,mime:'application/pdf',bytes:file.body});send(res,200,await pdfs.star(folderId,uploaded.id,user.id));}
+          return;
+        }
         if (req.method === 'GET' && pathname === '/api/scores/folder') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const semester = await statements.semesterById.get(Number(url.searchParams.get('semesterId')));
+          let semester = await statements.semesterById.get(Number(url.searchParams.get('semesterId')));
           const folderId = driveId(url.searchParams.get('folderId'));
-          if (!semester?.folder_id || !folderId) throw fail(404, 'semester_missing');
-          const match = (await google.listScoreFolders(semester.folder_id)).find(item => item.id === folderId);
+          if (!folderId) throw fail(404, 'folder_not_found');
+          let match = semester?.folder_id ? (await google.listScoreFolders(semester.folder_id)).find(item => item.id === folderId) : null;
+          if (!match) {
+            for (const item of await statements.listSemesters.all()) {
+              const source = await statements.semesterById.get(item.id);
+              if (!source?.folder_id) continue;
+              const found = (await google.listScoreFolders(source.folder_id)).find(item => item.id === folderId);
+              if (found) {semester=source;match=found;break;}
+            }
+          }
           if (!match) throw fail(404, 'folder_not_found');
           const files = await google.listFolderFiles(folderId);
           const row = await google.findScoreRow({
@@ -941,18 +1073,21 @@ export default {
           const arrangers = (await Promise.all(splitArrangers(row.arranger).map(async name => await ensureArranger(name)))).filter(Boolean);
           send(res, 200, {
             folderId,
-            title: match.name,
+            title: row.title || match.name,
             arrangers,
             kinds: kindsFromSheet(row.kind),
             semesterId: semester.id,
-            files
+            semesterOptions: row.semesterOptions||[],
+            semesterLabels: String(row.semester||semester.label).split(/[,，、;]/).map(label=>label.trim()).filter(Boolean),
+            files,
+            defaultPdfId:(await pdfs.info(folderId,files)).defaultPdfId
           });
           return;
         }
         if (req.method === 'POST' && pathname === '/api/scores/edit') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const parts = parseMultipart(await readRaw(req, 20 * 1024 * 1024), req.headers['content-type']);
+          const parts = parseMultipart(await readRaw(req, 4 * 1024 * 1024), req.headers['content-type']);
           const field = name => {
             const part = parts.find(item => item.name === name && !item.filename);
             return part ? part.body.toString('utf8') : '';
@@ -972,7 +1107,8 @@ export default {
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
           const kinds = ['all', 'group'].filter(item => picked.has(item));
           const source = await statements.semesterById.get(Number(field('sourceSemesterId')));
-          const semester = await statements.semesterById.get(Number(field('semesterId')));
+          const multiSemester = field('semesterSelection')==='1';
+          const semester = multiSemester ? source : await statements.semesterById.get(Number(field('semesterId')));
           const folderId = driveId(field('folderId'));
           if (!title) throw fail(400, 'song_required');
           if (!arranger) throw fail(400, 'arranger_required');
@@ -1021,8 +1157,8 @@ export default {
               title: match.name,
               semester: source.label
             });
-            sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
-            if (row.row) await google.updateScoreRow(row.row, sheetValues);else await google.appendRow(sheetValues);
+            if(multiSemester){const selected=[...new Set(parts.filter(part=>part.name==='semester'&&!part.filename).map(part=>cleanText(part.body.toString('utf8'),40)))];const allowed=new Set((await statements.listSemesters.all()).map(item=>item.label));for(const label of [...String(row.semester||'').split(/[,，、;]/),...(row.semesterOptions||[])])allowed.add(label.trim());if(!selected.length||selected.some(label=>!label||!allowed.has(label)))throw fail(400,'semester_missing');sheetValues.semester=selected.join(', ');}else sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
+            if (row.row) await google.updateScoreRow(row.row, sheetValues,{replaceSemesters:multiSemester});else await google.appendRow(sheetValues);
             const driveName = nextTitle === match.name ? undefined : nextTitle;
             const moveTo = source.folder_id === semester.folder_id ? '' : semester.folder_id;
             if (match.shortcutId) {
@@ -1061,7 +1197,7 @@ export default {
         if (req.method === 'POST' && pathname === '/api/scores') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
-          const parts = parseMultipart(await readRaw(req, 20 * 1024 * 1024), req.headers['content-type']);
+          const parts = parseMultipart(await readRaw(req, 4 * 1024 * 1024), req.headers['content-type']);
           const field = name => {
             const part = parts.find(item => item.name === name && !item.filename);
             return part ? part.body.toString('utf8') : '';

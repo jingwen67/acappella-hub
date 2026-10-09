@@ -77,7 +77,7 @@
 
     .banner {
       width: min(100% - 32px, 34rem);
-      margin: 16px auto 0;
+      position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:10000;box-shadow:0 4px 20px #0002;max-height:40vh;overflow:auto;
       padding: 10px 12px;
       border-radius: 12px;
       background: var(--soft);
@@ -319,6 +319,13 @@
       background: #fff;
     }
 
+    #edit-semesters {display:grid;gap:6px;}
+    #edit-semester-button {position:relative;padding-right:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #edit-semester-button::after {content:"▾";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+    #edit-semester-options {display:grid;gap:2px;max-height:220px;overflow-y:auto;overscroll-behavior:contain;}
+    #edit-semester-options label {min-height:40px;display:flex;align-items:center;gap:10px;}
+    #edit-semester-options input {width:1.15rem;flex-shrink:0;}
+
     #arranger-list {
       display: grid;
       gap: 2px;
@@ -408,6 +415,12 @@
 
     .score-link:first-child { border-top: 0; padding-top: 0; }
 
+    .upload-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:28px; }
+    .upload-header .nav-btn { width:auto; min-height:32px; padding:4px 10px; font-size:13px; flex-shrink:0; }
+    .upload-header #upload-heading { margin:0; }
+    .song-info { border:0; padding:0; margin:0; min-width:0; }
+    #edit-songs { max-height:300px; overflow-y:auto; overscroll-behavior:contain; }
+    #edit-songs.semester-results { max-height:none; overflow:visible; }
     #upload-heading { margin-top: 28px; font-size: 1.35rem; }
 
     .field-head {
@@ -456,6 +469,11 @@
 
     #score-setup { display: grid; gap: 12px; margin-top: 22px; }
 
+    .past-round>summary {cursor:pointer;font-size:16px;font-weight:600;overflow-wrap:anywhere;}
+    .past-round-body {margin-top:14px;}
+    .history-closed {display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+    .history-closed .pair {flex-direction:row;gap:6px;}
+    .history-closed .pair .en {font-size:inherit;}
     .history h2 { font-size: 1.2rem; }
 
     .person-row {
@@ -535,6 +553,10 @@
       color: inherit;
       font: inherit;
       text-align: left;
+      text-decoration: none;
+    }
+
+    .name-hit .roster-name > span {
       text-decoration: underline;
       text-underline-offset: 3px;
     }
@@ -583,6 +605,20 @@
       font-size: 2rem;
       color: var(--ink);
     }
+
+    .recordings audio, .recording-tools audio { width:100%; max-width:100%; }
+    .recording-tools summary { cursor:pointer; color:var(--muted); font-size:14px; }
+    .recording-tools .stack { margin-top:12px; }
+    .duet-identity { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+    .duet-identity .roster-name { font-weight:600; }
+    .roster-name { display:flex; align-items:center; gap:10px; min-width:0; }
+    .roster-name .avatar { width:32px; height:32px; font-size:16px; flex-shrink:0; }
+
+    .profile-edit-actions { display:flex; justify-content:flex-end; }
+    .profile-edit-actions .nav-btn { min-height:32px; padding:3px 8px; margin:0; font-size:14px; color:var(--muted); white-space:nowrap; }
+    .profile-edit-actions .pair { display:flex; flex-direction:row; align-items:center; gap:6px; }
+    .profile-edit-actions .pair .en { font-size:inherit; }
+
 
     .profile-top {
       display: flex;
@@ -680,9 +716,16 @@
 
     .gallery-panel { margin: 24px 0; }
     .gallery-panel h2 { margin: 0; }
-    .photo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .photo-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
     .photo-card { min-width:0; }
-    .photo-thumb { display:block; width:100%; padding:0; border:0; background:var(--paper); border-radius:12px; overflow:hidden; }
+    .photo-like {display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:5px 2px;margin:0;font-size:16px;color:var(--muted);width:auto;}
+    .photo-like svg {width:20px;height:20px;fill:none;stroke:#d6c9be;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;filter:none;}
+    .photo-like[aria-pressed="true"] svg {fill:#e65362;stroke:#e9a6ad;}
+    .photo-like,.photo-like:hover {box-shadow:none;background:transparent;}
+    .photo-like small {font-size:12px;}
+    .photo-crop {width:min(600px,calc(100vw - 24px));}
+    .photo-crop select,.photo-crop input {margin:8px 0;}
+    .photo-thumb { display:block; width:100%; padding:0; border:0; background:var(--paper); border-radius:3px; overflow:hidden; }
     .photo-thumb img { display:block; width:100%; aspect-ratio:1; object-fit:cover; }
     .photo-actions { display:flex; flex-wrap:wrap; gap:6px; }
     .photo-actions .nav-btn { font-size:14px; padding:5px 8px; margin:0; }
@@ -690,7 +733,93 @@
     .photo-preview { max-width:calc(100vw - 24px); max-height:90dvh; padding:16px; border:1px solid var(--line); border-radius:16px; background:var(--card); }
     .photo-preview::backdrop { background:#241c1699; }
     .photo-preview img { display:block; max-width:100%; max-height:75dvh; object-fit:contain; }
-  </style>
+    .voice-caption {color:var(--muted,#888);font-size:12px;font-weight:400;text-decoration:none;}
+    .managed-voice-editor {position:relative;padding-top:29px;}
+    .managed-voice-actions {position:absolute;top:0;right:0;}
+    .managed-voice-actions .nav-btn {min-height:24px;margin:0;padding:2px 7px;border:1px solid var(--line);background:transparent;color:var(--muted);font:inherit;font-size:11px;}
+    .voice-choices {border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:10px 18px;}
+    .crew-media-choice {border-top:1px solid var(--line);padding-top:12px;margin-top:0;}
+    .crew-media-choice label {display:flex;align-items:center;gap:6px;font:inherit;font-size:14px;}
+    .crew-media-choice input {width:auto;min-height:0;margin:0;}
+    .voice-choices label {display:flex;align-items:center;gap:6px;font-size:14px;}
+    .voice-choices input {width:auto;min-height:0;margin:0;}
+    .roster-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;}
+    .roster-heading .roster-label {margin:0;}
+    .roster-heading-left {display:flex;align-items:center;gap:8px;min-width:0;}
+    .roster-sort.nav-btn {width:auto;min-height:26px;margin:0;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;font:inherit;font-size:11px;color:var(--muted);white-space:nowrap;}
+    .roster-sort .pair {gap:0;}
+    .roster-sort .pair .en {font-size:inherit;}
+    .voice-filter {display:flex;align-items:center;gap:7px;font:inherit;font-size:12px;color:var(--muted);margin-left:auto;}
+    .voice-filter select {width:auto;max-width:125px;min-height:28px;margin:0;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);font:inherit;}
+    .voice-filter .pair {flex-direction:row;gap:5px;}
+    .voice-filter .pair .en {font-size:inherit;}
+    @media(max-width:420px){.voice-filter .pair {flex-direction:column;}.voice-filter select {max-width:110px;}}
+    .plan-toolbar,.plan-inline {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .plan-toolbar>select {width:auto;font:inherit;font-size:14px;background:transparent;min-height:32px;padding:4px 8px;}
+    .plan-term-settings {margin-left:auto;font-size:13px;}
+    .plan-term-settings>.card {margin-top:10px;}
+    .plan-table-wrap {overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+    .plan-table {border-collapse:separate;border-spacing:0;min-width:100%;font-size:13px;}
+    .plan-table th,.plan-table td {border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:10px 12px;min-width:125px;text-align:center;}
+    .plan-table tr>:first-child {position:sticky;left:0;background:var(--card);z-index:1;text-align:left;min-width:150px;}
+    .browse-semester-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    #browse-repertoire {margin-left:auto;}
+    .browse-semester-actions .nav-btn {width:auto;font:inherit;font-size:13px;min-height:28px;padding:4px 8px;}
+    .plan-table thead th {position:sticky;top:0;z-index:2;background:var(--card);}
+    .plan-table thead th:first-child {z-index:3;}
+    .plan-table .nav-btn {font:inherit;font-size:13px;padding:3px 6px;min-height:26px;}
+    .plan-group th {background:var(--paper)!important;font-weight:600;}
+    #admin .round-manage-row {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;}
+    .round-manage-info {min-width:0;overflow-wrap:anywhere;line-height:1.5;}
+    .round-manage-actions {display:flex;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:6px;}
+    .round-manage-actions .nav-btn {width:auto;min-width:52px;min-height:38px;margin:0;padding:4px 8px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:6px;background:var(--card);text-decoration:none;white-space:nowrap;}
+    .round-manage-actions .nav-btn:hover {text-decoration:none;background:var(--paper);}
+    .round-manage-actions .nav-btn .pair .en {font-size:11px;}
+    .poll-title-entry {display:flex;align-items:center;gap:6px;width:100%;min-width:0;min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;}
+    .poll-title-entry input {flex:1 1 0;width:0;min-width:0;min-height:46px;margin:0;border:0;border-radius:10px;background:transparent;padding:12px 0;box-shadow:none;outline:none;}
+    .poll-title-entry input:focus,.poll-title-entry input:focus-visible {outline:none;box-shadow:none;}
+    .poll-title-prefix[hidden] {display:none!important;}
+    .poll-title-prefix {font-size:14px;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;}
+    .poll-title-entry:focus-within {outline:none;border-color:var(--muted);box-shadow:0 0 0 1px var(--muted);}
+    .plan-song-heading {display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-bottom:8px;}
+    .plan-song-title {font-size:16px;font-weight:650;line-height:1.4;}
+    .plan-table .plan-checkbox {font-size:11px;font-weight:400;color:var(--muted);gap:6px;margin-top:4px;}
+    .plan-table .plan-checkbox .pair .en {font-size:inherit;}
+    .plan-table .plan-checkbox input {flex:none;width:12px;min-width:12px;max-width:12px;height:12px;min-height:12px;margin:0;padding:0;}
+    .plan-big-song-tag {display:inline-block;font-size:11px;font-weight:400;color:var(--muted);margin-top:4px;}
+    .plan-big-song-tag .pair .en {font-size:inherit;}
+    .plan-table th>small.hint {display:block;font-size:10px;font-weight:400;margin-top:4px;}
+    .plan-score-link {display:inline-block;font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 7px;background:var(--card);}
+    .score-actions {display:grid;grid-template-columns:132px;gap:6px;width:max-content;max-width:100%;}
+    .score-actions-horizontal {grid-template-columns:repeat(2,132px);justify-self:end;}
+    .score-actions .score-action {display:flex;align-items:center;justify-content:center;width:132px;min-height:44px;padding:5px 9px;font-size:13px;line-height:1.2;text-align:center;}
+    .score-actions .score-action .pair {align-items:center;}
+    .score-actions .score-action .pair .en {font-size:inherit;font-weight:inherit;}
+    @media(max-width:520px){.browse-score-row {grid-template-columns:minmax(0,1fr) !important;gap:10px !important;padding:14px 0 !important;}.browse-score-row + .browse-score-row {border-top:1px solid var(--line);}.browse-score-row .score-actions {justify-self:center;}.browse-score-row .score-link {padding:0;}}
+    .plan-score-link:hover {text-decoration:none;background:var(--paper);}
+    .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
+    .plan-cell {display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;}
+    .plan-name {display:flex;align-items:center;justify-content:space-between;gap:7px;}
+    #plan .plan-remove {min-height:20px;padding:0 4px;font-size:12px;color:var(--muted);}
+    #plan .plan-join {align-self:flex-start;font-size:11px;min-height:22px;padding:2px 5px;}
+    .plan-cell-add {font-size:11px;color:var(--muted);}
+    .plan-cell-add form {display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+    .plan-cell-add select {font:inherit;min-height:26px;padding:2px;max-width:140px;}
+    .plan-lineups {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    #plan .nav-btn {width:auto;font:inherit;font-size:13px;min-height:28px;padding:4px 8px;}
+    #plan .plan-inline select {width:auto;font:inherit;font-size:13px;min-height:28px;padding:3px 5px;}
+    .plan-checkbox {display:flex;gap:8px;align-items:center;}
+    .plan-checkbox input {width:auto;min-height:0;}
+    .plan-library-results.semester-results {max-height:none;overflow:visible;}
+    .plan-library-choice {display:flex;align-items:center;gap:9px;font:inherit;font-size:14px;}
+    .plan-library-choice input {width:auto;min-height:0;margin:0;}
+    .plan-library-choice small {display:block;}
+    .plan-library-results {max-height:240px;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
+    .plan-mobile-cards,.plan-mobile-toggle {display:none;}
+    @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:block;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
+  .candidacy-status{text-align:center;padding:16px}.candidacy-title{font-size:20px;font-weight:600;margin:0 0 8px}.candidacy-count{font-size:13px;color:var(--muted);margin:0}
+.part-setup-row{display:flex;align-items:flex-end;gap:10px}.part-setup-row>label{flex:1;min-width:0}.part-setup-row .remove-part{flex:0 0 auto;width:auto;min-height:32px;padding:5px 9px;font-size:12px;line-height:1.3;margin-bottom:8px;border-radius:8px}.part-setup-row .remove-part .i18n-en{font-size:inherit}
+</style>
 </head>
 <body>
   <a class="global-guide" href="/guide.html" aria-label="使用指南 / User guide">Guide · 使用指南</a>
@@ -711,7 +840,10 @@
         <li data-i18n="step2">主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。</li>
         <li data-i18n="step3">投票和乐谱用的是同一个账号。</li>
       </ol>
-      <form id="auth-form" class="panel stack">
+      <form id="auth-form" class="panel stack" method="post" action="/api/login">
+        <label id="invitation-field" hidden><span>邀请码 / Invitation code</span>
+          <input name="invitationCode" autocomplete="off" spellcheck="false" maxlength="80">
+        </label>
         <label><span data-i18n="name">名字</span>
           <input name="name" autocomplete="username" maxlength="20" required spellcheck="false">
         </label>
@@ -719,6 +851,8 @@
           <input id="password" name="password" type="password" autocomplete="current-password" minlength="4" maxlength="72" required>
         </label>
         <p id="password-hint" class="hint" data-i18n="passwordHint" hidden>至少 4 位，自己记得住就行。</p>
+        <label style="display:flex;align-items:center;gap:10px"><input id="remember-login" type="checkbox" style="width:auto;margin:0"><span data-i18n="rememberLogin">记住账号，并请求浏览器保存密码</span></label>
+        <p class="hint" data-i18n="rememberLoginHint">登录状态保留约 30 天。密码由浏览器管理，保存提示取决于浏览器设置。</p>
         <button id="auth-submit" class="primary" type="submit">登录</button>
         <button id="auth-switch" class="quiet" type="button">第一次来？注册</button>
       </form>
@@ -738,11 +872,16 @@
       <div class="hub-actions">
         <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
         <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
+        <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">这学期唱什么</button>
         <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">查看/上传乐谱</button>
         <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">Solo 投票</button>
       </div>
     </section>
 
+    <section id="plan" hidden>
+      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">这学期唱什么</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
+      <div id="plan-body" class="stack"></div>
+    </section>
     <section id="profile" hidden>
       <header class="top">
         <div>
@@ -810,22 +949,21 @@
         <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
         <div id="browse-folders"></div>
       </div>
-      <h2 id="upload-heading" data-i18n="uploadTitle" hidden>上传乐谱</h2>
+      <div id="upload-header" class="upload-header" hidden><h2 id="upload-heading" data-i18n="uploadTitle">上传新曲目</h2><button id="edit-song" class="nav-btn" type="button" data-i18n="editSong">更新已有曲目</button></div>
       <p id="scores-wait" class="hint" hidden></p>
       <form id="score-form" class="panel stack" hidden>
+        <div id="edit-picker" class="stack" hidden>
+          <label><span data-i18n="searchSong">输入曲名搜索</span><input id="edit-search" type="search" autocomplete="off" maxlength="80"></label>
+          <label><span data-i18n="semester">学期</span><select id="edit-filter"></select></label>
+          <p class="hint" data-i18n="editPick">先搜索或选择学期，再选择要更新的曲目。</p>
+          <div id="edit-songs"></div>
+        </div>
+        <fieldset id="song-info" class="stack song-info">
         <div class="song-field">
           <div class="field-head">
             <span data-i18n="songName">曲名</span>
-            <button id="edit-song" class="quiet" type="button" data-i18n="editSong">修改已经上传过的曲目</button>
           </div>
           <input name="title" maxlength="80" required>
-        </div>
-        <div id="edit-picker" class="stack" hidden>
-          <p class="hint" data-i18n="editPick">在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。</p>
-          <label><span data-i18n="semester">学期</span>
-            <select id="edit-semester"></select>
-          </label>
-          <div id="edit-songs"></div>
         </div>
         <div class="picker">
           <span data-i18n="arranger">编曲者</span>
@@ -839,9 +977,10 @@
           </div>
           <p class="hint" data-i18n="arrangerHint">可以多选。名单里没有的话，输入名字再点添加。</p>
         </div>
-        <label><span data-i18n="semester">学期</span>
+        <label id="new-song-semester"><span data-i18n="semester">学期</span>
           <select id="semester-select" name="semesterId" required></select>
         </label>
+        <fieldset id="edit-semesters" class="kinds" hidden disabled><legend data-i18n="semester">学期</legend><button id="edit-semester-button" class="picker-button" type="button" aria-expanded="false" aria-controls="edit-semester-menu"></button><div id="edit-semester-menu" class="picker-menu" hidden><div id="edit-semester-options"></div></div></fieldset>
         <fieldset class="kinds">
           <legend data-i18n="kind">性质</legend>
           <label><input type="checkbox" name="kind" value="all"> <span data-i18n="allMembers">大歌</span></label>
@@ -858,6 +997,7 @@
         <p class="hint" data-i18n="uploadHint">文件会放进这个学期下面、以曲名为名字的文件夹。</p>
         <button id="cancel-edit" class="ghost" type="button" hidden data-i18n="cancelEditSong">取消修改</button>
         <button id="upload-submit" class="primary" type="submit" data-i18n="uploadScore">上传</button>
+        </fieldset>
       </form>
       <div id="score-setup" hidden>
         <h2 data-i18n="libraryAdmin">乐谱设置</h2>
@@ -892,6 +1032,8 @@
     </section>
   </main>
   <noscript>需要打开 JavaScript 才能投票。 JavaScript is required to vote.</noscript>
+  <script src="/photo-crop.js"></script>
+  <script src="/plan.js"></script>
   <script>
     const loading = document.querySelector('#loading');
     const auth = document.querySelector('#auth');
@@ -919,10 +1061,13 @@
     const browseSemesterSelect = document.querySelector('#browse-semester');
     const browseSemesterLink = document.querySelector('#browse-semester-link');
     const browseFolders = document.querySelector('#browse-folders');
+    const uploadHeader = document.querySelector('#upload-header');
+    const songInfo = document.querySelector('#song-info');
+    const editSearch = document.querySelector('#edit-search');
+    const editFilter = document.querySelector('#edit-filter');
     const uploadHeading = document.querySelector('#upload-heading');
     const editSongButton = document.querySelector('#edit-song');
     const editPicker = document.querySelector('#edit-picker');
-    const editSemesterSelect = document.querySelector('#edit-semester');
     const editSongs = document.querySelector('#edit-songs');
     const songTitle = scoreForm.elements.title;
     const existingFiles = document.querySelector('#existing-files');
@@ -952,6 +1097,7 @@
         fullName: '英文全名',
         pronouns: '代词',
         position: '职位',
+        planTitle: '这学期唱什么',
         voicePart: '声部',
         school: '学校',
         gradYear: '毕业年份',
@@ -973,13 +1119,25 @@
         notMusicDirector: '非总监',
         arrangerRole: '编曲者',
         notArrangerRole: '非编曲',
+        recording_unsupported: '这个浏览器不支持录音，请上传音频或换用 Safari / Chrome。',
+        recording_failed: '录音中断，请重新录制。',
+        microphone_denied: '无法打开麦克风，请检查浏览器的麦克风权限。',
+        recording_empty: '录音是空的，请重新录制。',
+        audio_size: '单个音频最大 50 MB，请换用较小的文件。',
+        audio_type: '请选择 MP3、M4A、WAV、AAC、OGG 或 WebM 音频。',
+        recording_upload_failed: '音频上传失败，录音仍可重试保存。',
+        recording_missing: '这段录音已不存在。',
+        recording_expired: '录音已超过保留的一周期限。',
+        delete_recording_confirm: '确定删除这段录音吗？',
         pollButton: 'Solo 投票',
         scoresButton: '查看/上传乐谱',
         scoresTitle: '查看/上传乐谱',
         browseTitle: '查看乐谱',
-        uploadTitle: '上传乐谱',
-        editSong: '修改已经上传过的曲目',
-        editPick: '在曲名里输入就能搜索。选中之后可以改信息、上传新文件，或删掉旧文件。保存之后才会生效。',
+        uploadTitle: '上传新曲目',
+        editSong: '更新已有曲目',
+        allSemesters: '所有学期',
+        newSong: '上传新曲目',
+        editPick: '搜索整个曲库，也可以按学期筛选。选中曲目后再修改信息或增删谱子。',
         searchSong: '输入曲名搜索',
         noSearch: '没有找到这首。',
         cancelEditSong: '取消修改',
@@ -993,11 +1151,13 @@
         language: '语言',
         loading: '正在打开…',
         step1: '用自己的名字注册一个账号。',
-        step2: '主页上可以看成员名单、查看或上传乐谱，或进入 Solo 投票。',
+        step2: '主页上可以看成员名单、查看或上传乐谱，或进入 Solo / Duet 投票。',
         step3: '投票和乐谱用的是同一个账号。',
         name: '名字',
         password: '密码',
         passwordHint: '至少 4 位，自己记得住就行。',
+        rememberLogin:'记住账号，并请求浏览器保存密码',
+        rememberLoginHint:'登录状态保留约 30 天。密码由浏览器管理，保存提示取决于浏览器设置。',
         login: '登录',
         registerEnter: '注册并进入',
         switchToRegister: '第一次来？注册',
@@ -1027,8 +1187,8 @@
         deleteHint: '删掉后不能恢复。这一轮的报名和投票都会一起消失。',
         confirmDelete: '确定删除',
         roundName: '这一轮叫什么',
-        roundPlaceholder: '10 月第一次 solo',
-        start: '开始投票',
+        roundPlaceholder: '',
+        start: '发起投票',
         voteHintLike: '好听！= TA 很好听，可以当 solo。',
         voteHintAgain: '我再听听 = 我不确定 TA 是否合适，想再听听别人。',
         installTitle: '加到主屏幕',
@@ -1095,6 +1255,7 @@
         fullName: 'English full name',
         pronouns: 'Pronouns',
         position: 'Position',
+        planTitle: 'What Are We Singing?',
         voicePart: 'Voice part',
         school: 'School',
         gradYear: 'Graduation year',
@@ -1116,13 +1277,25 @@
         notMusicDirector: 'Not a director',
         arrangerRole: 'Arranger',
         notArrangerRole: 'Not an arranger',
-        pollButton: 'Solo vote',
+        recording_unsupported: 'Recording is unavailable in this browser. Upload audio or use Safari / Chrome.',
+        recording_failed: 'Recording was interrupted. Please record again.',
+        microphone_denied: 'Cannot access the microphone. Check browser microphone permissions.',
+        recording_empty: 'This recording is empty. Please record again.',
+        audio_size: 'Audio files can be up to 50 MB. Choose a smaller file.',
+        audio_type: 'Choose MP3, M4A, WAV, AAC, OGG or WebM audio.',
+        recording_upload_failed: 'Audio upload failed. You can retry saving your recording.',
+        recording_missing: 'This recording no longer exists.',
+        recording_expired: 'The one-week retention period has expired.',
+        delete_recording_confirm: 'Delete this recording?',
+        pollButton: 'Solo voting',
         scoresButton: 'View / upload scores',
         scoresTitle: 'View / upload scores',
         browseTitle: 'View scores',
-        uploadTitle: 'Upload a score',
-        editSong: 'Edit an uploaded song',
-        editPick: 'Type in the song title to search. After you choose one, you can change the details, upload new files, or remove old ones. Nothing changes until you save.',
+        uploadTitle: 'Upload a new song',
+        editSong: 'Update an existing song',
+        allSemesters: 'All semesters',
+        newSong: 'Upload a new song',
+        editPick: 'Search the entire library or filter by semester. Select a song to edit its details or add and remove scores.',
         searchSong: 'Type a song title to search',
         noSearch: 'No song with that name.',
         cancelEditSong: 'Cancel edit',
@@ -1132,15 +1305,17 @@
         undoRemove: 'Undo',
         noExistingFiles: 'This folder has no files yet.',
         back: 'Back',
-        title: 'Solo vote',
+        title: 'Solo voting',
         language: 'Language',
         loading: 'Opening…',
         step1: 'Register with your own name.',
-        step2: 'From the home page, open the member list, view or upload scores, or Solo vote.',
+        step2: 'From the home page, open the member list, view or upload scores, or Solo / Duet voting.',
         step3: 'Voting and scores use the same account.',
         name: 'Name',
         password: 'Password',
         passwordHint: 'At least 4 characters. Something you’ll remember.',
+        rememberLogin:'Remember my name and ask the browser to save my password',
+        rememberLoginHint:'Stay signed in for about 30 days. Your browser manages saved passwords; prompts depend on browser settings.',
         login: 'Log in',
         registerEnter: 'Create account',
         switchToRegister: 'First time? Register',
@@ -1170,8 +1345,8 @@
         deleteHint: 'This cannot be undone. Sign-ups and votes for this round will be removed.',
         confirmDelete: 'Delete round',
         roundName: 'Name this round',
-        roundPlaceholder: 'October solo 1',
-        start: 'Start voting',
+        roundPlaceholder: '',
+        start: 'Create poll',
         voteHintLike: 'Sounds great! means they sound good enough for the solo.',
         voteHintAgain: 'Not sure yet means you’re not sure they fit and want to hear the other singers.',
         installTitle: 'Add to Home Screen',
@@ -1246,9 +1421,37 @@
         phase_missing: '找不到这一轮',
         phase_closed: '这一轮已经结束了',
         not_candidate: '这个人没有参选',
+        recording_unsupported: '这个浏览器不支持录音，请上传音频或换用 Safari / Chrome。',
+        recording_failed: '录音中断，请重新录制。',
+        microphone_denied: '无法打开麦克风，请检查浏览器的麦克风权限。',
+        recording_empty: '录音是空的，请重新录制。',
+        audio_size: '单个音频最大 50 MB，请换用较小的文件。',
+        audio_type: '请选择 MP3、M4A、WAV、AAC、OGG 或 WebM 音频。',
+        recording_upload_failed: '音频上传失败，录音仍可重试保存。',
+        recording_missing: '这段录音已不存在。',
+        recording_expired: '录音已超过保留的一周期限。',
+        delete_recording_confirm: '确定删除这段录音吗？',
+        need_two_pairs: '至少需要两组已确认的搭档',
+        need_both_parts: '每个声部都需要至少一位报名者',
+        bad_partner: '请选择另一位成员作为搭档',
+        pair_exists: '这组搭档已报名或正在等待确认',
+        already_in_part: '你已经报名这个声部',
+        bad_part: '请选择声部 A 或 B',
+        entry_missing: '这条报名已不存在',
+        bad_audition_url: '试听链接需要完整的 HTTPS 网址',
+        bad_action: '此操作不适用于本轮投票',
+        ballot_empty: '请先选择参选人，再提交投票',
+        ballot_changed: '选择已发生变化，请刷新核对后重新提交',
+        vote_limit: '已达到本轮投票上限，请先取消一个选择',
+        voting_not_started: 'MD 尚未开启投票',
+        need_two_candidates: '至少两位参选人才能开始',
+        registration_locked: '本组开启投票后已锁定报名',
+        withdraw_locked: '请联系 MD 处理退选，避免已有选票失效',
+        voting_started: '投票已经开始',
+        phase_not_closed: '结束投票后才能揭晓排名',
         bad_reaction: '请选择好听！或我再听听',
         not_found: '找不到页面',
-        too_large: '上传总大小不能超过 20 MB',
+        too_large: '每次上传总大小不能超过 4 MB',
         bad_json: '请求格式不对',
         server: '服务器出错了',
         offline: '连不上服务器',
@@ -1259,6 +1462,8 @@
         forbidden: '只有管理员或音乐总监可以做这个',
         admin_only: '只有管理员可以修改乐谱设置',
         grad_year: '毕业年份请填四位数字，比如 2027',
+        invite_required: '需要邀请码',
+        invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: '这张照片用不了，请从相册另选一张',
         not_arranger: '只有被指定为编曲者的人可以上传',
         user_missing: '找不到这个用户',
@@ -1303,9 +1508,37 @@
         phase_missing: 'That round was not found',
         phase_closed: 'This round is already closed',
         not_candidate: 'That person isn’t running',
+        recording_unsupported: 'Recording is unavailable in this browser. Upload audio or use Safari / Chrome.',
+        recording_failed: 'Recording was interrupted. Please record again.',
+        microphone_denied: 'Cannot access the microphone. Check browser microphone permissions.',
+        recording_empty: 'This recording is empty. Please record again.',
+        audio_size: 'Audio files can be up to 50 MB. Choose a smaller file.',
+        audio_type: 'Choose MP3, M4A, WAV, AAC, OGG or WebM audio.',
+        recording_upload_failed: 'Audio upload failed. You can retry saving your recording.',
+        recording_missing: 'This recording no longer exists.',
+        recording_expired: 'The one-week retention period has expired.',
+        delete_recording_confirm: 'Delete this recording?',
+        need_two_pairs: 'At least two confirmed pairs are needed.',
+        need_both_parts: 'At least one singer in each part is needed.',
+        bad_partner: 'Choose another member as your partner.',
+        pair_exists: 'This pair already exists or awaits confirmation.',
+        already_in_part: 'You have already joined this part.',
+        bad_part: 'Choose Part A or Part B.',
+        entry_missing: 'This entry no longer exists.',
+        bad_audition_url: 'Use a complete HTTPS audition URL.',
+        bad_action: 'This action is not available for this voting method.',
+        ballot_empty: 'Select a singer before submitting your vote.',
+        ballot_changed: 'Your selections changed. Refresh, review, and submit again.',
+        vote_limit: 'Vote limit reached. Unselect a singer first.',
+        voting_not_started: 'The MD has not started voting yet.',
+        need_two_candidates: 'At least two candidates are required.',
+        registration_locked: 'Registration is locked for this group.',
+        withdraw_locked: 'Contact the MD to withdraw without invalidating ballots.',
+        voting_started: 'Voting has already started.',
+        phase_not_closed: 'Close voting before revealing ranks.',
         bad_reaction: 'Choose Sounds great! or Not sure yet',
         not_found: 'Page not found',
-        too_large: 'Uploads must total less than 20 MB',
+        too_large: 'Uploads must total less than 4 MB',
         bad_json: 'That request could not be read',
         server: 'Something went wrong on the server',
         offline: 'Can’t reach the server',
@@ -1316,6 +1549,8 @@
         forbidden: 'Only an admin or music director can do that',
         admin_only: 'Only an admin can change the score settings',
         grad_year: 'Use a four-digit graduation year, for example 2027',
+        invite_required: 'An invitation code is required',
+        invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: 'Couldn’t use that photo. Choose another one from your library.',
         not_arranger: 'Only an assigned arranger can upload',
         user_missing: 'That person was not found',
@@ -1417,12 +1652,15 @@
       return node;
     }
 
+    let bannerTimer;
     function showBanner(message) {
+      clearTimeout(bannerTimer);bannerTimer=setTimeout(clearBanner,7000);
       banner.hidden = false;
       banner.textContent = message;
     }
 
     function clearBanner() {
+      clearTimeout(bannerTimer);
       banner.hidden = true;
       banner.textContent = '';
     }
@@ -1435,14 +1673,17 @@
         ...options,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(errorText(data.error));
+      if (!res.ok) {const error=new Error(errorText(data.error));error.code=data.error;throw error;}
       return data;
     }
 
+    let lastVotePresence=0;
+    function votePresence(active=true){const phase=latest?.phase;if(!phase)return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
+    document.addEventListener('visibilitychange',()=>{if(view==='poll')votePresence(!document.hidden);});
     function startPolling() {
       if (pollTimer) return;
       pollTimer = setInterval(() => {
-        if (!busy) refresh();
+        if (!busy) {votePresence();refresh();}
       }, 4000);
     }
 
@@ -1453,7 +1694,13 @@
 
     function showAuth() {
       stopPolling();
+      profileEditing = false;
+      profileDraft = null;
       galleryCache.clear();
+      planSemesterId=null;planChoosing=false;planEditing=false;planDraftChanges=[];planSelectedSongs.clear();planLibraryRequest++;planLibrarySemester='';planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
+      invitationList = null;
+      issuedInvitation = null;
+      detailedResults.clear();
       latest = null;
       view = 'hub';
       window.history.replaceState({view: 'hub'}, '', '/');
@@ -1464,11 +1711,14 @@
       profile.hidden = true;
       app.hidden = true;
       scores.hidden = true;
+      planPage.hidden = true;
     }
 
     function showView(next, { record = true } = {}) {
-      view = ['hub', 'members', 'profile', 'poll', 'scores'].includes(next) ? next : 'hub';
-      const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : '');
+      if(view==='poll'&&next!=='poll')votePresence(false);
+      if (next!=='poll') disposeCapture();
+      view = ['hub', 'members', 'profile', 'poll', 'scores', 'plan'].includes(next) ? next : 'hub';
+      const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : view==='plan'&&planTermId?'/'+planTermId+(planSongId?'/'+planSongId:''):'');
       const state = { view, profileId, profileFrom };
       if (record && location.hash !== fragment) window.history.pushState(state, '', '/' + fragment);
       else if (record) window.history.replaceState(state, '', '/' + fragment);
@@ -1477,14 +1727,21 @@
       profile.hidden = view !== 'profile';
       app.hidden = view !== 'poll';
       scores.hidden = view !== 'scores';
+      planPage.hidden = view !== 'plan';
+      if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
+      if(view==='poll')votePresence();
+      if(view==='poll'&&latest&&!latest.phase)planLoadPollSongs(true);
     }
 
+    let profileEditing = false;
+    let profileDraft = null;
     let profileId = null;
     let profileFrom = 'hub';
 
     function restoreNavigation() {
-      const [route, id] = location.hash.slice(1).split('/');
-      view = ['members', 'profile', 'poll', 'scores'].includes(route) ? route : 'hub';
+      const [route, id, song] = location.hash.slice(1).split('/');
+      if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planEditing=false;planDraftChanges=[];planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=null;}
+      view = ['members', 'profile', 'poll', 'scores', 'plan'].includes(route) ? route : 'hub';
       profileId = id && /^\d+$/.test(id) ? Number(id) : null;
       profileFrom = window.history.state?.profileFrom || 'members';
       if (latest && auth.hidden) {
@@ -1494,6 +1751,7 @@
         }
         showView(view, { record: false });
         if (view === 'scores') ensureBrowse(latest.library?.semesters || []);
+        if(view==='plan')renderPlan();
       }
     }
     restoreNavigation();
@@ -1502,6 +1760,8 @@
     window.addEventListener('hashchange', restoreNavigation);
 
     function openProfile(id, from) {
+      profileEditing = false;
+      profileDraft = null;
       galleryCache.delete(id);
       profileId = id;
       profileFrom = from || 'members';
@@ -1531,6 +1791,15 @@
       startPolling();
     }
 
+    const hubUiVersion='__HUB_UI_VERSION__';
+    function needsPageUpdate(data) {
+      if(!data.uiVersion||hubUiVersion==='__HUB_UI_VERSION__'||data.uiVersion===hubUiVersion)return false;
+      clearTimeout(bannerTimer);
+      banner.hidden=false;
+      banner.replaceChildren(el('button',{type:'button',class:'primary',onclick:()=>location.reload()},pair('网站已更新，点击刷新','Hub has been updated. Tap to refresh')));
+      return true;
+    }
+
     async function refresh({ force = false } = {}) {
       let res;
       try {
@@ -1548,11 +1817,11 @@
         return;
       }
       const data = await res.json();
+      if(needsPageUpdate(data))return;
       const next = JSON.stringify(data);
       const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
       if (!force && (freezeRender || typing || next === snapshot)) return;
       snapshot = next;
-      clearBanner();
       showApp(data);
     }
 
@@ -1563,6 +1832,7 @@
       try {
         const data = await fn();
         if (data && data.user) {
+          if(needsPageUpdate(data))return;
           snapshot = JSON.stringify(data);
           freezeRender = false;
           showApp(data);
@@ -1624,6 +1894,97 @@
       });
     }
 
+    const detailedResults = new Set();
+    function resultsToggle(item) {
+      return el('button', {type:'button', class:'nav-btn', 'aria-expanded':detailedResults.has(item.id)?'true':'false', onclick:()=>{
+        if (detailedResults.has(item.id)) detailedResults.delete(item.id);
+        else detailedResults.add(item.id);
+        if (latest) { renderRound(latest); renderHistory(latest.history); }
+      }}, detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
+    }
+
+    let captureSession = null;
+    const audioMaxBytes = 50 * 1024 * 1024;
+    function disposeCapture() {
+      const session = captureSession;captureSession = null;
+      document.querySelectorAll('audio').forEach(audio=>audio.pause());
+      freezeRender = false;
+      if (!session) return;
+      if (session.recorder && session.recorder.state !== 'inactive') session.recorder.stop();
+      session.stream?.getTracks().forEach(track => track.stop());
+      if (session.preview) URL.revokeObjectURL(session.preview);
+      freezeRender = false;
+    }
+    function refreshRecordingView() { if (latest) renderRound(latest); }
+    async function startCapture(phase, target) {
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {showBanner(both('recording_unsupported'));return;}
+      disposeCapture();
+      const session = {phaseId:phase.id,target,key:phase.id+'/'+(target.entryId?'entry'+target.entryId:'solo'+target.candidateId),status:'starting',chunks:[]};
+      captureSession = session;freezeRender = true;refreshRecordingView();
+      try {
+        session.stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        if(captureSession!==session){session.stream.getTracks().forEach(track=>track.stop());return;}
+        const mime = ['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
+        session.recorder = new MediaRecorder(session.stream, {...(mime?{mimeType:mime}:{}),audioBitsPerSecond:96000});
+        session.recorder.ondataavailable = event => {if(event.data.size)session.chunks.push(event.data);};
+        session.recorder.onstop = () => {
+          session.stream.getTracks().forEach(track=>track.stop());
+          if(captureSession!==session)return;
+          session.blob = new Blob(session.chunks,{type:session.recorder.mimeType||mime||'audio/webm'});
+          session.preview = URL.createObjectURL(session.blob);session.status='preview';refreshRecordingView();
+        };
+        session.recorder.onerror = () => {disposeCapture();showBanner(both('recording_failed'));refreshRecordingView();};
+        session.recorder.start(1000);session.status='recording';refreshRecordingView();
+      } catch {disposeCapture();showBanner(both('microphone_denied'));refreshRecordingView();}
+    }
+    function audioMime(blob) {
+      const type = (blob.type||'').split(';')[0].toLowerCase();
+      if(type==='audio/x-m4a')return 'audio/mp4';
+      if(type)return type;
+      return {mp3:'audio/mpeg',m4a:'audio/mp4',mp4:'audio/mp4',aac:'audio/aac',wav:'audio/wav',ogg:'audio/ogg',webm:'audio/webm'}[(blob.name||'').split('.').pop().toLowerCase()]||'';
+    }
+    async function saveRecording(phase, target, blob) {
+      if(!blob?.size){showBanner(both('recording_empty'));return;}
+      if(blob.size>audioMaxBytes){showBanner(both('audio_size'));return;}
+      await run(async()=>{
+        const upload = await api(`/api/phases/${phase.id}/recordings`,{method:'POST',body:JSON.stringify({...target,mime:audioMime(blob),size:blob.size})});
+        const response = await fetch(upload.signedUrl,{method:'PUT',credentials:'omit',headers:{'Content-Type':audioMime(blob),'cache-control':'max-age=0','x-upsert':'false'},body:blob});
+        if(!response.ok)throw new Error(both('recording_upload_failed'));
+        const data = await api(`/api/recordings/${upload.id}/complete`,{method:'POST',body:'{}'});
+        disposeCapture();return data;
+      });
+    }
+    function recordingControls(phase,target) {
+      const key = phase.id+'/'+(target.entryId?'entry'+target.entryId:'solo'+target.candidateId);
+      const session = captureSession?.key===key?captureSession:null;
+      const buttons = [];
+      if(session?.status==='starting')buttons.push(el('p',{class:'hint'},pair('正在打开麦克风…','Opening the microphone…')));
+      else if(session?.status==='recording')buttons.push(el('p',{class:'hint'},pair('● 正在录音，不限制时长。','● Recording. No time limit.')),el('button',{type:'button',class:'nav-btn',onclick:()=>session.recorder.stop()},pair('停止并试听','Stop and preview')));
+      else {
+        if(session?.blob)buttons.push(el('audio',{controls:true,src:session.preview,preload:'metadata'}),el('a',{href:session.preview,download:'my-recording.'+(audioMime(session.blob)==='audio/mp4'?'m4a':'webm')},pair('下载到本机','Download a copy')),el('button',{type:'button',class:'nav-btn',onclick:()=>saveRecording(phase,target,session.blob)},pair('保存录音','Save recording')));
+        buttons.push(el('button',{type:'button',class:'nav-btn',disabled:Boolean(captureSession&&!session),onclick:()=>startCapture(phase,target)},session?.blob?pair('重新录制','Record again'):pair('开始录音','Record')),
+          el('label',{},pair('或上传已有音频','Or upload an audio file'),el('input',{type:'file',accept:'audio/*,.m4a,.mp3,.wav,.ogg,.webm,.aac',disabled:Boolean(captureSession&&!session),onchange:event=>{const file=event.target.files?.[0];if(file)saveRecording(phase,target,file);}})));
+      }
+      if(session)buttons.push(el('button',{type:'button',class:'nav-btn',onclick:()=>{disposeCapture();refreshRecordingView();}},pair('取消录音','Discard recording')));
+      return el('details',{open:Boolean(session),class:'recording-tools'},el('summary',{},pair('录音 / 上传音频','Record / upload audio')),el('div',{class:'stack'},el('p',{class:'hint'},pair('不限制时长，单个音频最多 50 MB。投票结束后保留一周。','No time limit; up to 50 MB per audio file. Kept for one week after voting closes.')),...buttons));
+    }
+    function recordingList(recordings, includeNames=false) {
+      if(!recordings?.length)return null;
+      return el('div',{class:'stack recordings'},recordings.map(recording=>el('div',{class:'stack'},includeNames?el('p',{class:'meta'},recording.name):null,
+        el('audio',{controls:true,preload:'none',src:recording.url,onplay:()=>{freezeRender=true;},onpause:()=>{if(!captureSession)freezeRender=false;},onended:()=>{if(!captureSession)freezeRender=false;},onerror:()=>{if(!captureSession)freezeRender=false;}}),
+        recording.canDelete?el('button',{type:'button',class:'nav-btn',onclick:event=>requestInlineConfirmation(event.currentTarget,both('delete_recording_confirm'),()=>run(()=>api(`/api/recordings/${recording.id}/delete`,{method:'POST',body:'{}'})))},pair('删除录音','Delete recording')):null)));
+    }
+    window.addEventListener('pagehide', disposeCapture);
+
+    const submittedBallots=new Map();
+    function ballotSignature(votes){return JSON.stringify(votes.map(v=>({candidateId:v.candidateId,reaction:v.reaction})).sort((a,b)=>a.candidateId-b.candidateId));}
+    function ballotSubmit(phase,userId){
+      const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=Object.hasOwn(phase,'submittedBallot')?phase.submittedBallot:submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
+      return el('section',{class:'stack ballot-submit'},
+        el('button',{type:'button',class:'primary',disabled:!phase.started||!phase.participating,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):pair('提交投票','Submit vote')),
+        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair((receipt.votes.length?'投票提交成功！已确认：':'弃票提交成功！本轮不选择任何人。')+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。',(receipt.votes.length?'Vote submitted! Confirmed: ':'Abstention submitted. No candidates selected. ')+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):(receipt||submittedBallots.has(userId+':'+phase.id))?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
+    }
+
     function candidateCard(phase, candidate) {
       const choose = (reaction) => () => {
         const next = candidate.mine === reaction ? null : reaction;
@@ -1638,39 +1999,131 @@
           el('h3', {}, candidate.name),
           candidate.isMe ? el('span', { class: 'you' }, both('you')) : null,
         ),
-        phase.canSeeResults
+        phase.canSeeResults && detailedResults.has(phase.id)
           ? el('p', { class: 'counts' },
               countSpan(candidate.likes, 'like'),
               countSpan(candidate.again, 'again'),
             )
           : null,
-        el('p', { class: 'mine' }, mineLabel(candidate.mine)),
-        el('div', { class: 'votes' },
+        phase.started?el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)):null,
+        recordingList((phase.recordings||[]).filter(recording=>recording.candidateId===candidate.id)),
+        candidate.isMe?recordingControls(phase,{candidateId:candidate.id}):null,
+        phase.started&&phase.participating?el('div', { class: 'votes' },
           el('button', {
             type: 'button',
             class: 'choice is-like',
+            disabled:!phase.started||!phase.participating,
             'aria-pressed': candidate.mine === 'like' ? 'true' : 'false',
             onclick: choose('like'),
-          }, t('like')),
-          el('button', {
+          }, phase.votingMode==='default'?pair(candidate.mine?'取消选择':'投 TA',candidate.mine?'Unselect':'Vote'):t('like')),
+          phase.votingMode==='default'?null:el('button', {
             type: 'button',
             class: 'choice is-again',
+            disabled:!phase.started||!phase.participating,
             'aria-pressed': candidate.mine === 'again' ? 'true' : 'false',
             onclick: choose('again'),
           }, t('listenAgain')),
-        ),
+        ):null,
       );
     }
 
+    function inlineConfirmation(message,onConfirm,confirmLabel=pair('确认','Confirm'),freeze=false){
+      const box=el('div',{class:'confirm'},el('p',{class:'hint'},message));
+      let completed=false;
+      const dismiss=()=>{if(freeze)freezeRender=false;box.remove();};
+      box.append(el('div',{class:'votes'},el('button',{type:'button',class:'primary',onclick:()=>{if(completed)return;completed=true;dismiss();onConfirm();}},confirmLabel),el('button',{type:'button',class:'ghost',onclick:dismiss},t('neverMind'))));
+      return box;
+    }
+    function requestInlineConfirmation(anchor,message,onConfirm,confirmLabel){
+      anchor.parentElement?.querySelector(':scope > .inline-confirmation')?.remove();
+      const box=inlineConfirmation(message,onConfirm,confirmLabel);box.classList.add('inline-confirmation');anchor.insertAdjacentElement('afterend',box);
+    }
+    function duetCloseControl(phase,action){
+      const holder=el('div',{class:'stack'});
+      holder.append(el('button',{type:'button',class:'primary',onclick:()=>{if(holder.querySelector('.confirm'))return;freezeRender=true;holder.append(inlineConfirmation(t('closeHint'),()=>action('close'),t('confirmClose'),true));}},t('close')));
+      return holder;
+    }
+    function pollTypeLabel(kind) {
+      return kind === 'pair' ? pair('组合投票', 'Pair Voting') : kind === 'parts' ? pair('多声部投票', 'Multi-part Voting') : pair('Solo 投票', 'Solo Voting');
+    }
+
+    function duetIdentity(entry) {
+      return el('div', {class:'duet-identity'}, entry.members.map(member => el('span', {class:'roster-name'}, avatarNode({id:member.id,name:member.name,avatar:member.avatar}), el('span', {}, member.name))));
+    }
+
+    function voteProgressCard(progress){return el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.')));}
+
+    function duetWithdraw(phase,entry,disabled,action){
+      const box=el('div',{class:'confirm',hidden:true},el('p',{class:'hint'},t('withdrawHint')),el('div',{class:'votes'},el('button',{type:'button',class:'ghost',onclick:()=>{freezeRender=false;action('cancel',{entryId:entry.id});}},t('confirmWithdraw')),el('button',{type:'button',class:'ghost',onclick:()=>{freezeRender=false;box.hidden=true;}},t('neverMind'))));
+      return el('div',{class:'stack'},el('button',{type:'button',class:'nav-btn',disabled,onclick:()=>{freezeRender=true;box.hidden=false;}},pair('退出参选','Withdraw')),box);
+    }
+    function renderDuetRound(data) {
+      const phase = data.phase;
+      const action = (name, body={}) => run(() => api(`/api/phases/${phase.id}/${name}`, {method:'POST',body:JSON.stringify(body)}));
+      const ownerEntries = phase.ownEntries||phase.candidates.filter(entry => entry.isMe);
+      const definitions=pollParts(phase),partKeys=definitions.map(part=>part.id);
+      const partName = part => definitions.find(p=>p.id===part)?.name;
+      const countIn = part => phase.candidateCounts?.[part]??phase.candidates.filter(entry => entry.part === part).length;
+      const locked = part => phase.started && (phase.pollType === 'pair' ? phase.registrationLocked : phase.partLocks[part]);
+      const canWithdraw = entry => !phase.started || (!locked(entry.part) && countIn(entry.part)>3);
+      const children = [el('h2', {}, phase.title),el('p', {class:'meta'},pollTypeLabel(phase.pollType)),el('p', {class:'hint'}, phase.pollType==='pair'
+        ? pair('给搭档发起组队，对方确认后参选。同一人可参加不同组合；两组最多选一组，三组及以上最多选两组。','Invite a partner; the pair joins after confirmation. Multiple partnerships are allowed. Choose one of two pairs, or up to two of three or more.')
+        : pair('可报名多个声部。各声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join multiple parts. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
+        !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
+      if (phase.canSeeResults) children.push(resultsToggle(phase));
+      children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+(phase.candidateCount??phase.candidates.length)+' '+(phase.pollType==='pair'?'组':'人')+'已参选',(phase.candidateCount??phase.candidates.length)+' candidates registered'))));
+      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),duetWithdraw(phase,entry,false,action)));
+      if (phase.pollType==='pair') {
+        if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
+          event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId'))});
+        }}, el('label', {},pair('选择搭档','Choose a partner'),el('select', {name:'partnerId',required:true},el('option',{value:''},pair('请选择','Select a member')),data.members.filter(member=>member.id!==data.user.id).map(member=>el('option',{value:member.id},member.fullName||member.name)))),el('button',{class:'nav-btn',type:'submit'},pair('邀请搭档','Invite partner'))));
+        else children.push(el('p',{class:'hint'},pair('两组场，报名已锁定。','Two-pair round; registration is locked.')));
+        for (const pending of phase.pendingPairs) children.push(el('section', {class:'card stack'},duetIdentity(pending),el('p',{class:'hint'},pending.canConfirm?pair('邀请你一起参选','Invited you to join this pair'):pair('等待搭档确认','Waiting for your partner')),
+          pending.canConfirm?el('button',{type:'button',class:'nav-btn',disabled:locked('pair'),onclick:()=>action('confirm',{entryId:pending.id})},pair('确认组队','Confirm pair')):null,
+          el('button',{type:'button',class:'nav-btn',onclick:()=>action('cancel',{entryId:pending.id})},pending.canConfirm?pair('婉拒','Decline'):pair('取消邀请','Cancel invitation'))));
+      } else {
+        const available=partKeys.filter(part=>!locked(part)&&!ownerEntries.some(entry=>entry.part===part));
+        if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
+        else children.push(el('p',{class:'hint'},pair('没有其他可报名的声部。','No other parts are available.')));
+      }
+      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?(phase.candidateCount??phase.candidates.length)<2:partKeys.some(part=>!countIn(part)),onclick:()=>action('start')},pair('开启投票','Start voting')));
+      for (const part of phase.pollType==='parts'?partKeys:['pair']) {
+        const entries=phase.candidates.filter(entry=>entry.part===part);
+        if (phase.pollType==='parts') children.push(el('h3',{},partName(part)),el('p',{class:'hint'},pair('最多选择 '+phase.voteLimits[part]+' 位'+(locked(part)?' · 报名已锁定':''),'Select up to '+phase.voteLimits[part]+' singers'+(locked(part)?' · Registration locked':''))));
+        if(!phase.started){if(phase.pollType==='parts')children.push(el('p',{class:'candidacy-count'},pair('共 '+countIn(part)+' 人已参选',countIn(part)+' candidates registered')));continue;}
+        children.push(entries.length?el('div',{class:'cards'},entries.map(entry=>el('article',{class:entry.isMe?'card is-me stack':'card stack'},duetIdentity(entry),
+          phase.canSeeResults&&detailedResults.has(phase.id)?el('p',{class:'meta'},pair(entry.likes+' 票',entry.likes+' votes')):null,
+          phase.participating?el('button',{type:'button',class:'choice is-like',disabled:!phase.started||!phase.participating,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')):null,
+          recordingList((phase.recordings||[]).filter(recording=>recording.entryId===entry.id)),
+          entry.isMe?recordingControls(phase,{entryId:entry.id}):null,
+          entry.isMe?duetWithdraw(phase,entry,!canWithdraw(entry),action):null,
+        ))):el('p',{class:'hint'},pair('还没有参选人','No candidates yet')));
+      }
+      if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
+      if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+      if (data.user.isMd||data.user.isAdmin) children.push(duetCloseControl(phase,action));
+      round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
+    }
+
+    function pollParts(phase){const labels=phase.partLabels?.length?phase.partLabels:[phase.partA,phase.partB,...(phase.partC?[phase.partC]:[])];return labels.map((name,i)=>({id:['A','B','C'][i]||'part_'+(i+1),name}));}
+    function partSetup(){
+      const rows=el('div',{class:'stack part-setup-rows'}),records=[];let serial=0;
+      const update=()=>records.forEach(record=>record.button.disabled=records.length<=2);
+      const add=()=>{const number=++serial,input=el('input',{name:'partLabels',maxlength:30,required:true,disabled:true,value:'Part '+number});const record={};const button=el('button',{type:'button',class:'nav-btn remove-part',onclick:()=>{if(records.length<=2)return;record.row.remove();records.splice(records.indexOf(record),1);update();}},pair('移除','Remove'));record.button=button;record.row=el('div',{class:'part-setup-row'},el('label',{},pair('声部名称','Part name'),input),button);records.push(record);rows.append(record.row);update();return input;};
+      add();add();
+      return el('div',{class:'stack part-labels',hidden:true},rows,el('button',{type:'button',class:'nav-btn add-part',onclick:event=>{const input=add();input.disabled=event.target.closest('form').querySelector('select[name=votingMode]').value!=='parts';}},pair('添加声部','Add part')));
+    }
     function renderRound(data) {
+      if(captureSession && captureSession.phaseId!==data.phase?.id)disposeCapture();
       round.replaceChildren();
       round.className = 'history';
       const phase = data.phase;
       if (!phase) {
+        if(!planPollSongs)planLoadPollSongs();
         const arrangers = (data.members || []).filter((person) => person.isArranger && !person.isAlumni);
         const block = [el('h2', {}, t('idleTitle'))];
-        if (data.user.isMd && !arrangers.length) block.push(el('p', { class: 'hint' }, t('noPollArranger')));
-        if (data.user.isMd && arrangers.length) block.push(el('form', {
+        
+        if (data.user.isMd) block.push(el('form', {
             class: 'stack',
             onsubmit: (event) => {
               event.preventDefault();
@@ -1679,38 +2132,53 @@
                 method: 'POST',
                 body: JSON.stringify({
                   title: form.get('title'),
+                  planSongId:Number(form.get('planSongId'))||null,
+                  votingMode:['pair','parts'].includes(form.get('votingMode'))?'default':form.get('votingMode'),
+                  pollType:['pair','parts'].includes(form.get('votingMode'))?form.get('votingMode'):'solo',
+                  partA:form.get('partA'),partB:form.get('partB'),partC:form.get('partC'),partLabels:form.getAll?.('partLabels')||[],
                   arrangerId: Number(form.get('arrangerId')),
                 }),
               }));
             },
           },
+            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId',onchange:event=>planUpdatePollTitlePrefix(event.target.closest('form'))},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title+' · '+(planPollSongs.term?.label||''))))),
             el('label', {}, t('roundName'),
-              el('input', { name: 'title', maxlength: '40', required: true, placeholder: both('roundPlaceholder') }),
+              el('div',{class:'poll-title-entry'},el('span',{class:'poll-title-prefix',hidden:true}),el('input', { name: 'title', maxlength: '40', required: true, autocomplete:'off' })),
             ),
             el('label', {}, t('pollArranger'),
-              el('select', { name: 'arrangerId', required: true },
-                arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
+              el('select', { name: 'arrangerId' },
+                el('option',{value:'',selected:true},pair('不指定编曲者','No arranger selected')),arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
+            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{const form=event.target.closest('form');form.querySelector('.part-labels').hidden=event.target.value!=='parts';form.querySelectorAll('input[name=partLabels]').forEach(input=>input.disabled=event.target.value!=='parts');const label=event.target.closest('form').querySelector('.poll-song-choice');label.firstChild.replaceWith(['pair','parts'].includes(event.target.value)?pair('为哪首歌选 Duet？','Which song is this Duet for?'):pair('为哪首歌选 Solo？','Which song is this Solo for?'));planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 多声部投票','Duet · Multi-part Voting')))),
+            partSetup(),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));
         round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, block));
         return;
       }
 
-      const count = phase.candidates.length;
+      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('进入本轮','Enter round'));
+      if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
+      if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
+      const count = phase.candidateCount??phase.candidates.length;
       const children = [
         el('h2', {}, phase.title),
-        el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
-        el('p', { class: 'hint' }, t('voteHintLike')),
-        el('p', { class: 'hint' }, t('voteHintAgain')),
+        el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
+        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')):null,
+        phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
+      if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin)children.push(joinPoll());
+      if (phase.canSeeResults) children.push(resultsToggle(phase));
+      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开启投票','Start voting')));
+
+      children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+count+' 人已参选',count+' candidates registered'))));
       if (phase.iAmCandidate) {
-        children.push(el('p', { class: 'mine' }, t('joined')));
         children.push(el('button', {
           type: 'button',
           class: 'quiet',
+          disabled:phase.registrationLocked||(phase.started&&phase.votingMode==='default'&&count<=3),
           onclick: () => {
             freezeRender = true;
             const box = round.querySelector('.confirm');
@@ -1743,6 +2211,7 @@
         children.push(el('button', {
           type: 'button',
           class: 'primary',
+          disabled:phase.registrationLocked,
           onclick: () => run(() => api(`/api/phases/${phase.id}/candidacy`, {
             method: 'POST',
             body: JSON.stringify({ join: true }),
@@ -1750,15 +2219,18 @@
         }, t('run')));
       }
 
-      if (!count) {
-        children.push(el('p', { class: 'hint' }, t('nobody')));
-      } else {
+
+
+      if (count&&phase.started) {
         children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
       }
 
-      children.push(el('button', {
+      if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
+      if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+
+      if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
-        class: 'quiet',
+        class: 'primary',
         onclick: () => {
           freezeRender = true;
           const boxes = round.querySelectorAll('.confirm');
@@ -1771,7 +2243,7 @@
         el('div', { class: 'votes' },
           el('button', {
             type: 'button',
-            class: 'ghost',
+            class: 'primary',
             onclick: () => run(() => api(`/api/phases/${phase.id}/close`, { method: 'POST', body: '{}' })),
           }, t('confirmClose')),
           el('button', {
@@ -1790,6 +2262,7 @@
       round.append(el('h2', {}, t('thisRound')), el('section', { class: 'panel stack' }, children));
     }
 
+    const historyExpanded=new Map();
     function renderHistory(rounds) {
       history.replaceChildren();
       if (!rounds.length) return;
@@ -1797,22 +2270,51 @@
       history.append(el('h2', {}, t('history')));
       for (const item of rounds) {
         const when = formatTime(item.closedAt);
-        const rows = item.candidates.length
-          ? ranks(item.candidates).map((candidate) => el('div', { class: 'result-row' },
-              el('span', { class: 'rank' }, candidate.rank),
-              el('span', {}, candidate.name),
-              el('span', { class: 'meta' }, scoreLine(candidate.likes, candidate.again)),
-            ))
+        const showDetails = item.canSeeResults && detailedResults.has(item.id);
+        const visibleCandidates = showDetails ? item.candidates : item.candidates.filter(candidate => candidate.rank <= item.revealedRanks);
+        const resultRow = candidate => el('div', { class: 'result-row' },
+          el('span', {class:'rank'}, candidate.rank),
+          candidate.members ? duetIdentity(candidate) : el('span',{},candidate.name),
+          showDetails?el('span',{class:'meta'},item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null);
+        const rows = item.pollType==='parts' ? pollParts(item).flatMap(part=>[el('h4',{},part.name),...visibleCandidates.filter(candidate=>candidate.part===part.id).map(resultRow)]) : visibleCandidates.length
+          ? visibleCandidates.map(resultRow)
           : [el('p', { class: 'hint' }, t('noCandidates'))];
-        history.append(el('section', { class: 'card' },
-          el('h3', {}, item.title),
-          when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
-          item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
+        history.append(el('details', { class: 'card past-round',open:historyExpanded.get(item.id)??item.id===rounds[0].id,'data-phase-id':item.id,ontoggle:event=>{if(!event.target.isConnected)return;const defaultOpen=item.id===rounds[0].id;if(event.target.open===defaultOpen)historyExpanded.delete(item.id);else historyExpanded.set(item.id,event.target.open);}},
+          el('summary', {}, item.title),
+          el('div',{class:'stack past-round-body'},
+          item.pollType&&item.pollType!=='solo'?el('p',{class:'meta'},pollTypeLabel(item.pollType)):null,
+          when ? el('p', { class: 'meta history-closed' }, pair('已结束','Closed'),' '+when) : null,
+          item.canSeeResults ? resultsToggle(item) : null,
           ...rows,
-        ));
+          item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
+          item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
+        )));
       }
     }
 
+    const voiceParts=['soprano','alto','tenor','baritone','bass','bbox','rap'];
+    const voiceLabel=part=>part==='bbox'?'Bbox':part.charAt(0).toUpperCase()+part.slice(1);
+    let voiceFilter='all';
+    let rosterSort='voice';
+    function voiceChoices(person,disabled=false,selected=person.voiceParts||[]) {
+      return el('div',{class:'voice-choices'},voiceParts.map(part=>el('label',{},el('input',{type:'radio',name:'voiceParts',value:part,checked:part===selected[0],disabled}),voiceLabel(part))));
+    }
+    function crewMediaChoice(person,disabled=false,checked=person.isCrew) {
+      return el('div',{class:'crew-media-choice'},el('label',{},el('input',{type:'checkbox',name:'crewMedia',checked:Boolean(checked),disabled}),'Crew / Media'));
+    }
+    function managedVoiceEditor(person){
+      let editing=false;
+      const form=el('form',{class:'stack managed-voice-editor',onsubmit:event=>{
+        event.preventDefault();
+        const button=event.target.querySelector('button[type="submit"]');
+        if(!editing){editing=true;freezeRender=true;event.target.querySelectorAll('input').forEach(input=>input.disabled=false);button.textContent='Save';return;}
+        if(busy)return;
+        const parts=new FormData(event.target).getAll('voiceParts');
+        run(()=>api(`/api/members/${person.id}/voice-parts`,{method:'POST',body:JSON.stringify({voiceParts:parts,crewMedia:event.target.elements.crewMedia.checked})}));
+      }},el('div',{class:'managed-voice-actions'},el('button',{type:'submit',class:'nav-btn'},'Edit')),
+        voiceChoices(person,true),crewMediaChoice(person,true));
+      return form;
+    }
     let editingRoster = false;
     let roleDraft = null;
     let expandedMember = null;
@@ -1825,6 +2327,7 @@
         musicDirector: Boolean(person.isMd),
         arranger: Boolean(person.isArranger),
         alumni: Boolean(person.isAlumni),
+        crew: Boolean(person.isCrew),
         president: Boolean(person.isPresident),
         vicePresident: Boolean(person.isVicePresident),
         secretary: Boolean(person.isSecretary),
@@ -1854,6 +2357,7 @@
         const adminFields = [
           ['musicDirector', 'isMd'],
           ['alumni', 'isAlumni'],
+          ['crew', 'isCrew'],
           ['president', 'isPresident'],
           ['vicePresident', 'isVicePresident'],
           ['secretary', 'isSecretary'],
@@ -1919,13 +2423,13 @@
     }
 
     const rosterRoles = [
-      ['isMd', 'musicDirector', 'Music Director', true],
-      ['isArranger', 'arranger', 'Arranger', false],
       ['isPresident', 'president', 'President', true],
       ['isVicePresident', 'vicePresident', 'Vice President', true],
       ['isSecretary', 'secretary', 'Secretary', true],
       ['isTreasurer', 'treasurer', 'Treasurer', true],
       ['isMedia', 'mediaChair', 'Media Chair', true],
+      ['isMd', 'musicDirector', 'Music Director', true],
+      ['isArranger', 'arranger', 'Arranger', false],
     ];
 
     function personIsAlumni(person) {
@@ -1933,22 +2437,29 @@
       return Boolean(person.isAlumni);
     }
 
+    function personIsCrew(person) {
+      if (editingRoster && roleDraft?.has(person.id)) return Boolean(roleDraft.get(person.id).crew);
+      return Boolean(person.isCrew);
+    }
+
     function statusSwitch(person) {
-      const alumni = Boolean(roleDraft?.get(person.id)?.alumni);
+      const status = personIsAlumni(person) ? 'Alumni' : personIsCrew(person) ? 'Crew' : 'Active';
       const choice = (label, on, next) => el('button', {
         type: 'button',
         class: 'status-choice',
         'aria-pressed': on ? 'true' : 'false',
         onclick: () => {
           const draft = roleDraft?.get(person.id);
-          if (!draft || draft.alumni === next) return;
-          draft.alumni = next;
+          if (!draft || status === next) return;
+          draft.alumni = next === 'Alumni';
+          draft.crew = next === 'Crew';
           if (latest) renderRoster(latest);
         },
       }, label);
       return el('div', { class: 'status-switch' },
-        choice('Active', !alumni, false),
-        choice('Alumni', alumni, true),
+        choice('Active', status === 'Active', 'Active'),
+        choice('Crew', status === 'Crew', 'Crew'),
+        choice('Alumni', status === 'Alumni', 'Alumni'),
       );
     }
 
@@ -2016,6 +2527,7 @@
         }
       }
       const display = person.fullName || person.name;
+      const identity = el('span', {class:'roster-name'}, avatarNode(person), el('span', {}, display), !alumni&&!personIsCrew(person)?el('small',{class:'voice-caption'},(person.voiceParts||[]).map(voiceLabel).join(' · ')||pair('未选择声部','No voice part yet')):null);
       const name = canExpand
         ? el('button', {
             type: 'button',
@@ -2025,16 +2537,49 @@
               expandedMember = open ? null : person.id;
               if (latest) renderRoster(latest);
             },
-          }, el('span', {}, display), el('span', { class: 'row-caret', 'aria-hidden': 'true' }))
+          }, identity, el('span', { class: 'row-caret', 'aria-hidden': 'true' }))
         : editing
-          ? el('span', {}, display)
-          : el('button', { type: 'button', class: 'name-hit', onclick: () => openProfile(person.id, 'members') }, display);
+          ? identity
+          : el('button', { type: 'button', class: 'name-hit', onclick: () => openProfile(person.id, 'members') }, identity);
       return el('div', { class: open ? 'person-row roles-edit' : 'person-row' },
         name,
         tags.length ? el('div', { class: 'role-tags' }, tags) : null,
         open && user.isAdmin ? statusSwitch(person) : null,
         open && user.isAdmin ? accountEditor(person) : null,
       );
+    }
+
+
+    let invitationList = null;
+    let invitationLoading = false;
+    let issuedInvitation = null;
+    async function refreshInvitations() {
+      if (invitationLoading) return;
+      invitationLoading = true;
+      const viewer = latest?.user?.id;
+      try { const result = await api('/api/admin/invitations'); if(latest?.user?.id === viewer) invitationList = result; }
+      catch (error) { if(latest?.user?.id === viewer) invitationList = {error:error.message}; }
+      finally { invitationLoading=false; if(latest?.user?.isAdmin) renderRoster(latest); }
+    }
+    function invitationPanel() {
+      const panel=el('section',{class:'panel stack'},
+        el('h2',{},pair('邀请成员','Invite members')),
+        el('p',{class:'hint'},pair('新邀请码可供全团多人注册，7 天后过期，可随时撤销。只发内部群。','New codes can be shared with the whole club, expire in 7 days, and can be revoked. Share only internally.')),
+        el('button',{class:'nav-btn',type:'button',onclick:async event=>{
+          event.currentTarget.disabled=true;
+          try { issuedInvitation=await api('/api/admin/invitations',{method:'POST',body:'{}'});await refreshInvitations(); }
+          catch(error){showBanner(error.message);event.currentTarget.disabled=false;}
+        }},pair('生成邀请码','Create invitation')));
+      if(issuedInvitation)panel.append(el('label',{},pair('新邀请码（请复制保存）','New code (copy and save)'),el('input',{value:issuedInvitation.code,readonly:true,onclick:event=>event.currentTarget.select()})));
+      if(!invitationList){refreshInvitations();return panel;}
+      if(invitationList.error){panel.append(el('p',{class:'hint'},invitationList.error),el('button',{type:'button',class:'nav-btn',onclick:refreshInvitations},pair('重试','Retry')));return panel;}
+      for(const invite of invitationList.invitations){
+        const active=!invite.revoked&&(invite.is_shared||!invite.used_at)&&Date.parse(invite.expires_at)>Date.now();
+        const row=el('div',{class:'person-row'},el('span',{class:'hint'},new Date(invite.created_at).toLocaleDateString()+' · '+(invite.revoked?'已撤销 / Revoked':active?'有效 / Active':invite.used_at&&!invite.is_shared?'已使用 / Used':'已过期 / Expired')+' · '+(invite.is_shared?'全团共用 / Shared':'一次性 / Single-use')+' · '+(invite.use_count||0)+' 次注册 / registrations'));
+        if(active)row.append(el('button',{type:'button',class:'nav-btn',onclick:async()=>{try{invitationList=await api('/api/admin/invitations/'+invite.id+'/revoke',{method:'POST',body:'{}'});if(issuedInvitation?.id===invite.id)issuedInvitation=null;if(latest)renderRoster(latest);}catch(error){showBanner(error.message);}}},pair('撤销','Revoke')));
+        panel.append(row);
+      }
+      return panel;
     }
 
     function renderRoster(data) {
@@ -2049,16 +2594,24 @@
         : el('div', { class: 'roster-bar' },
             el('button', { type: 'button', class: 'ghost roster-action', onclick: beginRosterEdit }, t('editRoles')),
           );
-      const group = (title, rows) => el('section', { class: 'stack' },
-        el('h2', { class: 'roster-label' }, title),
+      const activePeople=people.filter(person=>!personIsAlumni(person)&&!personIsCrew(person) && (voiceFilter==='all'||(voiceFilter==='unassigned'?!(person.voiceParts||[]).length:(person.voiceParts||[]).includes(voiceFilter))));
+      const voiceRank=person=>{const ranks=(person.voiceParts||[]).map(part=>voiceParts.indexOf(part)).filter(rank=>rank>=0);return ranks.length?Math.min(...ranks):voiceParts.length;};
+      activePeople.sort((a,b)=>(rosterSort==='voice'?voiceRank(a)-voiceRank(b):0)||(a.fullName||a.name||'').localeCompare(b.fullName||b.name||'','en',{sensitivity:'base',numeric:true})||a.id-b.id);
+      const group = (title, rows, control=null) => el('section', { class: 'stack' },
+        el('div',{class:'roster-heading'},el('div',{class:'roster-heading-left'},el('h2', { class: 'roster-label' }, title),title==='Active'?el('button',{type:'button',class:'nav-btn roster-sort','aria-label':pair('切换排序方式','Switch sort order'),onclick:()=>{rosterSort=rosterSort==='voice'?'alpha':'voice';renderRoster(latest);}},rosterSort==='voice'?pair('按首字母排序','Alphabetical'):pair('按声部排序','By voice part')):null),control),
         el('div', { class: 'card stack' }, rows.length
           ? rows.map((person) => memberRow(person, data.user))
           : [el('p', { class: 'hint' }, t('noneYet'))]),
       );
       roster.replaceChildren(
         ...(bar ? [bar] : []),
-        group('Active', people.filter((person) => !personIsAlumni(person))),
-        group('Alumni', people.filter((person) => personIsAlumni(person))),
+        ...(data.user.isAdmin ? [invitationPanel()] : []),
+        group('Active', activePeople, el('label',{class:'voice-filter'},el('select',{'aria-label':pair('按声部筛选','Filter by voice part'),value:voiceFilter,onchange:event=>{voiceFilter=event.target.value;renderRoster(latest);}},
+          el('option',{value:'all',selected:voiceFilter==='all'},pair('所有声部','All voice parts')),
+          ...voiceParts.map(part=>el('option',{value:part,selected:voiceFilter===part},voiceLabel(part))),
+          el('option',{value:'unassigned',selected:voiceFilter==='unassigned'},pair('未选择声部','No voice part yet'))))),
+        group('Crew / Media', people.filter((person) => personIsCrew(person))),
+        group('Alumni', people.filter((person) => personIsAlumni(person) && !personIsCrew(person))),
       );
     }
 
@@ -2073,17 +2626,18 @@
         ? data.admin.rounds.map((item) => {
             const status = both(item.status === 'open' ? 'openStatus' : 'closedStatus');
             return el('div', { class: 'stack' },
-              el('div', { class: 'person-row' },
-                el('span', {}, item.title, el('span', { class: 'meta' }, ` · ${status} · ${item.openedBy}`)),
+              el('div', { class: 'person-row round-manage-row' },
+                el('span', {class:'round-manage-info'}, item.title, el('span', { class: 'meta' }, ` · ${status} · ${item.openedBy}`)),
+                el('div',{class:'round-manage-actions'},data.user.isMd&&item.status==='closed'&&item.pollType==='solo'?el('button',{type:'button',class:'nav-btn',onclick:()=>planEditHistory(item)},pair('编辑','Edit')):null,
                 el('button', {
                   type: 'button',
-                  class: 'quiet',
+                  class: 'nav-btn',
                   onclick: (event) => {
                     freezeRender = true;
-                    const box = event.currentTarget.parentElement.nextElementSibling;
+                    const box = event.currentTarget.closest('.person-row').nextElementSibling;
                     if (box) box.hidden = false;
                   },
-                }, t('deleteRound')),
+                }, pair('删除','Delete'))),
               ),
               el('div', { class: 'confirm', hidden: true },
                 el('p', { class: 'hint' }, t('deleteHint')),
@@ -2124,7 +2678,7 @@
     async function prepareAvatar(file) {
       const type = (file.type || '').toLowerCase();
       const direct = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type);
-      if (direct && file.size <= 4 * 1024 * 1024) return file;
+      if (direct && file.size <= 3 * 1024 * 1024) return file;
       const bitmap = await createImageBitmap(file).catch(() => null);
       if (!bitmap) throw new Error(errors.en.avatar_type);
       const max = 1200;
@@ -2155,50 +2709,33 @@
         if (view === 'profile' && profileId === owner && latest) renderProfile(latest);
       }
     }
-    function photoPreview(photo) {
-      const dialog = el('dialog', {class:'photo-preview'});
-      const close = el('button', {class:'nav-btn',type:'button',onclick:()=>dialog.close()}, pair('关闭','Close'));
-      dialog.append(close, el('img', {src:photo.url,alt:''}));
-      dialog.addEventListener('close',()=>dialog.remove());
-      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
-      document.body.append(dialog); dialog.showModal();
+    function photoHeart(){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d','M12 20.2C10.8 19.2 3 13.9 3 8.7C3 5.6 5 3.8 7.7 3.8C9.5 3.8 11 4.8 12 6.3C13 4.8 14.5 3.8 16.3 3.8C19 3.8 21 5.6 21 8.7C21 13.9 13.2 19.2 12 20.2Z');svg.append(path);return svg;}
+    async function galleryAction(owner,photo,action,body={}) {
+      const album=await api('/api/photos/'+photo.id+'/'+action,{method:'POST',body:JSON.stringify(body)});
+      galleryCache.set(owner,album);return api('/api/state');
     }
-    function galleryNode(person, mine) {
-      const owner=person.id, album=galleryCache.get(owner);
-      const box=el('section',{class:'panel stack gallery-panel'},
-        el('h2',{},pair('相册','Photo gallery')));
-      const input=el('input',{type:'file',accept:'image/*','aria-label':'上传照片 / Upload photo'});
-      const upload=el('form',{class:'stack',onsubmit:async event=>{
-        event.preventDefault(); const file=input.files?.[0]; if(!file)return;
-        const button=event.currentTarget.querySelector('button');button.disabled=true;
-        try{const photo=await prepareAvatar(file);const body=new FormData();body.set('photo',photo);
-          const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});
-          const data=await res.json();if(!res.ok)throw new Error(errorText(data.error));
-          galleryCache.set(owner,data);if(latest&&profileId===owner)renderProfile(latest);
-        }catch(error){showBanner(error.message);button.disabled=false;}
-      }},input,el('button',{class:'nav-btn',type:'submit'},pair('上传照片','Upload photo')));
-      box.append(upload,el('p',{class:'hint'},pair('JPG、PNG、WebP 或 GIF，每张小于 5 MB。','JPG, PNG, WebP, or GIF, under 5 MB per photo.')));
+    function photoPreview(photo,owner,mine) {
+      const dialog=el('dialog',{class:'photo-preview'});
+      const actions=el('div',{class:'photo-actions'});
+      actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>dialog.close()},pair('关闭','Close')));
+      if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{dialog.close();run(()=>galleryAction(owner,photo,photo.isManualAvatar?'clear-avatar':'avatar'));}},pair(photo.isManualAvatar?'取消设为头像':'设为头像',photo.isManualAvatar?'Use automatic avatar':'Set as avatar')));
+      if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:event=>requestInlineConfirmation(event.currentTarget,pair('删除这张照片？','Delete this photo?'),()=>{dialog.close();run(()=>galleryAction(owner,photo,'delete'));})},pair('删除','Delete')));
+      dialog.append(actions,el('img',{src:photo.url,alt:''}),el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
+      dialog.addEventListener('close',()=>dialog.remove());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});document.body.append(dialog);dialog.showModal();
+    }
+    function galleryNode(person,mine) {
+      const owner=person.id,album=galleryCache.get(owner),box=el('section',{class:'panel stack gallery-panel'},el('h2',{},pair('相册','Photo gallery')));
+      const input=el('input',{type:'file',accept:'image/*',hidden:true,'aria-label':'上传照片 / Upload photo'});
+      const button=el('button',{class:'nav-btn',type:'button',onclick:()=>input.click()},pair('上传照片','Upload photo'));
+      input.addEventListener('change',async()=>{
+        const file=input.files?.[0];if(!file)return;button.disabled=true;
+        try{const photo=await window.cropPhoto(file);if(!photo)return;const body=new FormData();body.set('photo',photo);const res=await fetch('/api/profiles/'+owner+'/photos',{method:'POST',credentials:'same-origin',body});const data=await res.json();if(!res.ok)throw new Error(data.error==='too_large'?'每张图片不能超过 5 MB。 / Each photo must be under 5 MB.':errorText(data.error));galleryCache.set(owner,data);const state=await api('/api/state');latest=state;render(state);}catch(error){showBanner(error.message);}finally{button.disabled=false;input.value='';}
+      });box.append(el('div',{class:'stack'},input,button));
       if(!album){box.append(el('p',{class:'hint'},pair('正在加载…','Loading…')));loadGallery(owner);return box;}
       if(album.error){box.append(el('p',{class:'hint'},album.error),el('button',{class:'nav-btn',type:'button',onclick:()=>loadGallery(owner)},pair('重试','Retry')));return box;}
       const grid=el('div',{class:'photo-grid'});
-      for(const photo of album.photos){
-        const card=el('div',{class:'photo-card'},
-          el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo)},el('img',{src:photo.url,alt:'',loading:'lazy'})),
-          el('p',{class:'hint'},photo.name?pair('上传者：'+photo.name,'Added by '+photo.name):pair('原上传者已离开','Former member')));
-        const actions=el('div',{class:'photo-actions'});
-        if(photo.isAvatar)actions.append(el('span',{class:'hint'},pair('当前头像','Current avatar')));
-        else if(mine)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>run(async()=>{
-          galleryCache.set(owner,await api('/api/photos/'+photo.id+'/avatar',{method:'POST',body:'{}'}));
-          return api('/api/state');
-        })},pair('设为头像','Set as avatar')));
-        if(photo.canDelete)actions.append(el('button',{class:'nav-btn',type:'button',onclick:()=>{
-          if(!confirm('删除这张照片？如果它是当前头像，头像也会移除。\nDelete this photo? If it is the current avatar, the avatar will also be removed.'))return;
-          run(async()=>{galleryCache.set(owner,await api('/api/photos/'+photo.id+'/delete',{method:'POST',body:'{}'}));return api('/api/state');});
-        }},pair('删除','Delete')));
-        card.append(actions);grid.append(card);
-      }
-      box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));
-      return box;
+      for(const photo of album.photos){const card=el('div',{class:'photo-card'},el('button',{class:'photo-thumb',type:'button','aria-label':'查看照片 / View photo',onclick:()=>photoPreview(photo,owner,mine)},el('img',{src:photo.url,alt:'',loading:'lazy'})),el('button',{class:'photo-like',type:'button','aria-label':photo.liked?'取消点赞 / Unlike':'点赞 / Like','aria-pressed':String(Boolean(photo.liked)),onclick:()=>run(()=>galleryAction(owner,photo,'like',{liked:!photo.liked}))},photoHeart(),el('small',{},String(photo.likes||0))));grid.append(card);}
+      box.append(album.photos.length?grid:el('p',{class:'hint'},pair('还没有照片，来上传第一张吧。','No photos yet. Add the first one!')));return box;
     }
 
     function profileField(key, name, value, max) {
@@ -2220,6 +2757,7 @@
 
     function renderProfile(data) {
       if (!profileBody) return;
+      if(profileEditing){const form=profileBody.querySelector("form");if(form&&form.querySelector('[name="voiceParts"]:not(:disabled)')){profileDraft=Object.fromEntries(new FormData(form));profileDraft.voiceParts=new FormData(form).getAll('voiceParts');profileDraft.crewMedia=form.elements.crewMedia.checked;}}
       const person = profileId === data.user.id
         ? data.profile
         : (data.members || []).find((item) => item.id === profileId);
@@ -2241,11 +2779,11 @@
           ['program', person.program],
           ['funFact', person.funFact],
           ['favoriteFood', person.favoriteFood],
-        ].filter(([, value]) => value);
+        ].filter(([key, value]) => value || (key==='voicePart'&&(data.user.isMd||data.user.isAdmin)));
         profileBody.replaceChildren(
           head,
           facts.length
-            ? el('section', { class: 'card stack' }, facts.map(([key, value]) => el('p', {},
+            ? el('section', { class: 'card stack' }, facts.map(([key, value]) => key==='voicePart'&&(data.user.isMd||data.user.isAdmin)?managedVoiceEditor(person):el('p', {},
                 el('span', { class: 'meta' }, en(key)),
                 el('br'),
                 value,
@@ -2262,13 +2800,17 @@
           onsubmit: (event) => {
             event.preventDefault();
             const form = event.target;
+            if(!profileEditing){profileEditing=true;profileDraft=null;renderProfile(latest);profileBody.querySelector('[name="fullName"]')?.focus();return;}
+            if(busy)return;
+            const button=form.querySelector('button[type="submit"]');button.disabled=true;
             run(async () => {
-              return api('/api/profile', {
+              try { const result = await api('/api/profile', {
                 method: 'POST',
                 body: JSON.stringify({
                   fullName: form.elements.fullName.value,
                   pronouns: form.elements.pronouns.value,
-                  voicePart: form.elements.voicePart.value,
+                  voiceParts: new FormData(form).getAll('voiceParts'),
+                  crewMedia: form.elements.crewMedia.checked,
                   school: form.elements.school.value,
                   gradYear: form.elements.gradYear.value,
                   program: form.elements.program.value,
@@ -2276,32 +2818,41 @@
                   favoriteFood: form.elements.favoriteFood.value,
                 }),
               });
+              profileEditing=false;profileDraft=null;return result;
+              } finally {button.disabled=false;} 
             });
           },
         },
+          el('div',{class:'profile-edit-actions'},el('button', { class: 'nav-btn', type: 'submit' }, profileEditing ? pair('保存','Save') : pair('编辑','Edit'))),
           profileField('fullName', 'fullName', person.fullName, 80),
           profileField('pronouns', 'pronouns', person.pronouns, 40),
-          profileField('voicePart', 'voicePart', person.voicePart, 40),
+          voiceChoices(person,!profileEditing,profileDraft?.voiceParts||person.voiceParts||[]),
+          crewMediaChoice(person,!profileEditing,profileDraft?.crewMedia??person.isCrew),
           profileField('school', 'school', person.school, 80),
           profileField('gradYear', 'gradYear', person.gradYear, 4),
           profileField('program', 'program', person.program, 80),
           profileField('funFact', 'funFact', person.funFact, 240),
           profileField('favoriteFood', 'favoriteFood', person.favoriteFood, 80),
-          el('button', { class: 'primary', type: 'submit' }, en('saveProfile')),
         ),
         galleryNode(person, mine),
       );
+      for(const field of profileBody.querySelectorAll('form input, form textarea')){
+        if(field.type==='checkbox')continue;
+        field.readOnly=!profileEditing;
+        if(profileEditing&&profileDraft&&Object.hasOwn(profileDraft,field.name))field.value=profileDraft[field.name];
+      }
     }
 
     function render(data) {
       const label = whoLabel(data.user);
       const person = { ...data.user, ...data.profile };
-      for (const node of [me, hubMe, membersMe, profileMe, scoresMe]) {
+      for (const node of [me, hubMe, membersMe, profileMe, scoresMe, document.querySelector('#plan-me')]) {
         node.classList.add('account-mini');
         node.replaceChildren(avatarNode(person), el('span', {}, label));
       }
       renderProfile(data);
       renderRoster(data);
+      if(view==='plan'&&!planPage.contains(document.activeElement))renderPlan();
       renderAdmin(data);
       renderRound(data);
       renderHistory(data.history);
@@ -2375,12 +2926,7 @@
       browseSemesterLink.href = browseCache.url;
       browseSemesterLink.textContent = browseCache.label;
       browseFolders.replaceChildren(browseCache.folders.length
-        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('a', {
-            class: 'score-link',
-            href: item.url,
-            target: '_blank',
-            rel: 'noopener',
-          }, item.name)))
+        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {class:'browse-score-row',style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url},true))))
         : el('p', { class: 'hint' }, t('noFolders')));
     }
 
@@ -2425,7 +2971,8 @@
       const library = data.library || { ready: false, semesters: [], setup: null, arrangers: [] };
       const upload = Boolean(data.user.isArranger);
       scoreForm.hidden = !upload || !library.ready;
-      uploadHeading.hidden = !upload;
+      uploadHeader.hidden = !upload;
+      editSongButton.disabled = !library.ready;
       const showWait = upload && !library.ready;
       scoresWait.hidden = !showWait;
       if (showWait) scoresWait.replaceChildren(t(data.user.isAdmin ? 'setupFirst' : 'libraryClosed'));
@@ -2485,6 +3032,8 @@
       authSwitch.replaceChildren(t(registering ? 'switchToLogin' : 'switchToRegister'));
       password.autocomplete = registering ? 'new-password' : 'current-password';
       passwordHint.hidden = !registering;
+      document.querySelector('#invitation-field').hidden = !registering;
+      authForm.elements.invitationCode.required = registering;
     }
 
     authSwitch.addEventListener('click', () => {
@@ -2492,33 +3041,53 @@
       updateAuthMode();
     });
 
+    const rememberLogin=document.querySelector('#remember-login');
+    try {const remembered=localStorage.getItem('cucac-login-name');if(remembered){authForm.elements.name.value=remembered;rememberLogin.checked=true;}}catch{}
+    rememberLogin.addEventListener('change',()=>{if(!rememberLogin.checked){try{localStorage.removeItem('cucac-login-name');}catch{}}});
     authForm.addEventListener('submit', (event) => {
       event.preventDefault();
       const body = JSON.stringify({
         name: new FormData(authForm).get('name'),
         password: new FormData(authForm).get('password'),
+        invitationCode: new FormData(authForm).get('invitationCode'),
       });
-      run(() => api(mode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body }));
+      const endpoint=mode === 'register' ? '/api/register' : '/api/login';
+      const remember=rememberLogin.checked;
+      run(async()=>{
+        const result=await api(endpoint,{method:'POST',body});
+        const credentials=JSON.parse(body);
+        try{if(remember)localStorage.setItem('cucac-login-name',String(result.user.name));else localStorage.removeItem('cucac-login-name');}catch{}
+        if(remember&&'PasswordCredential' in window&&navigator.credentials?.store){
+          try{const credential=new PasswordCredential({id:result.user.name,password:credentials.password,name:result.user.name});Promise.resolve(navigator.credentials.store(credential)).catch(()=>{});}catch{}
+        }
+        password.value='';
+        return result;
+      });
     });
 
     async function logout() {
+      disposeCapture();
       clearBanner();
       try {
         await api('/api/logout', { method: 'POST', body: '{}' });
         snapshot = '';
         freezeRender = false;
+        password.value='';
+        try{authForm.elements.name.value=localStorage.getItem('cucac-login-name')||'';}catch{authForm.elements.name.value='';}
         showAuth();
       } catch (error) {
         showBanner(error.message);
       }
     }
 
-    for (const button of document.querySelectorAll('#logout, #hub-logout, #members-logout, #profile-logout, #scores-logout')) {
+    for (const button of document.querySelectorAll('#logout, #hub-logout, #members-logout, #profile-logout, #scores-logout, #plan-logout')) {
       button.addEventListener('click', logout);
     }
 
     document.querySelector('#open-profile').addEventListener('click', () => openProfile(latest?.user?.id, 'hub'));
     document.querySelector('#profile-back').addEventListener('click', () => showView(profileFrom));
+    document.querySelector('#open-plan').addEventListener('click',()=>{planEditing=false;planDraftChanges=[];planTermId=null;planSongId=null;planChoosing=false;planResetPicker();planData=null;planLoading=true;showView('plan');loadPlan();});
+    document.querySelector('#plan-back').addEventListener('click',()=>showView('hub'));
     document.querySelector('#open-members').addEventListener('click', () => showView('members'));
     document.querySelector('#members-back').addEventListener('click', () => showView('hub'));
     document.querySelector('#open-poll').addEventListener('click', () => showView('poll'));
@@ -2539,8 +3108,15 @@
       arrangerMenu.hidden = !arrangerMenu.hidden;
     });
     arrangerList.addEventListener('change', updateArrangerButton);
+    function closeSemesterMenu(){document.querySelector('#edit-semester-menu').hidden=true;document.querySelector('#edit-semester-button').setAttribute('aria-expanded','false');}
+    function updateSemesterButton(){const selected=[...document.querySelectorAll('#edit-semester-options input:checked')].map(input=>input.value);const button=document.querySelector('#edit-semester-button');button.replaceChildren(selected.length?selected.join(', '):t('semester'));button.title=selected.join(', ');}
+    document.querySelector('#edit-semester-button').addEventListener('click',()=>{const menu=document.querySelector('#edit-semester-menu');menu.hidden=!menu.hidden;document.querySelector('#edit-semester-button').setAttribute('aria-expanded',String(!menu.hidden));});
+    document.querySelector('#edit-semester-options').addEventListener('change',updateSemesterButton);
+    document.querySelector('#edit-semesters').addEventListener('keydown',event=>{if(event.key==='Escape'){closeSemesterMenu();document.querySelector('#edit-semester-button').focus();}});
+
     document.addEventListener('click', (event) => {
       if (!event.target.closest('.picker')) arrangerMenu.hidden = true;
+      if(!event.target.closest('#edit-semesters'))closeSemesterMenu();
     });
     document.querySelector('#add-arranger').addEventListener('click', () => {
       const name = newArranger.value.trim();
@@ -2557,19 +3133,26 @@
     let editingSong = null;
     let editingFiles = [];
     let removedFiles = new Set();
-    let editSemester = '';
     let editCache = null;
+    let editCacheKey = null;
     let editError = '';
     let editLoadingId = '';
 
     function syncEditChrome() {
+      const searching = !editPicker.hidden;
+      document.querySelector('#new-song-semester').hidden=Boolean(editingSong);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong;document.querySelector('#edit-semesters').disabled=!editingSong;if(!editingSong)closeSemesterMenu();
+      songInfo.hidden = searching;
+      songInfo.disabled = searching;
+      uploadHeading.replaceChildren(t(searching || editingSong ? 'editSong' : 'uploadTitle'));
+      editSongButton.replaceChildren(t(searching || editingSong ? 'newSong' : 'editSong'));
+      if (searching) renderEditSongs(Boolean(editLoadingId));
       uploadSubmit.replaceChildren(t(editingSong ? 'saveSong' : 'uploadScore'));
       cancelEdit.hidden = !editingSong;
       existingFiles.hidden = !editingSong;
     }
 
     function renderExistingFiles() {
-      existingFiles.replaceChildren(el('p', { class: 'hint' }, t('existingFiles')));
+      existingFiles.replaceChildren(el('p', { class: 'hint' }, t('existingFiles')),el('p',{class:'hint'},pair('★ 标星指定最新版 PDF，Hub 会优先打开；只有一个 PDF 时自动选中。标星立即保存，新增 PDF 后可再次选择。','★ marks the latest PDF Hub opens by default. A single PDF is selected automatically. Stars save immediately; choose again after adding PDFs.')));
       if (!editingFiles.length) {
         existingFiles.append(el('p', { class: 'hint' }, t('noExistingFiles')));
         return;
@@ -2578,6 +3161,7 @@
         const removing = removedFiles.has(file.id);
         return el('div', { class: removing ? 'existing-file removing' : 'existing-file' },
           el('span', {}, file.name),
+          file.mimeType==='application/pdf'?el('button',{type:'button',class:'quiet',disabled:removing,style:'margin-left:auto',title:'设为默认 PDF / Set default PDF',onclick:async event=>{event.currentTarget.disabled=true;try{const data=await api('/api/scores/pdf-star?folderId='+encodeURIComponent(editingSong.folderId),{method:'POST',body:JSON.stringify({fileId:file.id})});editingSong.defaultPdfId=data.defaultPdfId;renderExistingFiles();}catch(error){showBanner(error.message);event.currentTarget.disabled=false;}}},file.id===editingSong.defaultPdfId?'★':'☆'):null,
           el('button', {
             type: 'button',
             class: 'quiet',
@@ -2605,16 +3189,11 @@
     }
 
     function renderEditSongs(loading) {
+      const current = editFilter.value;
+      editSongs.classList.toggle('semester-results', Boolean(current));
       const semesters = latest?.library?.semesters || [];
-      const current = editSemesterSelect.value;
-      editSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
-      if (semesters.some((item) => String(item.id) === (editSemester || current))) {
-        editSemesterSelect.value = editSemester || current;
-      }
-      if (!semesters.length) {
-        editSongs.replaceChildren(el('p', { class: 'hint' }, t('noSemesters')));
-        return;
-      }
+      editFilter.replaceChildren(el('option', {value:''}, both('allSemesters')), ...semesters.map(item => el('option', {value:String(item.id)}, item.label)));
+      if (semesters.some(item => String(item.id) === current)) editFilter.value = current;
       if (loading) {
         editSongs.replaceChildren(el('p', { class: 'hint' }, t('loading')));
         return;
@@ -2624,50 +3203,35 @@
         return;
       }
       if (!editCache) return;
-      const query = songTitle.value.trim().toLowerCase();
-      const folders = editCache.folders.filter((item) => !query || item.name.toLowerCase().includes(query));
+      const query = editSearch.value.trim().toLowerCase();
+      const folders = editCache.folders.filter(item => !query || item.name.toLowerCase().includes(query));
       editSongs.replaceChildren(folders.length
         ? el('div', { class: 'card' }, folders.map((item) => el('button', {
             type: 'button',
             class: 'score-link',
-            onclick: () => run(() => loadSongEdit(editCache.id, item.id)),
-          }, item.name)))
+            onclick: () => run(() => loadSongEdit(item.semesterId, item.id)),
+          }, item.name, item.semester ? el('span', {class:'meta'}, ' · '+item.semester) : null)))
         : el('p', { class: 'hint' }, t(query ? 'noSearch' : 'noFolders')));
     }
 
-    async function ensureEditList(semesters) {
-      if (!semesters.length) {
-        editCache = null;
-        editError = '';
-        renderEditSongs();
-        return;
-      }
-      if (!semesters.some((item) => String(item.id) === editSemester)) editSemester = String(semesters[0].id);
-      if (editCache && String(editCache.id) === editSemester) {
-        renderEditSongs();
-        return;
-      }
-      if (editLoadingId === editSemester) {
-        renderEditSongs(true);
-        return;
-      }
-      const requested = editSemester;
-      editLoadingId = requested;
+    async function ensureEditList() {
+      const requested = editFilter.value;
+      const requestKey = requested || 'all';
+      if (editCache && editCacheKey === requestKey) { renderEditSongs(); return; }
+      if (editLoadingId === requestKey) { renderEditSongs(true); return; }
+      editLoadingId = requestKey;
       editError = '';
       editCache = null;
       renderEditSongs(true);
       try {
-        const data = await api(`/api/library/folders?semesterId=${requested}`);
-        if (editSemester !== requested) return;
-        editCache = data;
-        editError = '';
+        const data = await api(requested ? `/api/library/folders?semesterId=${encodeURIComponent(requested)}` : '/api/library/songs');
+        if (editFilter.value !== requested) return;
+        editCache = requested ? {...data, folders:data.folders.map(item => ({...item, semesterId:data.id, semester:data.label}))} : data;
+        editCacheKey = requestKey;
       } catch (error) {
-        if (editSemester !== requested) return;
-        editCache = null;
+        if (editFilter.value !== requested) return;
         editError = error.message;
-      } finally {
-        if (editLoadingId === requested) editLoadingId = '';
-      }
+      } finally { if (editLoadingId === requestKey) editLoadingId = ''; }
       renderEditSongs();
     }
 
@@ -2675,9 +3239,9 @@
       const detail = await api(`/api/scores/folder?semesterId=${semesterId}&folderId=${encodeURIComponent(folderId)}`);
       editingSong = { folderId: detail.folderId, sourceSemesterId: String(detail.semesterId) };
       scoreForm.elements.title.value = detail.title;
-      if ([...semesterSelect.options].some((option) => option.value === String(detail.semesterId))) {
-        semesterSelect.value = String(detail.semesterId);
-      }
+      const selectedSemesters=detail.semesterLabels||[];const semesterLabels=[...new Set([...(latest.library?.semesters||[]).map(item=>item.label),...(detail.semesterOptions||[]),...selectedSemesters])].sort((a,b)=>{const rank=label=>{const year=Number(label.match(/\d{4}/)?.[0]||0);return year*10+(/fall/i.test(label)?3:/summer/i.test(label)?2:/spring/i.test(label)?1:0);};return rank(b)-rank(a)||a.localeCompare(b);});
+      document.querySelector('#edit-semester-options').replaceChildren(...semesterLabels.map(label=>el('label',{},el('input',{type:'checkbox',name:'semester',value:label,checked:selectedSemesters.includes(label)}),label)));
+      updateSemesterButton();closeSemesterMenu();
       const wanted = new Set(detail.arrangers.map((name) => name.toLowerCase()));
       for (const name of detail.arrangers) {
         const found = [...arrangerList.querySelectorAll('input')].some((input) => input.value.toLowerCase() === name.toLowerCase());
@@ -2692,6 +3256,7 @@
       for (const input of scoreForm.querySelectorAll('input[name="kind"]')) {
         input.checked = detail.kinds.includes(input.value);
       }
+      editingSong.defaultPdfId=detail.defaultPdfId;
       editingFiles = detail.files || [];
       removedFiles = new Set();
       renderExistingFiles();
@@ -2707,24 +3272,18 @@
     }
 
     editSongButton.addEventListener('click', () => {
-      editPicker.hidden = !editPicker.hidden;
-      syncSongSearch();
-      if (editPicker.hidden) return;
-      songTitle.focus();
-      ensureEditList(latest?.library?.semesters || []);
-    });
-    editSemesterSelect.addEventListener('change', () => {
-      editSemester = editSemesterSelect.value;
+      if (!editPicker.hidden || editingSong) { clearSongEdit(); return; }
+      editPicker.hidden = false;
+      editSearch.value = '';
+      editFilter.value = '';
       editCache = null;
-      editError = '';
-      ensureEditList(latest?.library?.semesters || []);
+      syncEditChrome();
+      editSearch.focus();
+      ensureEditList();
     });
-    songTitle.addEventListener('input', () => {
-      if (!editPicker.hidden) renderEditSongs();
-    });
-    songTitle.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !editPicker.hidden) event.preventDefault();
-    });
+    editSearch.addEventListener('input', () => renderEditSongs(Boolean(editLoadingId)));
+    editFilter.addEventListener('change', () => ensureEditList());
+    editSearch.addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
     cancelEdit.addEventListener('click', clearSongEdit);
 
     scoreForm.addEventListener('submit', (event) => {
@@ -2744,6 +3303,9 @@
         return;
       }
       if (editingSong) {
+        if(!body.getAll('semester').length){showBanner(errorText('semester_missing'));return;}
+        body.delete('semesterId');
+        body.set('semesterSelection','1');
         body.set('folderId', editingSong.folderId);
         body.set('sourceSemesterId', editingSong.sourceSemesterId);
         for (const id of removedFiles) body.append('delete', id);
@@ -2755,7 +3317,7 @@
           body,
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(errorText(data.error));
+        if (!res.ok) {const error=new Error(errorText(data.error));error.code=data.error;throw error;}
         editingSong = null;
         editingFiles = [];
         removedFiles = new Set();

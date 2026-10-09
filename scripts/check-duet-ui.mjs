@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {parse} from '@babel/parser';
+const html=fs.readFileSync('public/index.html','utf8');
+for(const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))parse(match[1]);
+const el=(tag,attrs,...children)=>({tag,attrs,children:children.flat().filter(x=>x!=null&&x!==false),append(...nodes){this.children.push(...nodes);},querySelector(selector){return find(this.children,n=>n.attrs?.class===selector.slice(1));}});
+const find=(nodes,predicate)=>{for(const n of nodes){if(n&&typeof n==='object'){if(predicate(n))return n;const found=find(n.children||[],predicate);if(found)return found;}}};
+const calls=[];
+const context={latest:{user:{isMd:true}},planPollSongs:{term:{label:"2026 Fall"},songs:[{id:44,title:"Song"}]},el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
+ window:{confirm:()=>true},api:async(path,options)=>{calls.push({path,body:JSON.parse(options.body)});},run:fn=>fn(),
+ recordingControls:()=>null,recordingList:()=>null,resultsToggle:()=>el('button',{},'details'),candidateCard:()=>null,runningLine:()=>'',formatTime:()=>'',scoreLine:()=>'',
+ FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}},
+ round:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}},
+ history:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}}};
+vm.createContext(context);
+vm.runInContext('let captureSession=null;const detailedResults=new Set();'+html.slice(html.indexOf('    function inlineConfirmation'),html.indexOf('    let editingRoster')),context);
+const members=[{id:1,name:'One',isArranger:true},{id:2,name:'Two'},{id:3,name:'Three'}];
+context.data={user:{id:1,isMd:true},members,phase:null};vm.runInContext('renderRound(data)',context);
+const methodSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='votingMode');assert.deepEqual(methodSelect.children.map(n=>n.attrs.value),['default','feedback','pair','parts']);
+const songSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='planSongId');assert.equal(songSelect.children[1].attrs.value,44);
+const form=find(context.round.nodes,n=>n.tag==='form');await form.attrs.onsubmit({preventDefault(){},target:{fields:{title:'Duet',votingMode:'parts',arrangerId:'1',partA:'High',partB:'Low'}}});assert.equal(calls.at(-1).body.pollType,'parts');assert.equal(calls.at(-1).body.votingMode,'default');assert.equal(calls.at(-1).body.partA,'High');
+await form.attrs.onsubmit({preventDefault(){},target:{fields:{title:'Solo',votingMode:'default',arrangerId:'1',planSongId:'44'}}});assert.equal(calls.at(-1).body.planSongId,44);
+const entry=(id,part,person)=>({id,part,name:person.name,members:[person],isMe:person.id===1,mine:null});
+context.data.phase={id:10,pollType:'parts',title:'Parts',partA:'High',partB:'Low',started:false,partLocks:{},voteLimits:{A:2,B:2},candidates:[],pendingPairs:[]};vm.runInContext('renderRound(data)',context);
+const partForm=find(context.round.nodes,n=>n.tag==='form');await partForm.attrs.onsubmit({preventDefault(){},target:{fields:{part:'B'}}});assert.deepEqual(calls.at(-1),{path:'/api/phases/10/candidacy',body:{join:true,part:'B'}});
+context.data.phase={id:11,pollType:'pair',title:'Pairs',started:false,registrationLocked:false,candidates:[],pendingPairs:[{...entry(25,'pair',members[1]),members:members.slice(0,2),canConfirm:true}]};vm.runInContext('renderRound(data)',context);
+const confirm=find(context.round.nodes,n=>n.tag==='button'&&n.children.includes('确认组队 / Confirm pair'));await confirm.attrs.onclick();assert.deepEqual(calls.at(-1),{path:'/api/phases/11/confirm',body:{entryId:25}});
+context.data.phase={id:12,pollType:'parts',title:'Parts',partA:'High',partB:'Low',started:true,partLocks:{A:true,B:true},voteLimits:{A:1,B:1},candidates:[entry(30,'A',members[0]),entry(31,'B',members[1])],pendingPairs:[]};vm.runInContext('renderRound(data)',context);
+assert.equal(find(context.round.nodes,n=>n.tag==='button'&&n.children.includes('退出参选 / Withdraw')).attrs.disabled,true);
+context.results=[{id:12,pollType:'parts',title:'Parts',partA:'High',partB:'Low',votingMode:'default',revealedRanks:2,canReveal:true,canSeeResults:false,candidates:[{...entry(30,'A',members[0]),rank:1},{...entry(31,'B',members[1]),rank:1}]}];vm.runInContext('renderHistory(results)',context);
+assert.equal(find(context.history.nodes,n=>n.tag==='h4'&&n.children.includes('High')).tag,'h4');assert.equal(find(context.history.nodes,n=>n.tag==='h4'&&n.children.includes('Low')).tag,'h4');
+console.log('PASS: four bilingual voting methods, creation payload, per-part signup, partner confirmation, locked withdrawal UI, and separately grouped duet results.');
+
+context.results.push({...context.results[0],id:11,title:'Older',arranger:'Sophia'});vm.runInContext('renderHistory(results)',context);const folds=context.history.nodes.filter(n=>n.tag==='details');assert.equal(folds.length,2);assert.equal(folds[0].attrs.open,true);assert.equal(folds[1].attrs.open,false);assert.equal(folds[0].children[0].tag,'summary');assert.ok(!find(folds,n=>n.tag==='p'&&n.children.some(x=>typeof x==='string'&&x.includes('Arranger'))));
+
+folds[1].attrs.ontoggle({target:{isConnected:true,open:true}});vm.runInContext('renderHistory(results)',context);assert.equal(context.history.nodes.filter(n=>n.tag==='details')[1].attrs.open,true);
+context.formatTime=()=> '10/7 21:46';vm.runInContext('renderHistory(results)',context);const closed=find(context.history.nodes,n=>n.attrs?.class==='meta history-closed');assert.ok(closed.children.includes('已结束 / Closed'));assert.equal(closed.children.filter(x=>typeof x==='string'&&x.includes('10/7 21:46')).length,1);
+context.results.unshift({...context.results[0],id:13,title:'Newest'});vm.runInContext('renderHistory(results)',context);const refreshed=context.history.nodes.filter(n=>n.tag==='details');assert.equal(refreshed[0].attrs.open,true);assert.equal(refreshed[1].attrs.open,false);assert.equal(refreshed[2].attrs.open,true);
+
+context.mineLabel=()=>'';context.countSpan=()=>null;vm.runInContext(html.slice(html.indexOf('    const submittedBallots='),html.indexOf('    function candidateCard(')),context);
+vm.runInContext(html.slice(html.indexOf('    function candidateCard('),html.indexOf('    function inlineConfirmation')),context);
+context.data={user:{id:8,isMd:true},members,phase:{id:30,pollType:'solo',title:'Solo flow',votingMode:'default',started:false,participating:false,candidates:[{id:1,name:'One',mine:null},{id:2,name:'Two',mine:null}],registrationLocked:false}};
+vm.runInContext('renderRound(data)',context);
+assert.ok(find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('开启投票'))));
+assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='mine'));assert.ok(!find(context.round.nodes,n=>n.tag==='article'));assert.equal(find(context.round.nodes,n=>n.tag==='button'&&n.children.includes('close')).attrs.class,'primary');assert.equal(find(context.round.nodes,n=>n.tag==='button'&&n.children.includes('confirmClose')).attrs.class,'primary');
+assert.ok(!find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Enter round'))));
+context.data.user.isMd=false;vm.runInContext('renderRound(data)',context);
+const panel=find(context.round.nodes,n=>n.attrs?.class==='panel stack');assert.equal(panel.children.length,2);const enter=panel.children.find(n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Enter round')));assert.ok(enter);assert.ok(!find(context.round.nodes,n=>n.children?.includes('run')));assert.ok(!find(context.round.nodes,n=>n.tag==='article'));
+await enter.attrs.onclick();assert.equal(calls.at(-1).path,'/api/phases/30/enter');context.data.phase.participating=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.children?.includes('run')));assert.ok(!find(context.round.nodes,n=>n.tag==='article'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));
+context.data.phase.started=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));assert.ok(!find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Enter round'))));
+context.data.user.isMd=true;vm.runInContext('renderRound(data)',context);assert.ok(!find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('Enter round'))));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='mine'));
+console.log('PASS: Solo create/start competition/join flow, candidacy before voter entry, and hidden choice/submit controls until participation.');
+
+context.data.phase.started=false;context.data.phase.iAmCandidate=true;context.data.phase.candidateCount=3;context.data.phase.candidates=[];vm.runInContext('renderRound(data)',context);const status=find(context.round.nodes,n=>n.attrs?.class==='card candidacy-status');assert.ok(status);assert.ok(find(status.children,n=>n.attrs?.class==='candidacy-title'));assert.ok(find(status.children,n=>n.children?.some(x=>String(x).includes('共 3 人已参选'))));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='meta'));console.log('PASS: centered signup status uses server count while candidate list is hidden; old top metadata removed.');
+for(const kind of ['pair','parts']){
+ context.data={user:{id:2,isMd:false},members,phase:{id:40,pollType:kind,title:'Unified '+kind,participating:false,candidates:[]}};vm.runInContext('renderRound(data)',context);const hidden=find(context.round.nodes,n=>n.attrs?.class==='panel stack');assert.equal(hidden.children.length,2);assert.ok(find(hidden.children,n=>n.children?.includes('进入本轮 / Enter round')));
+ Object.assign(context.data.phase,{participating:true,started:false,partA:'High',partB:'Low',partLocks:{},voteLimits:{A:2,B:2,pair:2},candidateCount:4,candidateCounts:{pair:2,A:2,B:2},pendingPairs:[],ownEntries:[entry(50,kind==='parts'?'A':'pair',members[1])],iAmCandidate:true});vm.runInContext('renderRound(data)',context);assert.ok(!find(context.round.nodes,n=>n.tag==='article'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));assert.ok(find(context.round.nodes,n=>n.children?.includes('退出参选 / Withdraw')));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='candidacy-count'));
+ context.data.user.isMd=true;vm.runInContext('renderRound(data)',context);const start=find(context.round.nodes,n=>n.children?.includes('开启投票 / Start voting'));assert.ok(start);assert.equal(start.attrs.disabled,false);assert.ok(!find(context.round.nodes,n=>n.children?.includes('进入本轮 / Enter round')));
+ Object.assign(context.data.phase,{started:true,candidates:[entry(50,kind==='parts'?'A':'pair',members[1]),entry(51,kind==='parts'?'B':'pair',members[2])]});vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));assert.equal(find(context.round.nodes,n=>n.children?.includes('close')).attrs.class,'primary');
+}
+console.log('PASS: Pair and Part polls share title-only entry, hidden registration lists, own withdrawal, real counts, MD start controls and submission flow.');
+
+context.data={user:{id:1,isMd:true},members,phase:null};vm.runInContext('renderRound(data)',context);const arrangerSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='arrangerId');assert.equal(arrangerSelect.children[0].attrs.value,'');assert.equal(arrangerSelect.children[0].attrs.selected,true);const duetForm=find(context.round.nodes,n=>n.tag==='form');await duetForm.attrs.onsubmit({preventDefault(){},target:{fields:{title:'Duet linked',votingMode:'pair',arrangerId:'1',planSongId:'44'}}});assert.equal(calls.at(-1).body.planSongId,44);const confirmNode=vm.runInContext('duetWithdraw({id:1},{id:2},false,(name,body)=>calls.push({name,body}))',Object.assign(context,{calls}));await confirmNode.children[0].attrs.onclick();assert.equal(confirmNode.children[1].hidden,false);const confirmAction=find(confirmNode.children[1].children,n=>n.children?.includes('confirmWithdraw'));await confirmAction.attrs.onclick();assert.equal(calls.at(-1).name,'cancel');console.log('PASS: empty arranger default, linked Duet payload and inline withdrawal confirmation.');
