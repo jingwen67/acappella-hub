@@ -85,9 +85,10 @@ export default {
       reassignPhaseCreator: db.prepare(`UPDATE phases SET created_by = ? WHERE created_by = ?`),
       reassignScoreUploader: db.prepare(`UPDATE scores SET uploaded_by = ? WHERE uploaded_by = ?`),
       listRounds: db.prepare(`
-    SELECT p.id, p.title, p.status, p.closed_at, u.name AS opened_by
+    SELECT p.id, p.title, p.status, p.closed_at,p.poll_type,p.plan_song_id,s.title AS plan_song_title, u.name AS opened_by
     FROM phases p
     JOIN users u ON u.id = p.created_by
+    LEFT JOIN cucac.plan_songs s ON s.id=p.plan_song_id
     ORDER BY p.id DESC
   `),
       deletePhaseVotes: db.prepare(`DELETE FROM votes WHERE phase_id = ?`),
@@ -408,7 +409,7 @@ export default {
             title: row.title,
             status: row.status,
             openedBy: row.opened_by,
-            closedAt: row.closed_at
+            closedAt: row.closed_at,pollType:row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
           }))
         } : null,
         library: await libraryFor(account)

@@ -2171,7 +2171,6 @@
           when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
           item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
           item.canSeeResults ? resultsToggle(item) : null,
-          latest.user.isMd&&(!item.pollType||item.pollType==='solo')?el('button',{type:'button',class:'nav-btn',onclick:()=>planEditHistory(item)},pair('编辑','Edit')):null,
           ...rows,
           item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
@@ -2516,15 +2515,16 @@
             return el('div', { class: 'stack' },
               el('div', { class: 'person-row' },
                 el('span', {}, item.title, el('span', { class: 'meta' }, ` · ${status} · ${item.openedBy}`)),
+                el('div',{class:'plan-inline'},data.user.isMd&&item.status==='closed'&&item.pollType==='solo'?el('button',{type:'button',class:'quiet',onclick:()=>planEditHistory(item)},pair('编辑','Edit')):null,
                 el('button', {
                   type: 'button',
                   class: 'quiet',
                   onclick: (event) => {
                     freezeRender = true;
-                    const box = event.currentTarget.parentElement.nextElementSibling;
+                    const box = event.currentTarget.closest('.person-row').nextElementSibling;
                     if (box) box.hidden = false;
                   },
-                }, t('deleteRound')),
+                }, t('deleteRound'))),
               ),
               el('div', { class: 'confirm', hidden: true },
                 el('p', { class: 'hint' }, t('deleteHint')),
