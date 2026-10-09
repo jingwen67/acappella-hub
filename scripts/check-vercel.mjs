@@ -140,7 +140,7 @@ try {
  await api(`/api/plan/big/${autoSong}`,'md',{bigSong:'yes'},400);
  await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo'});
  auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});
- let full=auto.songs.find(s=>s.id===autoSong);assert.equal(full.bigSong,true);
+ let full=auto.songs.find(s=>s.id===autoSong);assert.equal(full.bigSong,true);assert.equal(full.locked,true);await api(`/api/plan/entry/${autoSong}`,'member',{part:'bass'},409);
  assert.deepEqual(full.entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['alto','solo','tenor']);
  assert.ok(full.entries.some(e=>e.memberId===md.user.id&&e.part==='bass'));assert.ok(!full.entries.some(e=>e.part==='rap'));
  const count=full.entries.length;auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});assert.equal(auto.songs.find(s=>s.id===autoSong).entries.length,count);
@@ -171,8 +171,10 @@ try {
  assert.equal(crewState.members.find(p=>p.id===member.user.id).isAlumni,false);
  await api(`/api/admin/users/${member.user.id}`,'admin',{crew:false});
  await api('/api/phases','member',{title:'Love Yourself',arrangerId:md.user.id},403);
- const round=await api('/api/phases','md',{title:'Love Yourself',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself');
- const phaseId=round.phase.id;
+ await api('/api/phases','md',{title:'Invalid song',arrangerId:md.user.id,planSongId:999999},404);
+ const currentPlan=await api('/api/plan','md');const linkedPlan=await api(`/api/plan/add/${currentPlan.term.id}`,'md',{title:'Love Yourself'});const linkedSongId=linkedPlan.songs.find(s=>s.title==='Love Yourself').id;
+ const round=await api('/api/phases','md',{planSongId:linkedSongId,title:'Love Yourself',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself');
+ const phaseId=round.phase.id;assert.equal((await api('/api/plan/results?songId='+linkedSongId,'member')).history.length,0);
  await api(`/api/phases/${phaseId}/candidacy`,'member',{join:true});
  await api(`/api/phases/${phaseId}/candidacy`,'md',{join:true});
  await api(`/api/phases/${phaseId}/start`,'md',{});
@@ -182,6 +184,7 @@ try {
  await api(`/api/phases/${phaseId}/vote`,'md',{candidateId:member.user.id,reaction:'again'});
  state=await api('/api/state','md');assert.equal(state.phase.candidates.find(c=>c.id===member.user.id).mine,'again');
  await api(`/api/phases/${phaseId}/close`,'member',{},403);
+
  await api('/api/profile','member',{fullName:'Singer Zhang',voicePart:'Alto',school:'Columbia',gradYear:'2027',funFact:'Loves music'});
  const form=new FormData();form.set('avatar',new Blob([fs.readFileSync('public/icon-192.png')],{type:'image/png'}),'avatar.png');
  const uploadRequest=new Request('https://hub.test/api/profile/avatar',{method:'POST',body:form});
@@ -215,6 +218,8 @@ try {
  album=await api(albumPath,'member');assert.equal(album.photos.length,0);
 
  await api(`/api/phases/${phaseId}/close`,'md',{});
+ const linkedHistory=await api('/api/plan/results?songId='+linkedSongId,'member');assert.equal(linkedHistory.history[0].id,phaseId);assert.ok(linkedHistory.history[0].candidates.every(c=>c.rank<=linkedHistory.history[0].revealedRanks&&!('likes' in c)));
+
  state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,undefined);
  await api('/api/google/settings','member',{clientId:'x'},403);
  await api('/api/google/settings','admin',{clientId:'test.apps.googleusercontent.com',clientSecret:'test-secret',spreadsheet:'',parentFolder:''});

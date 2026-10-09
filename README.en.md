@@ -111,6 +111,8 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 - Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
 
 - **Full group**: checking the song’s box fills every active singer into their matching profile parts, including multiple parts. Solo and existing assignments stay intact. Unchecking keeps the lineup; cells can still be adjusted individually.
+- Full group automatically locks signup; unchecking reopens it. Voting results in each Solo cell opens linked closed rounds. When creating a Solo poll, select its song from the current semester.
+
 
 <a id="voting"></a>
 ### Solo / Duet Voting

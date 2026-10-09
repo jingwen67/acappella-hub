@@ -281,3 +281,6 @@ DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE 
 INSERT INTO cucac.plan_cast(song_id,member_key,member_id,member_name,part,created_at) SELECT song_id,member_key,member_id,member_name,part,created_at FROM cucac.plan_entries ON CONFLICT(song_id,member_key,part) DO NOTHING;
 
 ALTER TABLE cucac.plan_songs ADD COLUMN IF NOT EXISTS big_song boolean NOT NULL DEFAULT false;
+
+ALTER TABLE cucac.phases ADD COLUMN IF NOT EXISTS plan_song_id bigint REFERENCES cucac.plan_songs(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS phases_plan_song_idx ON cucac.phases(plan_song_id) WHERE plan_song_id IS NOT NULL;

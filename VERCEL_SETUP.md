@@ -117,3 +117,7 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 开启或指定当前学期在同一事务中锁定学期行、保存其他学期人员快照并归档，部分声部退出不影响其他声部。手填歌曲可通过同名曲库选择关联文件夹，复用原记录。升级迁移验证：`node scripts/check-repertoire-migration.mjs`；完整后端和页面检查沿用 `check:vercel` 与 `check-plan-ui.mjs`。
 
 大歌升级运行 `vercel/big-song-schema.sql`。勾选动作锁定所属学期，原子写入标记与有声部的 Active 成员；只在未勾选到勾选时填入，不清除现有阵容，取消标记不删除名单。
+
+### Solo 投票关联歌曲
+
+运行 `vercel/song-voting-schema.sql` 添加私有歌曲关联字段及索引，同时锁定已有大歌。历史投票不根据标题自动匹配，新增投票关联不会改变结果权限。

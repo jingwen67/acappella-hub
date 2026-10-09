@@ -105,7 +105,7 @@ export default {
   `),
       phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,plan_song_id) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
@@ -366,13 +366,13 @@ export default {
       return ranked.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?c:{id:c.id,name:c.name,rank:c.rank,isMe:c.isMe});
     }
 
-    async function stateFor(user) {
+    async function stateFor(user, songId=null) {
       const account = asUser(await statements.account.get(user.id));
       if (!account) throw fail(401, 'login_required');
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
       const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
-      const history = await Promise.all((await statements.history.all()).map(async phase => ({
+      const history = await Promise.all((songId?await env.plans.pollHistory(songId):await statements.history.all()).map(async phase => ({
         id: phase.id,
         title: phase.title,
         closedAt: phase.closed_at,
@@ -668,8 +668,9 @@ export default {
           try {
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
+            const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(pollType!=='solo'||!Number.isInteger(songId))throw fail(400,'plan_invalid');await env.plans.pollSong(songId);}
             if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
-            await statements.insertPhase.run(title, user.id, arranger.id, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B');
+            await statements.insertPhase.run(title, user.id, arranger.id, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',songId);
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
@@ -782,6 +783,7 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
+        if(pathname==='/api/plan/results'&&req.method==='GET'){const user=await requireUser(req);const id=Number(url.searchParams.get('songId'));if(!Number.isInteger(id)||id<=0)throw fail(400,'plan_invalid');const state=await stateFor(user,id);send(res,200,{history:state.history});return;}
         if(pathname==='/api/plan/library'&&req.method==='GET'){
           const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');const source=Number(url.searchParams.get('semesterId'));if(source){const semester=await statements.semesterById.get(source);if(!semester?.folder_id)throw fail(404,'semester_missing');send(res,200,{folders:(await google.listScoreFolders(semester.folder_id)).map(s=>({...s,semester:semester.label}))});}else send(res,200,{folders:await google.listScoreIndex()});return;
         }

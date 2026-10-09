@@ -2003,6 +2003,7 @@
       round.className = 'history';
       const phase = data.phase;
       if (!phase) {
+        if(!planPollSongs)planLoadPollSongs();
         const arrangers = (data.members || []).filter((person) => person.isArranger && !person.isAlumni);
         const block = [el('h2', {}, t('idleTitle'))];
         if (data.user.isMd && !arrangers.length) block.push(el('p', { class: 'hint' }, t('noPollArranger')));
@@ -2015,6 +2016,7 @@
                 method: 'POST',
                 body: JSON.stringify({
                   title: form.get('title'),
+                  planSongId:['pair','parts'].includes(form.get('votingMode'))?null:Number(form.get('planSongId'))||null,
                   votingMode:['pair','parts'].includes(form.get('votingMode'))?'default':form.get('votingMode'),
                   pollType:['pair','parts'].includes(form.get('votingMode'))?form.get('votingMode'):'solo',
                   partA:form.get('partA'),partB:form.get('partB'),
@@ -2026,12 +2028,13 @@
             el('label', {}, t('roundName'),
               el('input', { name: 'title', maxlength: '40', required: true, placeholder: both('roundPlaceholder') }),
             ),
+            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId'},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title+' · '+(planPollSongs.term?.label||''))))),
             el('label', {}, t('pollArranger'),
               el('select', { name: 'arrangerId', required: true },
                 arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
-            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
+            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';event.target.closest('form').querySelector('.poll-song-choice').hidden=['pair','parts'].includes(event.target.value);}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
             el('div',{class:'stack part-labels',hidden:true},el('label',{},pair('声部 A 名称','Part A label'),el('input',{name:'partA',maxlength:30,value:'Part A'})),el('label',{},pair('声部 B 名称','Part B label'),el('input',{name:'partB',maxlength:30,value:'Part B'}))),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));

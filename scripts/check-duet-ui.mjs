@@ -7,7 +7,7 @@ for(const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))parse(mat
 const el=(tag,attrs,...children)=>({tag,attrs,children:children.flat().filter(x=>x!=null&&x!==false)});
 const find=(nodes,predicate)=>{for(const n of nodes){if(n&&typeof n==='object'){if(predicate(n))return n;const found=find(n.children||[],predicate);if(found)return found;}}};
 const calls=[];
-const context={el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
+const context={planPollSongs:{term:{label:"2026 Fall"},songs:[{id:44,title:"Song"}]},el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
  window:{confirm:()=>true},api:async(path,options)=>{calls.push({path,body:JSON.parse(options.body)});},run:fn=>fn(),
  recordingControls:()=>null,recordingList:()=>null,resultsToggle:()=>el('button',{},'details'),candidateCard:()=>null,runningLine:()=>'',formatTime:()=>'',scoreLine:()=>'',
  FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}},
@@ -18,7 +18,9 @@ vm.runInContext('let captureSession=null;const detailedResults=new Set();'+html.
 const members=[{id:1,name:'One',isArranger:true},{id:2,name:'Two'},{id:3,name:'Three'}];
 context.data={user:{id:1,isMd:true},members,phase:null};vm.runInContext('renderRound(data)',context);
 const methodSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='votingMode');assert.deepEqual(methodSelect.children.map(n=>n.attrs.value),['default','feedback','pair','parts']);
+const songSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='planSongId');assert.equal(songSelect.children[1].attrs.value,44);
 const form=find(context.round.nodes,n=>n.tag==='form');await form.attrs.onsubmit({preventDefault(){},target:{fields:{title:'Duet',votingMode:'parts',arrangerId:'1',partA:'High',partB:'Low'}}});assert.equal(calls.at(-1).body.pollType,'parts');assert.equal(calls.at(-1).body.votingMode,'default');assert.equal(calls.at(-1).body.partA,'High');
+await form.attrs.onsubmit({preventDefault(){},target:{fields:{title:'Solo',votingMode:'default',arrangerId:'1',planSongId:'44'}}});assert.equal(calls.at(-1).body.planSongId,44);
 const entry=(id,part,person)=>({id,part,name:person.name,members:[person],isMe:person.id===1,mine:null});
 context.data.phase={id:10,pollType:'parts',title:'Parts',partA:'High',partB:'Low',started:false,partLocks:{},voteLimits:{A:2,B:2},candidates:[],pendingPairs:[]};vm.runInContext('renderRound(data)',context);
 const partForm=find(context.round.nodes,n=>n.tag==='form');await partForm.attrs.onsubmit({preventDefault(){},target:{fields:{part:'B'}}});assert.deepEqual(calls.at(-1),{path:'/api/phases/10/candidacy',body:{join:true,part:'B'}});
