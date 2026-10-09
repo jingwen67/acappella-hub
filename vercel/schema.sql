@@ -302,3 +302,20 @@ CREATE TABLE IF NOT EXISTS cucac.photo_likes (
 );
 ALTER TABLE cucac.photo_likes ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.photo_likes FROM anon; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.photo_likes FROM authenticated; END IF; END $$;
+
+CREATE TABLE IF NOT EXISTS cucac.vote_submissions (
+ phase_id integer NOT NULL REFERENCES cucac.phases(id) ON DELETE CASCADE,
+ voter_id integer NOT NULL REFERENCES cucac.users(id) ON DELETE CASCADE,
+ ballot jsonb NOT NULL DEFAULT '[]'::jsonb,
+ submitted_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(phase_id,voter_id)
+);
+CREATE TABLE IF NOT EXISTS cucac.vote_presence (
+ phase_id integer NOT NULL REFERENCES cucac.phases(id) ON DELETE CASCADE,
+ user_id integer NOT NULL REFERENCES cucac.users(id) ON DELETE CASCADE,
+ last_seen timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(phase_id,user_id)
+);
+ALTER TABLE cucac.vote_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cucac.vote_presence ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.vote_submissions,cucac.vote_presence FROM anon; END IF; IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.vote_submissions,cucac.vote_presence FROM authenticated; END IF; END $$;

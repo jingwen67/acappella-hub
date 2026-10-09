@@ -9,11 +9,12 @@ vm.runInContext(html.slice(html.indexOf('    const submittedBallots='),html.inde
 ctx.phase={id:7,started:false,candidates:[{id:1,mine:null},{id:2,mine:null}]};
 const panel=()=>vm.runInContext('ballotSubmit(phase,42)',ctx);
 assert.equal(panel().children[0].attrs.disabled,true);
-ctx.phase.started=true;assert.equal(panel().children[0].attrs.disabled,true);
+ctx.phase.started=true;assert.equal(panel().children[0].attrs.disabled,false);assert.match(panel().children[0].children.join(''),/弃票/);await panel().children[0].attrs.onclick();assert.match(panel().children[1].children.join(''),/弃票提交成功/);calls.length=0;
 ctx.phase.candidates[0].mine='like';assert.equal(panel().children[0].attrs.disabled,false);
 await panel().children[0].attrs.onclick();assert.equal(calls[0].path,'/api/phases/7/submit');assert.equal(calls[0].votes.length,1);assert.equal(calls[0].votes[0].candidateId,1);
 assert.match(panel().children[1].children.join(''),/投票提交成功/);
 assert.equal(vm.runInContext('ballotSubmit(phase,99)',ctx).children[1],null,'confirmation belongs to the signed-in voter');
 ctx.phase.candidates[0].mine=null;ctx.phase.candidates[1].mine='again';assert.match(panel().children[1].children.join(''),/选择已变更/);
 await panel().children[0].attrs.onclick();assert.match(panel().children[1].children.join(''),/再听听/);assert.equal(calls[1].votes[0].reaction,'again');
-console.log('PASS: submit disabled before start/without selections, sends own ballot, confirms server receipt, changes require re-confirmation, feedback selections and voter isolation.');
+ctx.phase.submittedBallot={votes:[{candidateId:2,reaction:'again',name:'Saved singer'}]};assert.match(panel().children[1].children.join(''),/Saved singer/);ctx.phase.submittedBallot=null;assert.match(panel().children[1].children.join(''),/选择已变更/);
+console.log('PASS: submit disabled before start, empty abstentions, durable receipts, sends own ballot, confirms server receipt, changes require re-confirmation, feedback selections and voter isolation.');

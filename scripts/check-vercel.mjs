@@ -293,14 +293,17 @@ try {
  await api(`/api/phases/${vid}/vote`,'md',{candidateId:md.user.id,reaction:'like'},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},403);
  await api(`/api/phases/${vid}/start`,'outsider',{},403);
  v=await api(`/api/phases/${vid}/start`,'md',{});assert.equal(v.phase.registrationLocked,true);
- await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);await api(`/api/phases/${vid}/submit`,'retry',{votes:[]},400);
- await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'like'});
+ await api(`/api/phases/${vid}/candidacy`,'retry',{join:true},403);const abstention=await api(`/api/phases/${vid}/submit`,'retry',{votes:[]});assert.equal(abstention.voteReceipt.votes.length,0);assert.equal(abstention.phase.submittedBallot.votes.length,0);assert.equal(abstention.phase.voteProgress,undefined);
+ const progressBefore=await api('/api/state','md');assert.equal(progressBefore.phase.voteProgress.submitted,1);assert.equal(progressBefore.phase.voteProgress.abstained,1);
+ await api(`/api/phases/${vid}/presence`,'retry',{active:true});let progress=(await api('/api/state','md')).phase.voteProgress;assert.equal(progress.visited,1);assert.equal(progress.online,1);await query("UPDATE cucac.vote_presence SET last_seen=now()-interval '65 seconds' WHERE phase_id=$1",[vid]);assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);await api(`/api/phases/${vid}/presence`,'retry',{active:false});assert.equal((await api('/api/state','md')).phase.voteProgress.online,0);
+ await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'like'});assert.equal((await api('/api/state','retry')).phase.submittedBallot,null);assert.equal((await api('/api/state','md')).phase.voteProgress.submitted,0);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'},400);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:null});
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:outsider.user.id,reaction:'like'});
  await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:md.user.id,reaction:'like'}]},409);
- const receipt=(await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt;assert.equal(receipt.votes.length,1);assert.equal(receipt.votes[0].candidateId,outsider.user.id);assert.ok(receipt.submittedAt);assert.equal((await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt.votes.length,1);
+ const receipt=(await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt;assert.equal(receipt.votes.length,1);assert.equal(receipt.votes[0].candidateId,outsider.user.id);assert.ok(receipt.submittedAt);assert.equal((await api('/api/state','retry')).phase.submittedBallot.votes[0].candidateId,outsider.user.id);assert.equal((await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]})).voteReceipt.votes.length,1);
  await api(`/api/phases/${vid}/vote`,'retry',{candidateId:md.user.id,reaction:'again'},400);
+ await query("INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot) SELECT $1,id,'[]'::jsonb FROM cucac.users WHERE is_alumni=0 AND is_crew=0 AND is_admin=0 ON CONFLICT DO NOTHING",[vid]);const allDone=(await api('/api/state','md')).phase.voteProgress;assert.equal(allDone.submitted,allDone.total);assert.equal(allDone.complete,true);
  await api(`/api/phases/${vid}/close`,'md',{});await api(`/api/phases/${vid}/submit`,'retry',{votes:[{candidateId:outsider.user.id,reaction:'like'}]},400);
  // Five singers: initial random order persists and late registrations append.
  v=await api('/api/phases','md',{title:'Shared ranks',arrangerId:md.user.id},201);vid=v.phase.id;

@@ -391,6 +391,7 @@ export default {
         user: account,
         phase: open ? {
           ...(openDuet||{}),
+          ...(open.poll_type==='solo'&&env.voting?.progress?await env.voting.progress(open,account):{}),
           recordings:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
@@ -818,11 +819,11 @@ export default {
         if(req.method==='POST'&&audioAction){const user=await requireUser(req);if(audioAction[2]==='complete')await env.recordings.complete(audioAction[1],user);else await env.recordings.remove(audioAction[1],user);send(res,200,await stateFor(user));return;}
         const audioRead=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)$/);
         if(req.method==='GET'&&audioRead){await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1]),'Cache-Control':'private, no-store'});res.end();return;}
-        const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|close|candidacy|vote|submit|pair|confirm|cancel|audition)$/);
+        const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|close|candidacy|vote|submit|presence|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);
-          if(env.voting){const voteReceipt=await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,{...await stateFor(user),...(voteReceipt?{voteReceipt}:{})});return;}
+          if(env.voting){const voteReceipt=await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,action[2]==='presence'?{ok:true}:{...await stateFor(user),...(voteReceipt?{voteReceipt}:{})});return;}
           const phase = await statements.phaseById.get(phaseId);
           if (!phase) throw fail(404, 'phase_missing');
           if (phase.status !== 'open') throw fail(400, 'phase_closed');

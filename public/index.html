@@ -1670,10 +1670,13 @@
       return data;
     }
 
+    let lastVotePresence=0;
+    function votePresence(active=true){const phase=latest?.phase;if(!phase||phase.pollType!=='solo')return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
+    document.addEventListener('visibilitychange',()=>{if(view==='poll')votePresence(!document.hidden);});
     function startPolling() {
       if (pollTimer) return;
       pollTimer = setInterval(() => {
-        if (!busy) refresh();
+        if (!busy) {votePresence();refresh();}
       }, 4000);
     }
 
@@ -1705,6 +1708,7 @@
     }
 
     function showView(next, { record = true } = {}) {
+      if(view==='poll'&&next!=='poll')votePresence(false);
       if (next!=='poll') disposeCapture();
       view = ['hub', 'members', 'profile', 'poll', 'scores', 'plan'].includes(next) ? next : 'hub';
       const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : view==='plan'&&planTermId?'/'+planTermId+(planSongId?'/'+planSongId:''):'');
@@ -1718,6 +1722,7 @@
       scores.hidden = view !== 'scores';
       planPage.hidden = view !== 'plan';
       if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
+      if(view==='poll')votePresence();
       if(view==='poll'&&latest&&!latest.phase)planLoadPollSongs(true);
     }
 
@@ -1957,10 +1962,10 @@
     const submittedBallots=new Map();
     function ballotSignature(votes){return JSON.stringify(votes.map(v=>({candidateId:v.candidateId,reaction:v.reaction})).sort((a,b)=>a.candidateId-b.candidateId));}
     function ballotSubmit(phase,userId){
-      const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
+      const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=Object.hasOwn(phase,'submittedBallot')?phase.submittedBallot:submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
       return el('section',{class:'stack ballot-submit'},
-        el('button',{type:'button',class:'primary',disabled:!phase.started||!votes.length,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):pair('提交投票','Submit vote')),
-        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair('投票提交成功！已确认：'+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。','Vote submitted! Confirmed: '+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):receipt?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
+        el('button',{type:'button',class:'primary',disabled:!phase.started,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):votes.length?pair('提交投票','Submit vote'):pair('提交弃票','Submit abstention')),
+        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair((receipt.votes.length?'投票提交成功！已确认：':'弃票提交成功！本轮不选择任何人。')+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。',(receipt.votes.length?'Vote submitted! Confirmed: ':'Abstention submitted. No singers selected. ')+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):(receipt||submittedBallots.has(userId+':'+phase.id))?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
     }
 
     function candidateCard(phase, candidate) {
@@ -2164,6 +2169,7 @@
       }
 
       children.push(ballotSubmit(phase,data.user.id));
+      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人 · 已打开本轮 '+progress.visited+' 人 · 弃票 '+progress.abstained+' 人','Viewing now: '+progress.online+' · Visited this round: '+progress.visited+' · Abstentions: '+progress.abstained)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位 Active 成员提交','Waiting for '+(progress.total-progress.submitted)+' Active members')),el('p',{class:'hint'},pair('进度按 Active 成员统计，包含弃票；正在查看按最近一分钟更新。','Progress counts Active members, including abstentions; viewing activity uses the last minute.'))));} 
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',

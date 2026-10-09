@@ -1,7 +1,13 @@
 import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
+export function createVoting(pool){return {async progress(phase,user){
+ const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];
+ const submittedBallot=own?{phaseId:phase.id,submittedAt:new Date(own.submitted_at).toISOString(),votes:own.ballot}:null;
+ if(user.id!==phase.created_by)return {submittedBallot};
+ const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(s.voter_id) FILTER (WHERE s.ballot='[]'::jsonb)::int AS abstained,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_alumni=0 AND u.is_crew=0 AND u.is_admin=0`,[phase.id])).rows[0];
+ return {submittedBallot,voteProgress:{...stats,complete:stats.total>0&&stats.submitted===stats.total}};
+},view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
  let receipt;const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
@@ -19,10 +25,14 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
   if(action==='submit'){
    if(!p.started_at)throw fail(403,'voting_not_started');
    const votes=(await c.query('SELECT v.candidate_id,v.reaction,u.name FROM cucac.votes v JOIN cucac.candidacies ca ON ca.phase_id=v.phase_id AND ca.user_id=v.candidate_id JOIN cucac.users u ON u.id=v.candidate_id WHERE v.phase_id=$1 AND v.voter_id=$2 ORDER BY v.candidate_id',[id,user.id])).rows;
-   if(!votes.length)throw fail(400,'ballot_empty');
+   
    const normalized=items=>JSON.stringify(items.map(v=>({candidateId:Number(v.candidateId??v.candidate_id),reaction:v.reaction})).sort((a,b)=>a.candidateId-b.candidateId));
    if(!Array.isArray(body.votes)||!body.votes.every(v=>v&&Number.isInteger(v.candidateId)&&['like','again'].includes(v.reaction))||normalized(body.votes)!==normalized(votes))throw fail(409,'ballot_changed');
    receipt={phaseId:id,submittedAt:new Date().toISOString(),votes:votes.map(v=>({candidateId:v.candidate_id,reaction:v.reaction,name:v.name}))};
+   await c.query('INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot,submitted_at) VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(phase_id,voter_id) DO UPDATE SET ballot=excluded.ballot,submitted_at=excluded.submitted_at',[id,user.id,JSON.stringify(receipt.votes),receipt.submittedAt]);
+  }else if(action==='presence'){
+   if(body.active===false)await c.query("UPDATE cucac.vote_presence SET last_seen='epoch'::timestamptz WHERE phase_id=$1 AND user_id=$2",[id,user.id]);
+   else await c.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen) VALUES($1,$2,now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET last_seen=excluded.last_seen',[id,user.id]);
   }else if(action==='start'){
    if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
    if(p.started_at)throw fail(409,'voting_started');
@@ -42,6 +52,7 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
    }}else{
     // Keep an active default round at three or more candidates so existing two-vote ballots remain valid.
     if(p.started_at&&p.voting_mode==='default'&&candidates.includes(user.id)&&candidates.length<=3)throw fail(403,'withdraw_locked');
+    await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND ballot @> $2::jsonb',[id,JSON.stringify([{candidateId:user.id}])]);
     await c.query('DELETE FROM cucac.votes WHERE phase_id=$1 AND candidate_id=$2',[id,user.id]);
     await c.query('DELETE FROM cucac.candidacies WHERE phase_id=$1 AND user_id=$2',[id,user.id]);
     await c.query('UPDATE cucac.recordings SET candidate_id=NULL WHERE phase_id=$1 AND candidate_id=$2',[id,user.id]);
@@ -59,6 +70,7 @@ export function createVoting(pool){return {view:(phase,user)=>duetView(pool,phas
     await c.query('INSERT INTO cucac.votes(phase_id,voter_id,candidate_id,reaction) VALUES($1,$2,$3,$4) ON CONFLICT(phase_id,voter_id,candidate_id) DO UPDATE SET reaction=excluded.reaction',[id,user.id,candidate,body.reaction]);
    }
   }else throw fail(400,'bad_action');
+  if(action==='vote')await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[id,user.id]);
   }
  }
  await c.query('COMMIT');return receipt;
