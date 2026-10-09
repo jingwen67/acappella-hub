@@ -7,7 +7,7 @@ for(const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))parse(mat
 const el=(tag,attrs,...children)=>({tag,attrs,children:children.flat().filter(x=>x!=null&&x!==false)});
 const find=(nodes,predicate)=>{for(const n of nodes){if(n&&typeof n==='object'){if(predicate(n))return n;const found=find(n.children||[],predicate);if(found)return found;}}};
 const calls=[];
-const context={planPollSongs:{term:{label:"2026 Fall"},songs:[{id:44,title:"Song"}]},el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
+const context={latest:{user:{isMd:true}},planPollSongs:{term:{label:"2026 Fall"},songs:[{id:44,title:"Song"}]},el,t:key=>key,pair:(zh,en)=>zh+' / '+en,both:key=>key,avatarNode:person=>el('img',{src:person.avatar||''}),
  window:{confirm:()=>true},api:async(path,options)=>{calls.push({path,body:JSON.parse(options.body)});},run:fn=>fn(),
  recordingControls:()=>null,recordingList:()=>null,resultsToggle:()=>el('button',{},'details'),candidateCard:()=>null,runningLine:()=>'',formatTime:()=>'',scoreLine:()=>'',
  FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}},

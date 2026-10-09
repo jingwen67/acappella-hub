@@ -178,7 +178,7 @@ try {
  await api('/api/phases','member',{title:'Love Yourself',arrangerId:md.user.id},403);
  await api('/api/phases','md',{title:'Invalid song',arrangerId:md.user.id,planSongId:999999},404);
  const currentPlan=await api('/api/plan','md');const linkedPlan=await api(`/api/plan/add/${currentPlan.term.id}`,'md',{title:'Love Yourself'});const linkedSongId=linkedPlan.songs.find(s=>s.title==='Love Yourself').id;
- const round=await api('/api/phases','md',{planSongId:linkedSongId,title:'Love Yourself',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself');
+ const round=await api('/api/phases','md',{planSongId:linkedSongId,title:'Round 1',arrangerId:md.user.id,votingMode:'feedback'},201);assert.equal(round.phase.title,'Love Yourself-Round 1');
  const phaseId=round.phase.id;assert.equal((await api('/api/plan/results?songId='+linkedSongId,'member')).history.length,0);
  await api(`/api/phases/${phaseId}/candidacy`,'member',{join:true});
  await api(`/api/phases/${phaseId}/candidacy`,'md',{join:true});
@@ -224,6 +224,12 @@ try {
 
  await api(`/api/phases/${phaseId}/close`,'md',{});
  const soloAfterClose=(await api('/api/plan?termId='+currentPlan.term.id,'member')).songs.find(s=>s.id===linkedSongId).entries.filter(e=>e.part==='solo');assert.equal(soloAfterClose.length,0);
+ await api(`/api/phases/${phaseId}/edit`,'member',{title:'Changed',planSongId:linkedSongId},403);
+ const beforeEditVotes=(await query('SELECT * FROM cucac.votes WHERE phase_id=$1 ORDER BY voter_id,candidate_id',[phaseId])).rows;
+ let edited=await api(`/api/phases/${phaseId}/edit`,'md',{title:'Revised round',planSongId:pendingSong.id});assert.equal(edited.history[0].title,'Scores not ready-Revised round');assert.equal((await api('/api/plan/results?songId='+linkedSongId,'member')).history.length,0);assert.equal((await api('/api/plan/results?songId='+pendingSong.id,'member')).history[0].id,phaseId);assert.deepEqual((await query('SELECT * FROM cucac.votes WHERE phase_id=$1 ORDER BY voter_id,candidate_id',[phaseId])).rows,beforeEditVotes);
+ edited=await api(`/api/phases/${phaseId}/edit`,'md',{title:'Unlinked',planSongId:null});assert.equal(edited.history[0].title,'Unlinked');
+ await api(`/api/phases/${phaseId}/edit`,'md',{title:'',planSongId:linkedSongId},400);
+ await api(`/api/phases/${phaseId}/edit`,'md',{title:'Round 1',planSongId:linkedSongId});
  const linkedHistory=await api('/api/plan/results?songId='+linkedSongId,'member');assert.equal(linkedHistory.history[0].id,phaseId);assert.ok(linkedHistory.history[0].candidates.every(c=>c.rank<=linkedHistory.history[0].revealedRanks&&!('likes' in c)));
 
  state=await api('/api/state','md');assert.equal(state.phase,null);assert.equal(state.history[0].candidates[0].again,undefined);

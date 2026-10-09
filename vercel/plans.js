@@ -74,5 +74,7 @@ export function createPlans(pool){
  }catch(e){if(!shared)await c.query('ROLLBACK');if(e.code==='23505')throw fail(409,'plan_exists');throw e;}finally{if(!shared)c.release();}}
  async function pollSong(id){const row=(await pool.query('SELECT s.id,s.title,t.archived FROM cucac.plan_songs s JOIN cucac.plan_terms t ON t.id=s.term_id WHERE s.id=$1 AND NOT s.excluded',[id])).rows[0];if(!row)throw fail(404,'plan_missing');if(row.archived)throw fail(409,'plan_archived');return row;}
  async function pollHistory(id){return (await pool.query("SELECT p.*,a.name AS arranger_name FROM cucac.phases p LEFT JOIN cucac.users a ON a.id=p.arranger_id WHERE p.plan_song_id=$1 AND p.status='closed' AND p.poll_type='solo' ORDER BY p.id DESC",[id])).rows;}
- return {list,mutate,sync,fromSemester,pollSong,pollHistory};
+ async function songInfo(id){return (await pool.query('SELECT id,title FROM cucac.plan_songs WHERE id=$1',[id])).rows[0]||null;}
+ async function pollSongs(){return (await pool.query('SELECT s.id,s.title,t.label,t.is_current,t.archived FROM cucac.plan_songs s JOIN cucac.plan_terms t ON t.id=s.term_id WHERE NOT s.excluded ORDER BY t.is_current DESC,t.created_at DESC,s.id')).rows;}
+ return {list,mutate,sync,fromSemester,pollSong,pollHistory,songInfo,pollSongs};
 }

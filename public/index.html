@@ -750,6 +750,10 @@
     .plan-table thead th:first-child {z-index:3;}
     .plan-table .nav-btn {font:inherit;font-size:13px;padding:3px 6px;min-height:26px;}
     .plan-group th {background:var(--paper)!important;font-weight:600;}
+    .poll-title-entry {display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:0 10px;}
+    .poll-title-entry input {flex:1;min-width:0;border:0;background:transparent;padding-left:0;box-shadow:none;}
+    .poll-title-prefix {font-size:14px;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;}
+    .poll-title-entry:focus-within {outline:1px solid var(--muted);}
     .plan-song-heading {display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-bottom:8px;}
     .plan-song-title {font-size:16px;font-weight:650;line-height:1.4;}
     .plan-table .plan-checkbox {font-size:11px;font-weight:400;color:var(--muted);gap:6px;margin-top:4px;}
@@ -1144,7 +1148,7 @@
         deleteHint: '删掉后不能恢复。这一轮的报名和投票都会一起消失。',
         confirmDelete: '确定删除',
         roundName: '这一轮叫什么',
-        roundPlaceholder: '10 月第一次 solo',
+        roundPlaceholder: '',
         start: '开始投票',
         voteHintLike: '好听！= TA 很好听，可以当 solo。',
         voteHintAgain: '我再听听 = 我不确定 TA 是否合适，想再听听别人。',
@@ -1302,7 +1306,7 @@
         deleteHint: 'This cannot be undone. Sign-ups and votes for this round will be removed.',
         confirmDelete: 'Delete round',
         roundName: 'Name this round',
-        roundPlaceholder: 'October solo 1',
+        roundPlaceholder: '',
         start: 'Start voting',
         voteHintLike: 'Sounds great! means they sound good enough for the solo.',
         voteHintAgain: 'Not sure yet means you’re not sure they fit and want to hear the other singers.',
@@ -2032,15 +2036,15 @@
             },
           },
             el('label', {}, t('roundName'),
-              el('input', { name: 'title', maxlength: '40', required: true, placeholder: both('roundPlaceholder') }),
+              el('div',{class:'poll-title-entry'},el('span',{class:'poll-title-prefix',hidden:true}),el('input', { name: 'title', maxlength: '40', required: true, autocomplete:'off' })),
             ),
-            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId'},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title+' · '+(planPollSongs.term?.label||''))))),
+            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId',onchange:event=>planUpdatePollTitlePrefix(event.target.closest('form'))},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title+' · '+(planPollSongs.term?.label||''))))),
             el('label', {}, t('pollArranger'),
               el('select', { name: 'arrangerId', required: true },
                 arrangers.map((person) => el('option', { value: String(person.id) }, person.fullName || person.name)),
               ),
             ),
-            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';event.target.closest('form').querySelector('.poll-song-choice').hidden=['pair','parts'].includes(event.target.value);}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
+            el('label',{},pair('投票方式','Voting method'),el('select',{name:'votingMode',onchange:event=>{event.target.closest('form').querySelector('.part-labels').hidden=event.target.value!=='parts';event.target.closest('form').querySelector('.poll-song-choice').hidden=['pair','parts'].includes(event.target.value);planUpdatePollTitlePrefix(event.target.closest('form'));}},el('option',{value:'default'},pair('Solo · 默认投票','Solo · Default Voting')),el('option',{value:'feedback'},pair('Solo · 点赞投票','Solo · Like Voting')),el('option',{value:'pair'},pair('Duet · 组合投票','Duet · Pair Voting')),el('option',{value:'parts'},pair('Duet · 分声部投票','Duet · Part Voting')))),
             el('div',{class:'stack part-labels',hidden:true},el('label',{},pair('声部 A 名称','Part A label'),el('input',{name:'partA',maxlength:30,value:'Part A'})),el('label',{},pair('声部 B 名称','Part B label'),el('input',{name:'partB',maxlength:30,value:'Part B'}))),
             el('button', { class: 'primary', type: 'submit' }, t('start')),
           ));
@@ -2167,6 +2171,7 @@
           when ? el('p', { class: 'meta' }, pair(`${when} 结束`, `Closed ${when}`)) : null,
           item.arranger ? el('p', { class: 'meta' }, pair(`编曲者 ${item.arranger}`, `Arranger ${item.arranger}`)) : null,
           item.canSeeResults ? resultsToggle(item) : null,
+          latest.user.isMd&&(!item.pollType||item.pollType==='solo')?el('button',{type:'button',class:'nav-btn',onclick:()=>planEditHistory(item)},pair('编辑','Edit')):null,
           ...rows,
           item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,

@@ -125,3 +125,7 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 ### 阵容编辑模式
 
 Admin / MD 默认只显示普通成员的表格控件，点击 Edit 后开放阵容管理与大歌设置。编辑中的报名改动先暂存在页面，Save 经 `/api/plan/save/:termId` 一次事务提交，任一操作失败则整批回滚并保留页面草稿。编辑期间暂停刷新，避免覆盖草稿；有未保存阵容时隐藏曲目和学期管理入口，避免混合即时操作。公开更新日志省略这项管理界面变化。
+
+### 历史 Solo 轮次编辑
+
+MD 可编辑已结束 Solo 投票的名称和关联歌曲，包括归档学期歌曲。`/api/phases/:id/edit` 在事务中只修改 title 与 plan_song_id，不变更投票、参选人、排名展示或阵容；普通成员不可调用。新建和编辑均使用服务端组合的「歌曲名称-轮次名称」。无数据库迁移。
