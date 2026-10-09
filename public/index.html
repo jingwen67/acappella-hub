@@ -2851,12 +2851,7 @@
       browseSemesterLink.href = browseCache.url;
       browseSemesterLink.textContent = browseCache.label;
       browseFolders.replaceChildren(browseCache.folders.length
-        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px'},el('a', {
-            class: 'score-link',
-            href: item.url,
-            target: '_blank',
-            rel: 'noopener',
-          }, item.name),el('a',{class:'nav-btn',href:'/pdf.html?folderId='+encodeURIComponent(item.id),style:'font-size:12px;text-decoration:none;justify-self:end;margin:0'},pair('乐谱pdf','Score PDF')))))
+        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url}))))
         : el('p', { class: 'hint' }, t('noFolders')));
     }
 
