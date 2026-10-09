@@ -109,3 +109,9 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 验证覆盖学期自动关联、移除后刷新、重新加入保留报名、权限边界，以及从 Scores 打开阵容与选曲。
 
 额外联通验证：`node scripts/check-plan-library.mjs`，覆盖真实 Worker 路由、Drive 文件夹与快捷方式发现、自动关联学期、手动排除和重新加入。
+
+## What Are We Singing? 升级
+
+运行 `vercel/repertoire-schema.sql`：新增当前学期标记和多声部阵容表 plan_cast，将原 plan_entries 报名复制到新表，保留原表供升级核对。新表使用歌曲、成员、声部三字段主键，允许一人兼任及同声部多人，Solo 由后端校验仅能委派；普通成员只能修改自己的非 Solo 报名。使用私有 schema、RLS 与后端数据库连接，不增加公开访问或环境变量。
+
+开启或指定当前学期在同一事务中锁定学期行、保存其他学期人员快照并归档，部分声部退出不影响其他声部。手填歌曲可通过同名曲库选择关联文件夹，复用原记录。升级迁移验证：`node scripts/check-repertoire-migration.mjs`；完整后端和页面检查沿用 `check:vercel` 与 `check-plan-ui.mjs`。

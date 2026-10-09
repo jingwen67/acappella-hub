@@ -752,6 +752,13 @@
     .plan-group th {background:var(--paper)!important;font-weight:600;}
     .plan-score-link {font-size:12px;color:var(--muted);white-space:nowrap;}
     .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
+    .plan-cell {display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;}
+    .plan-name {display:flex;align-items:center;justify-content:space-between;gap:7px;}
+    #plan .plan-remove {min-height:20px;padding:0 4px;font-size:12px;color:var(--muted);}
+    #plan .plan-join {align-self:flex-start;font-size:11px;min-height:22px;padding:2px 5px;}
+    .plan-cell-add {font-size:11px;color:var(--muted);}
+    .plan-cell-add form {display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+    .plan-cell-add select {font:inherit;min-height:26px;padding:2px;max-width:140px;}
     .plan-lineups {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
     #plan .nav-btn {width:auto;font:inherit;font-size:13px;min-height:28px;padding:4px 8px;}
     #plan .plan-inline select {width:auto;font:inherit;font-size:13px;min-height:28px;padding:3px 5px;}
@@ -763,7 +770,7 @@
     .plan-library-choice small {display:block;}
     .plan-library-results {max-height:240px;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
     .plan-mobile-cards,.plan-mobile-toggle {display:none;}
-    @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:none;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
+    @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:block;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
@@ -817,13 +824,14 @@
       <div class="hub-actions">
         <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
         <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
+        <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">这学期唱什么</button>
         <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">查看/上传乐谱</button>
         <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">Solo 投票</button>
       </div>
     </section>
 
     <section id="plan" hidden>
-      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">歌曲人员表</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
+      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">这学期唱什么</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
       <div id="plan-body" class="stack"></div>
     </section>
     <section id="profile" hidden>
@@ -890,7 +898,7 @@
         <label><span data-i18n="semester">学期</span>
           <select id="browse-semester"></select>
         </label>
-        <div class="browse-semester-actions"><a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a><button id="browse-lineup" class="nav-btn" type="button" hidden>查看阵容 / View lineup</button><button id="browse-repertoire" class="nav-btn" type="button" hidden>这学期唱什么 / This semester’s songs</button></div>
+        <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
         <div id="browse-folders"></div>
       </div>
       <div id="upload-header" class="upload-header" hidden><h2 id="upload-heading" data-i18n="uploadTitle">上传新曲目</h2><button id="edit-song" class="nav-btn" type="button" data-i18n="editSong">更新已有曲目</button></div>
@@ -1039,7 +1047,7 @@
         fullName: '英文全名',
         pronouns: '代词',
         position: '职位',
-        planTitle: '查看阵容',
+        planTitle: '这学期唱什么',
         voicePart: '声部',
         school: '学校',
         gradYear: '毕业年份',
@@ -1197,7 +1205,7 @@
         fullName: 'English full name',
         pronouns: 'Pronouns',
         position: 'Position',
-        planTitle: 'View lineup',
+        planTitle: 'What Are We Singing?',
         voicePart: 'Voice part',
         school: 'School',
         gradYear: 'Graduation year',
@@ -1629,7 +1637,7 @@
       profileEditing = false;
       profileDraft = null;
       galleryCache.clear();
-      planSemesterId=null;planChoosing=false;planSelectedSongs.clear();planLibrarySemester=null;planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
+      planSemesterId=null;planChoosing=false;planSelectedSongs.clear();planLibraryRequest++;planLibrarySemester='';planLibraryQuery='';planRequest++;planData=null;planLibrary=null;planTermId=null;planSongId=null;planLoading=false;
       invitationList = null;
       issuedInvitation = null;
       detailedResults.clear();
@@ -2780,9 +2788,6 @@
     let browseLoadingId = '';
 
     function renderBrowse(loading) {
-      const ready=Boolean(!loading&&!browseError&&browseCache&&String(browseCache.id)===browseSemester);
-      document.querySelector('#browse-lineup').hidden=!ready;
-      document.querySelector('#browse-repertoire').hidden=!ready||!(latest?.user.isPresident||latest?.user.isMd||latest?.user.isAdmin);
       const semesters = latest?.library?.semesters || [];
       const current = browseSemesterSelect.value;
       browseSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
@@ -2974,9 +2979,8 @@
 
     document.querySelector('#open-profile').addEventListener('click', () => openProfile(latest?.user?.id, 'hub'));
     document.querySelector('#profile-back').addEventListener('click', () => showView(profileFrom));
-    document.querySelector('#browse-lineup').addEventListener('click',()=>openSemesterPlan(false));
-    document.querySelector('#browse-repertoire').addEventListener('click',()=>openSemesterPlan(true));
-    document.querySelector('#plan-back').addEventListener('click',()=>showView('scores'));
+    document.querySelector('#open-plan').addEventListener('click',()=>{planTermId=null;planSongId=null;planChoosing=false;planResetPicker();planData=null;planLoading=true;showView('plan');loadPlan();});
+    document.querySelector('#plan-back').addEventListener('click',()=>showView('hub'));
     document.querySelector('#open-members').addEventListener('click', () => showView('members'));
     document.querySelector('#members-back').addEventListener('click', () => showView('hub'));
     document.querySelector('#open-poll').addEventListener('click', () => showView('poll'));

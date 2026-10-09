@@ -66,12 +66,12 @@ try {
  plan=await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://drive.google.com/drive/folders/scoreFolder'});const planSong=plan.songs[0].id;
  assert.equal(plan.songs[0].folderUrl,'https://drive.google.com/drive/folders/scoreFolder');
  await api(`/api/plan/entry/${planSong}`,'member',{memberId:md.user.id,part:'tenor'},403);
- plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'alto'});assert.equal(plan.songs[0].entries[0].part,'alto');
- plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'tenor'});assert.equal(plan.songs[0].entries.length,1);assert.equal(plan.songs[0].entries[0].part,'tenor');
+ plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'alto'});assert.ok(plan.songs[0].entries.some(e=>e.part==='alto'));
+ plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'tenor'});assert.equal(plan.songs[0].entries.length,2);assert.deepEqual(plan.songs[0].entries.map(e=>e.part).sort(),['alto','tenor']);
  await api(`/api/plan/entry/${planSong}`,'member',{part:'invalid'},400);
  plan=await api(`/api/plan/edit/${planSong}`,'md',{title:'Jiangnan',folderUrl:'',locked:true});assert.equal(plan.songs[0].locked,true);
  await api(`/api/plan/entry/${planSong}`,'member',{part:null},409);
- plan=await api(`/api/plan/entry/${planSong}`,'md',{memberId:member.user.id,part:'alto'});assert.equal(plan.songs[0].entries[0].part,'alto');
+ plan=await api(`/api/plan/entry/${planSong}`,'md',{memberId:member.user.id,part:'alto'});assert.ok(plan.songs[0].entries.some(e=>e.part==='alto'));
  await api(`/api/plan/archive/${planTerm}`,'member',{archived:true},403);
  plan=await api(`/api/plan/archive/${planTerm}`,'md',{archived:true});assert.equal(plan.term.archived,true);const oldName=plan.members.find(m=>m.id===member.user.id).name;
  await api('/api/profile','member',{fullName:'Changed later',voiceParts:['bass']});
@@ -112,6 +112,25 @@ try {
  auto=await env.plans.fromSemester({id:member.user.id},'2028 Fall',[{name:'Later folder',url:'https://drive.google.com/drive/folders/laterFolder'}]);assert.equal(auto.songs.length,1);
  await api(`/api/plan/bulk/${autoTerm}`,'president',{songs:[{title:'Cannot change archive'}]},409);
  console.log('PASS: Drive semester auto-population, normalized semester identity, President repertoire-only permissions, persistent exclusions, re-added signups, and immutable archived songs.');
+ // Solo delegation, multiple singers/parts, per-part withdrawal, and current-semester archival.
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'solo'},409); // Archived remains read only.
+ auto=await api(`/api/plan/current/${autoTerm}`,'md',{});assert.equal(auto.term.isCurrent,true);assert.equal(auto.term.archived,false);assert.ok(auto.terms.filter(t=>t.id!==autoTerm).every(t=>t.archived));
+ await api(`/api/plan/current/${planTerm}`,'member',{},403);
+ await api(`/api/plan/current/${planTerm}`,'president',{},403);
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'solo'},403);
+ auto=await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo'});assert.ok(auto.songs[0].entries.some(e=>e.part==='solo'));
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'solo',remove:true},403);
+ auto=await api(`/api/plan/entry/${autoSong}`,'member',{part:'bass'});assert.ok(auto.songs[0].entries.some(e=>e.part==='alto'));assert.ok(auto.songs[0].entries.some(e=>e.part==='bass'));
+ auto=await api(`/api/plan/entry/${autoSong}`,'md',{memberId:md.user.id,part:'bass'});assert.equal(auto.songs[0].entries.filter(e=>e.part==='bass').length,2);
+ auto=await api(`/api/plan/entry/${autoSong}`,'member',{part:'bass',remove:true});assert.ok(auto.songs[0].entries.some(e=>e.memberId===member.user.id&&e.part==='alto'));assert.ok(auto.songs[0].entries.some(e=>e.memberId===md.user.id&&e.part==='bass'));
+ auto=await api(`/api/plan/entry/${autoSong}`,'member',{part:null});assert.deepEqual(auto.songs[0].entries.filter(e=>e.memberId===member.user.id).map(e=>e.part),['solo']);
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'rap'},400);
+ auto=await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo',remove:true});assert.ok(!auto.songs[0].entries.some(e=>e.part==='solo'));
+ auto=await api(`/api/plan/add/${autoTerm}`,'md',{title:'Scores not ready'});const pendingSong=auto.songs.find(s=>s.title==='Scores not ready');assert.equal(pendingSong.folderUrl,'');
+ auto=await api(`/api/plan/bulk/${autoTerm}`,'md',{songs:[{title:'Scores not ready',folderUrl:'https://drive.google.com/drive/folders/nowReady'}]});assert.equal(auto.songs.find(s=>s.title==='Scores not ready').id,pendingSong.id);
+ auto=await api('/api/plan/term','md',{label:'2029 Spring'});assert.equal(auto.term.isCurrent,true);assert.ok(auto.terms.filter(t=>t.id!==auto.term.id).every(t=>t.archived));
+ const archive=await api('/api/plan?termId='+autoTerm,'member');assert.equal(archive.term.archived,true);assert.ok(archive.songs.find(s=>s.id===autoSong).entries.some(e=>e.part==='bass'));
+ console.log('PASS: Solo-only delegated signup, multi-part/multi-singer cells, cross-profile signup, isolated removal, manual titles linked to later scores, single current semester and archived history.');
  console.log('PASS: atomic bulk imports, duplicate folder prevention, preserved plans on Google failure, and durable sync retry completion.');
  console.log('PASS: Song Plan authentication, term selection/history, score-folder validation, own-only registration, signup parts, confirmation locks, delegated edits, archived snapshots and read-only history.');
  // Crew is admin-managed, exclusive with Alumni, and visible in member profiles.
@@ -203,7 +222,7 @@ try {
  await api('/api/login','case',{name:'jINGWEN',password:'abc12345'});
  await assert.rejects(env.DB.batch([env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now'),env.DB.prepare('INSERT INTO arrangers(name,created_at) VALUES(?,?)').bind('Rollback probe','now')]));
  assert.equal((await query("SELECT * FROM cucac.arrangers WHERE name='Rollback probe'")).rows.length,0);
- assert.equal((await query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='cucac' AND rowsecurity")).rows[0].n,17);
+ const privateTables=(await query("SELECT tablename,rowsecurity FROM pg_tables WHERE schemaname='cucac'")).rows;assert.ok(privateTables.every(t=>t.rowsecurity));assert.ok(privateTables.some(t=>t.tablename==='plan_cast'));
 
  // Default voting: preparation, two-candidate lock, cancellation, and server-side limits.
  let v=await api('/api/phases','md',{title:'Two singers',arrangerId:md.user.id},201);

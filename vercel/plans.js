@@ -1,8 +1,9 @@
-import {VOICE_PARTS,readVoiceParts} from '../worker/voice-parts.js';
+import {readVoiceParts} from '../worker/voice-parts.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const text=(v,max=100)=>{if(typeof v!=='string'||!v.trim()||v.trim().length>max)throw fail(400,'plan_invalid');return v.trim();};
 const manager=u=>Boolean(u.isMd||u.isAdmin);
 const chooser=u=>Boolean(manager(u)||u.isPresident);
+const PLAN_PARTS=['solo','soprano','alto','tenor','baritone','bass','bbox'];
 const requireChooser=u=>{if(!chooser(u))throw fail(403,'forbidden');};
 const requireManager=u=>{if(!manager(u))throw fail(403,'forbidden');};
 function folder(v){if(!v)return '';let url;try{url=new URL(v);}catch{throw fail(400,'plan_folder');}if(url.protocol!=='https:'||url.hostname!=='drive.google.com'||!/^\/drive\/(?:u\/\d+\/)?folders\/[\w-]+\/?$/.test(url.pathname))throw fail(400,'plan_folder');return url.href;}
@@ -10,17 +11,24 @@ export function createPlans(pool){
  const term=async(q,id,lock=false)=>{const t=(await q.query('SELECT * FROM cucac.plan_terms WHERE id=$1'+(lock?' FOR UPDATE':''),[id])).rows[0];if(!t)throw fail(404,'plan_missing');return t;};
  async function roster(q,id){
   const users=(await q.query('SELECT id,name,full_name,voice_part,is_alumni,is_crew FROM cucac.users WHERE is_admin=0')).rows;
-  const entries=(await q.query('SELECT e.* FROM cucac.plan_entries e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1 AND NOT s.excluded',[id])).rows;
+  const entries=(await q.query('SELECT e.* FROM cucac.plan_cast e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1 AND NOT s.excluded',[id])).rows;
   const included=new Set(entries.map(e=>e.member_key));
   const members=users.filter(u=>(!u.is_alumni&&!u.is_crew)||included.has(u.id)).map(u=>({id:u.id,name:u.full_name||u.name,voiceParts:readVoiceParts(u.voice_part)}));
   for(const e of entries)if(!members.some(m=>m.id===e.member_key))members.push({id:e.member_key,name:e.member_name,voiceParts:[e.part],former:true});
   return members;
  }
- async function list(user,id,q=pool){const terms=(await q.query('SELECT id,label,archived FROM cucac.plan_terms ORDER BY archived,created_at DESC,id DESC')).rows;
+ async function list(user,id,q=pool){const terms=(await q.query('SELECT id,label,archived,is_current FROM cucac.plan_terms ORDER BY is_current DESC,archived,created_at DESC,id DESC')).rows;
   if(!terms.length)return {terms:[],term:null,songs:[],members:[],canManage:manager(user),canChoose:chooser(user)};
   const t=await term(q,id||terms[0].id);const songs=(await q.query('SELECT * FROM cucac.plan_songs WHERE term_id=$1 AND NOT excluded ORDER BY id',[t.id])).rows;
-  const entries=(await q.query('SELECT e.* FROM cucac.plan_entries e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1 AND NOT s.excluded',[t.id])).rows;
-  return {terms,term:{id:t.id,label:t.label,archived:t.archived},canManage:manager(user),canChoose:chooser(user),sheetPending:chooser(user)?Number((await q.query('SELECT count(*)::int AS n FROM cucac.plan_sheet_jobs WHERE semester=$1 AND NOT synced',[t.label])).rows[0].n):0,members:t.archived?t.roster_snapshot||[]:await roster(q,t.id),songs:songs.map(s=>({id:s.id,title:s.title,folderUrl:s.folder_url,locked:s.locked,entries:entries.filter(e=>e.song_id===s.id).map(e=>({memberId:e.member_key,name:e.member_name,part:e.part}))}))};
+  const entries=(await q.query('SELECT e.* FROM cucac.plan_cast e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1 AND NOT s.excluded',[t.id])).rows;
+  return {terms,term:{id:t.id,label:t.label,archived:t.archived,isCurrent:t.is_current},canManage:manager(user),canChoose:chooser(user),sheetPending:chooser(user)?Number((await q.query('SELECT count(*)::int AS n FROM cucac.plan_sheet_jobs WHERE semester=$1 AND NOT synced',[t.label])).rows[0].n):0,members:t.archived?t.roster_snapshot||[]:await roster(q,t.id),songs:songs.map(s=>({id:s.id,title:s.title,folderUrl:s.folder_url,locked:s.locked,entries:entries.filter(e=>e.song_id===s.id).map(e=>({memberId:e.member_key,name:e.member_name,part:e.part}))}))};
+ }
+ async function activate(q,id){
+  const all=(await q.query('SELECT * FROM cucac.plan_terms ORDER BY id FOR UPDATE')).rows;
+  if(!all.some(t=>t.id===id))throw fail(404,'plan_missing');
+  await q.query('UPDATE cucac.plan_terms SET is_current=false WHERE is_current');
+  for(const old of all)if(old.id!==id&&!old.archived)await q.query('UPDATE cucac.plan_terms SET archived=true,roster_snapshot=$1::jsonb WHERE id=$2',[JSON.stringify(await roster(q,old.id)),old.id]);
+  await q.query('UPDATE cucac.plan_terms SET is_current=true,archived=false,roster_snapshot=NULL WHERE id=$1',[id]);
  }
  async function fromSemester(user,label,folders){
   label=text(label,40);const c=await pool.connect();let id;try{await c.query('BEGIN');
@@ -41,10 +49,11 @@ export function createPlans(pool){
   await c.query('COMMIT');
  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}}
  async function mutate(user,action,id,body){const c=await pool.connect();let termId;try{await c.query('BEGIN');
-  if(action==='term'){requireManager(user);const label=text(body.label,40);const exists=(await c.query('SELECT id FROM cucac.plan_terms WHERE lower(label)=lower($1)',[label])).rows[0];if(exists)throw fail(409,'plan_exists');termId=(await c.query('INSERT INTO cucac.plan_terms(label) VALUES($1) RETURNING id',[label])).rows[0].id;
-  }else if(action==='archive'){requireManager(user);const t=await term(c,id,true);termId=t.id;if(typeof body.archived!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_terms SET archived=$1,roster_snapshot=$2::jsonb WHERE id=$3',[body.archived,body.archived?JSON.stringify(await roster(c,id)):null,id]);
+  if(action==='current'){requireManager(user);await activate(c,id);termId=id;
+  }else if(action==='term'){requireManager(user);await c.query('SELECT id FROM cucac.plan_terms ORDER BY id FOR UPDATE');const label=text(body.label,40);const exists=(await c.query("SELECT id FROM cucac.plan_terms WHERE lower(regexp_replace(label,'\\s','','g'))=lower(regexp_replace($1,'\\s','','g'))",[label])).rows[0];if(exists)throw fail(409,'plan_exists');termId=(await c.query('INSERT INTO cucac.plan_terms(label) VALUES($1) RETURNING id',[label])).rows[0].id;await activate(c,termId);
+  }else if(action==='archive'){requireManager(user);const t=await term(c,id,true);termId=t.id;if(typeof body.archived!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_terms SET archived=$1,roster_snapshot=$2::jsonb,is_current=CASE WHEN $1 THEN false ELSE is_current END WHERE id=$3',[body.archived,body.archived?JSON.stringify(await roster(c,id)):null,id]);
   }else if(action==='add'||action==='bulk'){requireChooser(user);const t=await term(c,id,true);termId=t.id;if(t.archived)throw fail(409,'plan_archived');const songs=action==='add'?[body]:body.songs;if(!Array.isArray(songs)||!songs.length||songs.length>300)throw fail(400,'plan_invalid');
-   for(const song of songs){const title=text(song.title),url=folder(song.folderUrl);const existing=(await c.query(`SELECT id FROM cucac.plan_songs WHERE term_id=$1 AND ((folder_url=$2 AND $2<>'') OR (lower(title)=lower($3) AND folder_url=$2))`,[id,url,title])).rows[0];if(existing)await c.query('UPDATE cucac.plan_songs SET excluded=false WHERE id=$1',[existing.id]);else await c.query('INSERT INTO cucac.plan_songs(term_id,title,folder_url) VALUES($1,$2,$3)',[id,title,url]);await queue(c,url,t.label,title,action==='bulk');}
+   for(const song of songs){const title=text(song.title),url=folder(song.folderUrl);const existing=(await c.query(`SELECT id FROM cucac.plan_songs WHERE term_id=$1 AND ((folder_url=$2 AND $2<>'') OR (lower(title)=lower($3) AND ($2='' OR folder_url=$2 OR folder_url='')))`,[id,url,title])).rows[0];if(existing)await c.query("UPDATE cucac.plan_songs SET excluded=false,folder_url=CASE WHEN $2<>'' THEN $2 ELSE folder_url END WHERE id=$1",[existing.id,url]);else await c.query('INSERT INTO cucac.plan_songs(term_id,title,folder_url) VALUES($1,$2,$3)',[id,title,url]);await queue(c,url,t.label,title,action==='bulk');}
   }else{
    const s=(await c.query('SELECT * FROM cucac.plan_songs WHERE id=$1',[id])).rows[0];if(!s)throw fail(404,'plan_missing');const t=await term(c,s.term_id,true);termId=t.id;if(t.archived)throw fail(409,'plan_archived');
    // All mutations for a term share its lock, including signup, confirmation and archival.
@@ -54,8 +63,8 @@ export function createPlans(pool){
    }else if(action==='entry'){
     if(current.excluded)throw fail(404,'plan_missing');
     const memberId=body.memberId===undefined?user.id:Number(body.memberId);if(!Number.isInteger(memberId))throw fail(400,'plan_invalid');if(memberId!==user.id)requireManager(user);if(current.locked&&!manager(user))throw fail(409,'plan_locked');
-    if(body.part===null){await c.query('DELETE FROM cucac.plan_entries WHERE song_id=$1 AND member_key=$2',[id,memberId]);}
-    else {if(!VOICE_PARTS.includes(body.part))throw fail(400,'voice_parts_invalid');const m=(await c.query('SELECT * FROM cucac.users WHERE id=$1 AND is_admin=0',[memberId])).rows[0];if(!m)throw fail(404,'user_missing');if(!manager(user)&&(m.is_crew||m.is_alumni))throw fail(403,'plan_active_only');await c.query('INSERT INTO cucac.plan_entries(song_id,member_key,member_id,member_name,part) VALUES($1,$2,$2,$3,$4) ON CONFLICT(song_id,member_key) DO UPDATE SET part=excluded.part,member_name=excluded.member_name',[id,memberId,m.full_name||m.name,body.part]);}
+    if(body.part===null){await c.query("DELETE FROM cucac.plan_cast WHERE song_id=$1 AND member_key=$2 AND ($3 OR part<>'solo')",[id,memberId,manager(user)]);}
+    else {if(!PLAN_PARTS.includes(body.part))throw fail(400,'voice_parts_invalid');if(body.part==='solo')requireManager(user);if(typeof body.remove!=='undefined'&&typeof body.remove!=='boolean')throw fail(400,'plan_invalid');if(body.remove){await c.query('DELETE FROM cucac.plan_cast WHERE song_id=$1 AND member_key=$2 AND part=$3',[id,memberId,body.part]);}else{const m=(await c.query('SELECT * FROM cucac.users WHERE id=$1 AND is_admin=0',[memberId])).rows[0];if(!m)throw fail(404,'user_missing');if(!manager(user)&&(m.is_crew||m.is_alumni))throw fail(403,'plan_active_only');await c.query('INSERT INTO cucac.plan_cast(song_id,member_key,member_id,member_name,part) VALUES($1,$2,$2,$3,$4) ON CONFLICT(song_id,member_key,part) DO UPDATE SET member_name=excluded.member_name',[id,memberId,m.full_name||m.name,body.part]);}}
    }else throw fail(400,'bad_action');
   }
   await c.query('COMMIT');return await list(user,termId,c);

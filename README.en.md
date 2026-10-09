@@ -40,7 +40,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 - [Accounts and Sign-in](#accounts)
 - [My Profile](#profile)
 - [Members](#roster)
-- [Song Plan](#song-plan)
+- [What Are We Singing?](#song-plan)
 - [Solo Voting](#voting)
 - [Browse Scores](#scores)
 - [Upload and Edit Scores](#upload)
@@ -97,17 +97,18 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 - Music Director, Arranger, and board position labels are assigned by an administrator or someone with the appropriate permission; you cannot assign them to yourself through your profile.
 
 <a id="song-plan"></a>
-### Lineups and this semester’s songs
+### What Are We Singing?
 
-In **Scores**, choose a semester and click **View lineup** beside its folder name. Songs in that semester’s Google Drive folder appear automatically, including folder shortcuts to older songs.
+Open **What Are We Singing?** from the home page. It defaults to the current semester; use the dropdown to view archived semesters.
 
-- Computers show the singer/song matrix; phones show song cards with an option to open the scrolling table.
-- Click a **song title** to view its lineup, join, or change your own part. Choose one part per song, stored separately from your profile parts.
-- **Scores ↗** opens the linked Google Drive folder.
-- The President and MD can select **This semester’s songs** at the right end of the semester row, search or filter the library, check songs or select all results, and add older songs. They can also remove songs from this semester. Removal keeps the scores and signups; removed songs stay excluded after refresh, and re-adding restores their signups.
-- The MD can assign singers, confirm and lock lineups, archive a semester with a roster snapshot, or reopen it. The President’s repertoire permission does not include assigning other singers’ parts.
-- Plans use the score library’s semesters automatically. There is no separate plan-creation step. Reused songs link to the original scores without copying files.
-- Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the saved list intact; sync can be retried and also retries daily.
+- **Songs** appear down the left, with **Solo, Soprano, Alto, Tenor, Baritone, Bass, Bbox** across the top. Each cell can contain multiple singers. On phones, scroll horizontally while the song column stays visible.
+- Active members can select **+ Join** in any non-Solo cell, regardless of their profile voice parts. You may sing multiple parts in one song. **×** beside your name removes only that part.
+- **The MD assigns Solo singers**; members cannot join or remove Solo themselves. The MD can add or remove singers in any part and confirm a lineup to lock member signup.
+- **Add / manage songs** supports checking multiple library songs and selecting all results. Search the whole library by default, or browse a semester’s Google Drive folder, just like updating existing scores.
+- For scores not uploaded yet, **enter the song title manually** and begin arranging the lineup. It shows “Scores pending.” Selecting the same title from the library later links its folder while preserving signup; a folder link can also be added in Song settings.
+- In **Semester settings**, the MD can choose the current semester or start a new one. Switching archives the other semesters as read only, preserving their roster and lineup. The performance plan is managed independently of the contents of score-library semester folders.
+- **Scores ↗** opens the linked folder. Removing a song from a semester keeps its scores and signup; re-adding restores them.
+- Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
 
 <a id="voting"></a>
 ### Solo / Duet Voting
