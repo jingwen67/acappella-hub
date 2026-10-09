@@ -319,6 +319,13 @@
       background: #fff;
     }
 
+    #edit-semesters {display:grid;gap:6px;}
+    #edit-semester-button {position:relative;padding-right:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #edit-semester-button::after {content:"▾";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+    #edit-semester-options {display:grid;gap:2px;max-height:220px;overflow-y:auto;overscroll-behavior:contain;}
+    #edit-semester-options label {min-height:40px;display:flex;align-items:center;gap:10px;}
+    #edit-semester-options input {width:1.15rem;flex-shrink:0;}
+
     #arranger-list {
       display: grid;
       gap: 2px;
@@ -956,7 +963,7 @@
         <label id="new-song-semester"><span data-i18n="semester">学期</span>
           <select id="semester-select" name="semesterId" required></select>
         </label>
-        <fieldset id="edit-semesters" class="kinds" hidden disabled><legend data-i18n="semester">学期</legend><div id="edit-semester-options" class="voice-choices"></div></fieldset>
+        <fieldset id="edit-semesters" class="kinds" hidden disabled><legend data-i18n="semester">学期</legend><button id="edit-semester-button" class="picker-button" type="button" aria-expanded="false" aria-controls="edit-semester-menu"></button><div id="edit-semester-menu" class="picker-menu" hidden><div id="edit-semester-options"></div></div></fieldset>
         <fieldset class="kinds">
           <legend data-i18n="kind">性质</legend>
           <label><input type="checkbox" name="kind" value="all"> <span data-i18n="allMembers">大歌</span></label>
@@ -3031,8 +3038,15 @@
       arrangerMenu.hidden = !arrangerMenu.hidden;
     });
     arrangerList.addEventListener('change', updateArrangerButton);
+    function closeSemesterMenu(){document.querySelector('#edit-semester-menu').hidden=true;document.querySelector('#edit-semester-button').setAttribute('aria-expanded','false');}
+    function updateSemesterButton(){const selected=[...document.querySelectorAll('#edit-semester-options input:checked')].map(input=>input.value);const button=document.querySelector('#edit-semester-button');button.replaceChildren(selected.length?selected.join(', '):t('semester'));button.title=selected.join(', ');}
+    document.querySelector('#edit-semester-button').addEventListener('click',()=>{const menu=document.querySelector('#edit-semester-menu');menu.hidden=!menu.hidden;document.querySelector('#edit-semester-button').setAttribute('aria-expanded',String(!menu.hidden));});
+    document.querySelector('#edit-semester-options').addEventListener('change',updateSemesterButton);
+    document.querySelector('#edit-semesters').addEventListener('keydown',event=>{if(event.key==='Escape'){closeSemesterMenu();document.querySelector('#edit-semester-button').focus();}});
+
     document.addEventListener('click', (event) => {
       if (!event.target.closest('.picker')) arrangerMenu.hidden = true;
+      if(!event.target.closest('#edit-semesters'))closeSemesterMenu();
     });
     document.querySelector('#add-arranger').addEventListener('click', () => {
       const name = newArranger.value.trim();
@@ -3056,7 +3070,7 @@
 
     function syncEditChrome() {
       const searching = !editPicker.hidden;
-      document.querySelector('#new-song-semester').hidden=Boolean(editingSong);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong;document.querySelector('#edit-semesters').disabled=!editingSong;
+      document.querySelector('#new-song-semester').hidden=Boolean(editingSong);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong;document.querySelector('#edit-semesters').disabled=!editingSong;if(!editingSong)closeSemesterMenu();
       songInfo.hidden = searching;
       songInfo.disabled = searching;
       uploadHeading.replaceChildren(t(searching || editingSong ? 'editSong' : 'uploadTitle'));
@@ -3154,8 +3168,9 @@
       const detail = await api(`/api/scores/folder?semesterId=${semesterId}&folderId=${encodeURIComponent(folderId)}`);
       editingSong = { folderId: detail.folderId, sourceSemesterId: String(detail.semesterId) };
       scoreForm.elements.title.value = detail.title;
-      const selectedSemesters=detail.semesterLabels||[];const semesterLabels=[...new Set([...(latest.library?.semesters||[]).map(item=>item.label),...(detail.semesterOptions||[]),...selectedSemesters])];
+      const selectedSemesters=detail.semesterLabels||[];const semesterLabels=[...new Set([...(latest.library?.semesters||[]).map(item=>item.label),...(detail.semesterOptions||[]),...selectedSemesters])].sort((a,b)=>{const rank=label=>{const year=Number(label.match(/\d{4}/)?.[0]||0);return year*10+(/fall/i.test(label)?3:/summer/i.test(label)?2:/spring/i.test(label)?1:0);};return rank(b)-rank(a)||a.localeCompare(b);});
       document.querySelector('#edit-semester-options').replaceChildren(...semesterLabels.map(label=>el('label',{},el('input',{type:'checkbox',name:'semester',value:label,checked:selectedSemesters.includes(label)}),label)));
+      updateSemesterButton();closeSemesterMenu();
       const wanted = new Set(detail.arrangers.map((name) => name.toLowerCase()));
       for (const name of detail.arrangers) {
         const found = [...arrangerList.querySelectorAll('input')].some((input) => input.value.toLowerCase() === name.toLowerCase());
