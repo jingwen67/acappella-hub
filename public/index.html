@@ -786,7 +786,7 @@
     .score-actions .score-action {display:flex;align-items:center;justify-content:center;width:132px;min-height:44px;padding:5px 9px;font-size:13px;line-height:1.2;text-align:center;}
     .score-actions .score-action .pair {align-items:center;}
     .score-actions .score-action .pair .en {font-size:inherit;font-weight:inherit;}
-    @media(max-width:520px){.browse-score-row {grid-template-columns:minmax(0,1fr) !important;gap:6px !important;}.browse-score-row .score-actions {justify-self:end;}}
+    @media(max-width:520px){.browse-score-row {grid-template-columns:minmax(0,1fr) !important;gap:10px !important;padding:14px 0 !important;}.browse-score-row + .browse-score-row {border-top:1px solid var(--line);}.browse-score-row .score-actions {justify-self:center;}.browse-score-row .score-link {padding:0;}}
     .plan-score-link:hover {text-decoration:none;background:var(--paper);}
     .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
     .plan-cell {display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;}
