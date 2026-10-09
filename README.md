@@ -79,7 +79,7 @@ CU Chinese A Cappella 的成员资料、乐谱库和 Solo 投票工具。投票�
 
 从主页进入 **我的资料**，填写英文全名、代词、声部、学校、毕业年份、专业、Fun fact 和喜欢的食物，再保存。毕业年份填写四位数字，例如 `2027`。
 
-Primary voice part 为单选默认声部；Secondary voice parts 为可选的兼任声部，可多选。选项包括 Soprano、Alto、Tenor、Baritone、Bass、Bbox 和 Rap。在我的资料点 Edit，勾选声部后 Save。MD 可在其他成员资料的声部栏点 Edit，修改后 Save 生效。Active 名单在姓名旁显示声部，默认按声部排序，声部内部按名字首字母排序；Active 旁的小按钮可切换为按首字母排序，右侧下拉框可独立筛选声部。兼任多个声部的成员按 Primary voice part 排序，每人只显示一次。 在声部选项下勾选 Crew / Media 并保存，会自动进入 Crew / Media 名单；取消勾选并保存后恢复原有成员分组。
+声部可多选，选项包括 Soprano、Alto、Tenor、Baritone、Bass、Bbox 和 Rap。在我的资料点 Edit，勾选声部后 Save。MD 可在其他成员资料的声部栏点 Edit，修改后 Save 生效。Active 名单在姓名旁显示声部，默认按声部排序，声部内部按名字首字母排序；Active 旁的小按钮可切换为按首字母排序，右侧下拉框可独立筛选声部。兼任多个声部的成员按所选声部中最靠前的声部排序，每人只显示一次。 在声部选项下勾选 Crew / Media 并保存，会自动进入 Crew / Media 名单；取消勾选并保存后恢复原有成员分组。
 - 勾选大歌会自动锁定报名，取消勾选恢复报名。Solo 栏的「投票结果」可查看关联歌曲的已结束投票；发起 Solo 投票时从当前学期歌曲中选择关联曲目。
 
 
@@ -115,7 +115,7 @@ Primary voice part 为单选默认声部；Secondary voice parts 为可选的兼
 - 点击 **乐谱 ↗** 打开对应文件夹。移除曲目只改变学期名单，不删除乐谱；重新加入保留已有报名。
 - Google Sheet 的 **Semester** 保留所有演出学期；旧歌加入新学期时追加新学期，不覆盖历史。Google 暂时失败时名单仍保存，可重试同步，并每日自动重试。
 
-- **大歌**：勾选歌曲旁的「大歌」，默认按 Primary voice part 填入 Active 成员。打开或刷新阵容时同步最新声部；已有安排只要属于该成员的 Primary 或 Secondary 就会保留，包括多个兼任声部，否则补入 Primary。Solo 和归档学期不受影响。取消勾选不清空阵容，之后仍可逐格调整。
+- **大歌**：勾选歌曲旁的「大歌」，默认按资料声部填入 Active 成员。打开或刷新阵容时，新增且填写了声部的 Active 成员会自动补入大歌；已有安排保持不变，资料声部变化不会覆盖歌曲中的安排。Solo 和归档学期不受影响。取消勾选不清空阵容，之后仍可逐格调整。
 
 <a id="voting"></a>
 ### 4. Solo / Duet 投票

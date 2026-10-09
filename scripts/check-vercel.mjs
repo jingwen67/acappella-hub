@@ -138,22 +138,24 @@ try {
  auto=await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo',remove:true});assert.ok(!auto.songs[0].entries.some(e=>e.part==='solo'));
  auto=await api(`/api/plan/add/${autoTerm}`,'md',{title:'Scores not ready'});const pendingSong=auto.songs.find(s=>s.title==='Scores not ready');assert.equal(pendingSong.folderUrl,'');
  auto=await api(`/api/plan/bulk/${autoTerm}`,'md',{songs:[{title:'Scores not ready',folderUrl:'https://drive.google.com/drive/folders/nowReady'}]});assert.equal(auto.songs.find(s=>s.title==='Scores not ready').id,pendingSong.id);
- // Primary-only autofill and preserve any supported secondary arrangement.
- let voiceState=await api('/api/profile','member',{primaryVoicePart:'alto',secondaryVoiceParts:['tenor']});assert.equal(voiceState.profile.primaryVoicePart,'alto');assert.deepEqual(voiceState.profile.secondaryVoiceParts,['tenor']);
- await api('/api/profile','member',{primaryVoicePart:['alto','tenor'],secondaryVoiceParts:[]},400);
- await api('/api/profile','md',{primaryVoicePart:'tenor',secondaryVoiceParts:['bass']});
+ // New active singers get a default; existing delegated arrangements stay untouched.
+ await api('/api/profile','member',{voiceParts:['alto']});
+ await api('/api/profile','md',{voiceParts:['tenor']});
  await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo'});
- auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});let full=auto.songs.find(s=>s.id===autoSong);assert.deepEqual(full.entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['alto','solo']);
+ auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['alto','solo']);
  await api(`/api/plan/entry/${autoSong}`,'member',{part:'tenor'},409);
- await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'bass'},400);
  await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'alto',remove:true});
- await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'tenor'});
- auto=await api('/api/plan?termId='+autoTerm,'member');assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['solo','tenor']);
- await api('/api/profile','member',{primaryVoicePart:'bass',secondaryVoiceParts:['tenor']});
- auto=await api('/api/plan?termId='+autoTerm,'member');assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['solo','tenor']);
- await api('/api/profile','member',{primaryVoicePart:'bass',secondaryVoiceParts:[]});
+ await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'bass'});
+ await api('/api/profile','member',{voiceParts:['soprano']});
  auto=await api('/api/plan?termId='+autoTerm,'member');assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['bass','solo']);
- console.log('PASS: single primary, optional secondaries, primary-only big-song autofill, valid MD arrangement preservation, invalid-part replacement and unchanged Solo.');
+ await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'tenor'});
+ auto=await api('/api/plan?termId='+autoTerm,'member');assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['bass','solo','tenor']);
+ await api('/api/profile','president',{voiceParts:[],crewMedia:true});
+ await api(`/api/plan/entry/${autoSong}`,'md',{memberId:president.user.id,part:'alto',remove:true});
+ await api('/api/profile','president',{voiceParts:['alto'],crewMedia:false});
+ auto=await api('/api/plan?termId='+autoTerm,'member');assert.deepEqual(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===president.user.id).map(e=>e.part),['alto']);
+ auto=await api('/api/plan?termId='+autoTerm,'member');assert.equal(auto.songs.find(s=>s.id===autoSong).entries.filter(e=>e.memberId===president.user.id&&e.part==='alto').length,1);
+ console.log('PASS: default fill for newly active voiced members, idempotent refresh, unrestricted delegated parts and preserved MD arrangements after profile changes.');
  auto=await api('/api/plan/term','md',{label:'2029 Spring'});assert.equal(auto.term.isCurrent,true);assert.ok(auto.terms.filter(t=>t.id!==auto.term.id).every(t=>t.archived));
  await api(`/api/plan/big/${autoSong}`,'md',{bigSong:false},409);
  const archive=await api('/api/plan?termId='+autoTerm,'member');assert.equal(archive.term.archived,true);assert.ok(archive.songs.find(s=>s.id===autoSong).entries.some(e=>e.part==='bass'));
