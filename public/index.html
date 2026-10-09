@@ -1990,7 +1990,7 @@
               countSpan(candidate.again, 'again'),
             )
           : null,
-        el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)),
+        phase.started?el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)):null,
         recordingList((phase.recordings||[]).filter(recording=>recording.candidateId===candidate.id)),
         candidate.isMe?recordingControls(phase,{candidateId:candidate.id}):null,
         phase.started&&phase.participating?el('div', { class: 'votes' },
@@ -2182,7 +2182,7 @@
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
-        class: 'quiet',
+        class: 'primary',
         onclick: () => {
           freezeRender = true;
           const boxes = round.querySelectorAll('.confirm');
@@ -2195,7 +2195,7 @@
         el('div', { class: 'votes' },
           el('button', {
             type: 'button',
-            class: 'ghost',
+            class: 'primary',
             onclick: () => run(() => api(`/api/phases/${phase.id}/close`, { method: 'POST', body: '{}' })),
           }, t('confirmClose')),
           el('button', {
