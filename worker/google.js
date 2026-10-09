@@ -477,13 +477,19 @@ export function createGoogle(storage) {
   }
   async function recordPlanSemesters(jobs){
     const sheet=await spreadsheet();const existing=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(`${sheet.quoted}!A:Z`)}?valueRenderOption=FORMULA`);
-    const keys=(existing.values?.[0]||[]).map(columnKey),semesterColumn=keys.indexOf('semester'),linkColumn=keys.indexOf('link'),titleColumn=keys.indexOf('title');if(semesterColumn<0||linkColumn<0)throw fail(400,'sheet_headers');
-    const data=[],done=[],byFolder=new Map(),titleCounts=new Map();
-    for(const job of jobs){if(!byFolder.has(job.folder_id))byFolder.set(job.folder_id,[]);byFolder.get(job.folder_id).push(job);}
-    for(const row of (existing.values||[]).slice(1))if(!parseFolderId(row[linkColumn])){const key='title:'+String(row[titleColumn]||'').trim().toLowerCase();titleCounts.set(key,(titleCounts.get(key)||0)+1);}
-    for(let i=1;i<(existing.values||[]).length;i++){const cells=existing.values[i],folderId=parseFolderId(cells[linkColumn]);const titleKey='title:'+String(cells[titleColumn]||'').trim().toLowerCase();const matches=byFolder.get(folderId||(titleCounts.get(titleKey)===1?titleKey:''))||[];if(!matches.length)continue;const value=mergeSemesters(cells[semesterColumn],...matches.map(j=>j.semester));if(value!==String(cells[semesterColumn]||''))data.push({range:`${sheet.quoted}!${columnLetter(semesterColumn+1)}${i+1}`,values:[[value]]});done.push(...matches.map(j=>j.id));}
+    const keys=(existing.values?.[0]||[]).map(columnKey),semesterColumn=keys.indexOf('semester'),linkColumn=keys.indexOf('link'),titleColumn=keys.indexOf('title');if(semesterColumn<0||linkColumn<0||titleColumn<0)throw fail(400,'sheet_headers');
+    const normalize=v=>String(v||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+    const rows=(existing.values||[]).slice(1).map((cells,i)=>({cells,row:i+2,folder:parseFolderId(cells[linkColumn]),title:normalize(cells[titleColumn])}));
+    const titleRows=new Map(),jobTitles=new Map(),matched=new Map(),done=[];
+    for(const row of rows)if(row.title){if(!titleRows.has(row.title))titleRows.set(row.title,[]);titleRows.get(row.title).push(row);}
+    for(const job of jobs){const title=normalize(job.title||(job.folder_id.startsWith('title:')?job.folder_id.slice(6):''));if(title){if(!jobTitles.has(title))jobTitles.set(title,new Set());jobTitles.get(title).add(job.folder_id);}}
+    for(const job of jobs){const direct=rows.filter(row=>row.folder&&row.folder===job.folder_id);const title=normalize(job.title||(job.folder_id.startsWith('title:')?job.folder_id.slice(6):''));const candidates=titleRows.get(title)||[];const hits=direct.length?direct:candidates.length===1&&jobTitles.get(title)?.size===1?candidates:[];
+      for(const row of hits){if(!matched.has(row.row))matched.set(row.row,{row,jobs:[]});matched.get(row.row).jobs.push(job);}if(hits.length)done.push(job.id);
+    }
+    const data=[];for(const {row,jobs:matches} of matched.values()){const value=mergeSemesters(row.cells[semesterColumn],...matches.map(job=>job.semester));if(value!==String(row.cells[semesterColumn]||''))data.push({range:`${sheet.quoted}!${columnLetter(semesterColumn+1)}${row.row}`,values:[[value]]});}
     if(data.length)await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values:batchUpdate`,{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});return [...new Set(done)];
   }
+
   return {
     load,
     save,

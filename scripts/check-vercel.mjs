@@ -98,7 +98,7 @@ try {
  plan=await api(`/api/plan/delete/${planSong}`,'md',{});assert.equal(plan.songs.length,0);
  // Bulk import is atomic, skips existing folders, and retains durable Google retry jobs.
  await api(`/api/plan/bulk/${planTerm}`,'member',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'}]},403);
- plan=await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'},{title:'Old B',folderUrl:'https://drive.google.com/drive/folders/oldB'}]});assert.equal(plan.songs.length,2);assert.ok(plan.sheetPending>=2);
+ plan=await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'},{title:'Old B',folderUrl:'https://drive.google.com/drive/folders/oldB'}]});assert.equal(plan.songs.length,2);assert.ok(plan.sheetPending>=2);assert.ok(plan.sheetPendingSongs.some(song=>song.title==='Old A'));assert.deepEqual((await env.plans.list({id:member.user.id},planTerm)).sheetPendingSongs,[]);
  plan=await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Old A',folderUrl:'https://drive.google.com/drive/folders/oldA'}]});assert.equal(plan.songs.length,2);
  await api(`/api/plan/bulk/${planTerm}`,'md',{songs:[{title:'Rollback song',folderUrl:'https://drive.google.com/drive/folders/rollback'},{title:'Invalid',folderUrl:'https://bad.example'}]},400);
  assert.equal((await env.plans.list({isMd:true},planTerm)).songs.length,2);

@@ -141,3 +141,7 @@ MD 可编辑已结束 Solo 投票的名称和关联歌曲，包括归档学期�
 ### Default voice assignment and additive full-group sync
 
 Profile 使用单选声部 UI，无 Not set；后端兼容已有 voice_part JSON、数组和字符串，不需要迁移。大歌在未归档学期读取时仅补入尚无非 Solo 安排、有默认声部的 Active 成员。已有任何声部安排均保留，不删除或替换 MD 调整；MD 可跨资料声部安排。旧 primary 元数据作为默认声部兼容读取，保存声部选项后只保留所选声部；歌曲中已有跨声部安排不受影响。
+
+### Google Sheet semester sync matching
+
+同步优先按文件夹 ID 匹配，其次按标准化后唯一的歌名匹配；同一歌名对应多个曲库行或多个待处理文件夹时，不使用歌名兜底。仅更新 Semester 单元格，保留历史学期、标题、编曲者与链接公式。待处理列表提供歌名及 missing / google / pending 原因，限原有选曲权限查看。2026-10-09 排查时 6 条未完成任务的错误均为 sheet_song_missing；尚未通过真实曲库读写验证清除这 6 条，用户需在已登录页面点重试，或等待已有每日重试任务。
