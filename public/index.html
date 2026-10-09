@@ -781,6 +781,12 @@
     .plan-big-song-tag .pair .en {font-size:inherit;}
     .plan-table th>small.hint {display:block;font-size:10px;font-weight:400;margin-top:4px;}
     .plan-score-link {display:inline-block;font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 7px;background:var(--card);}
+    .score-actions {display:grid;grid-template-columns:132px;gap:6px;width:max-content;max-width:100%;}
+    .score-actions-horizontal {grid-template-columns:repeat(2,132px);justify-self:end;}
+    .score-actions .score-action {display:flex;align-items:center;justify-content:center;width:132px;min-height:44px;padding:5px 9px;font-size:13px;line-height:1.2;text-align:center;}
+    .score-actions .score-action .pair {align-items:center;}
+    .score-actions .score-action .pair .en {font-size:inherit;font-weight:inherit;}
+    @media(max-width:520px){.browse-score-row {grid-template-columns:minmax(0,1fr) !important;gap:6px !important;}.browse-score-row .score-actions {justify-self:end;}}
     .plan-score-link:hover {text-decoration:none;background:var(--paper);}
     .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
     .plan-cell {display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;}
@@ -2851,7 +2857,7 @@
       browseSemesterLink.href = browseCache.url;
       browseSemesterLink.textContent = browseCache.label;
       browseFolders.replaceChildren(browseCache.folders.length
-        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url},true))))
+        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {class:'browse-score-row',style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url},true))))
         : el('p', { class: 'hint' }, t('noFolders')));
     }
 
