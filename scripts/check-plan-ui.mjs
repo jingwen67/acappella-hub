@@ -28,7 +28,7 @@ try{
  assert.ok(doc.querySelector('#open-plan').textContent.includes('这学期唱什么'));assert.equal(doc.querySelector('#browse-lineup'),null);
  doc.querySelector('#open-plan').click();await tick();await tick();const body=doc.querySelector('#plan-body');assert.doesNotMatch(body.textContent,/null/);
  assert.deepEqual([...doc.querySelectorAll('.plan-table thead th')].slice(1).map(n=>n.textContent),['Solo','Soprano','Alto','Tenor','Baritone','Bass','Bbox']);
- assert.equal(doc.querySelector('.plan-table tbody tr th .plan-song-title').textContent,'江南');assert.equal(doc.querySelector('.plan-table tbody tr th a').href,'https://drive.google.com/drive/folders/song1');
+ assert.equal(doc.querySelector('.plan-table tbody tr th .plan-song-title').textContent,'江南');assert.equal(doc.querySelector('.plan-table tbody tr th a').href,'http://localhost/pdf.html?folderId=song1');assert.equal(doc.querySelectorAll('.plan-table tbody tr th a')[1].href,'https://drive.google.com/drive/folders/song1');
  assert.equal(doc.querySelectorAll('.plan-cell-add').length,0);assert.equal(doc.querySelectorAll('.plan-table th input[type="checkbox"]').length,0);
  doc.querySelector('#plan-edit-toggle').click();assert.ok(doc.querySelectorAll('.plan-cell-add').length>0);
  const beforeCalls=calls.length;const big=doc.querySelector('tr[data-song-id="1"] th input');big.checked=true;big.dispatchEvent(new window.Event('change'));await tick();assert.equal(calls.length,beforeCalls);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').checked);
