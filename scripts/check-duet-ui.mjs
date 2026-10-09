@@ -37,3 +37,16 @@ context.results.push({...context.results[0],id:11,title:'Older',arranger:'Sophia
 folds[1].attrs.ontoggle({target:{isConnected:true,open:true}});vm.runInContext('renderHistory(results)',context);assert.equal(context.history.nodes.filter(n=>n.tag==='details')[1].attrs.open,true);
 context.formatTime=()=> '10/7 21:46';vm.runInContext('renderHistory(results)',context);const closed=find(context.history.nodes,n=>n.attrs?.class==='meta history-closed');assert.ok(closed.children.includes('已结束 / Closed'));assert.equal(closed.children.filter(x=>typeof x==='string'&&x.includes('10/7 21:46')).length,1);
 context.results.unshift({...context.results[0],id:13,title:'Newest'});vm.runInContext('renderHistory(results)',context);const refreshed=context.history.nodes.filter(n=>n.tag==='details');assert.equal(refreshed[0].attrs.open,true);assert.equal(refreshed[1].attrs.open,false);assert.equal(refreshed[2].attrs.open,true);
+
+context.mineLabel=()=>'';context.countSpan=()=>null;vm.runInContext(html.slice(html.indexOf('    const submittedBallots='),html.indexOf('    function candidateCard(')),context);
+vm.runInContext(html.slice(html.indexOf('    function candidateCard('),html.indexOf('    function pollTypeLabel')),context);
+context.data={user:{id:8,isMd:true},members,phase:{id:30,pollType:'solo',title:'Solo flow',votingMode:'default',started:false,participating:false,candidates:[{id:1,name:'One',mine:null},{id:2,name:'Two',mine:null}],registrationLocked:false}};
+vm.runInContext('renderRound(data)',context);
+assert.ok(find(context.round.nodes,n=>n.tag==='button'&&n.children.some(x=>String(x).includes('开始竞选'))));
+assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
+context.data.user.isMd=false;context.data.phase.started=true;vm.runInContext('renderRound(data)',context);
+const panel=find(context.round.nodes,n=>n.attrs?.class==='panel stack');const candidacy=panel.children.findIndex(n=>n.tag==='button'&&n.children.includes('run'));const enter=panel.children.findIndex(n=>n.tag==='button'&&n.children.some(x=>String(x).includes('参与投票')));assert.ok(enter>candidacy&&candidacy>=0);
+assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(!find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
+await panel.children[enter].attrs.onclick();assert.equal(calls.at(-1).path,'/api/phases/30/enter');
+context.data.phase.participating=true;vm.runInContext('renderRound(data)',context);assert.ok(find(context.round.nodes,n=>n.attrs?.class==='choice is-like'));assert.ok(find(context.round.nodes,n=>n.attrs?.class==='stack ballot-submit'));
+console.log('PASS: Solo create/start competition/join flow, candidacy before voter entry, and hidden choice/submit controls until participation.');

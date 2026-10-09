@@ -776,10 +776,11 @@
     .round-manage-actions .nav-btn:hover {text-decoration:none;background:var(--paper);}
     .round-manage-actions .nav-btn .pair .en {font-size:11px;}
     .poll-title-entry {display:flex;align-items:center;gap:6px;width:100%;min-width:0;min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;}
-    .poll-title-entry input {flex:1 1 0;width:0;min-width:0;min-height:46px;margin:0;border:0;border-radius:0;background:transparent;padding:12px 0;box-shadow:none;}
+    .poll-title-entry input {flex:1 1 0;width:0;min-width:0;min-height:46px;margin:0;border:0;border-radius:10px;background:transparent;padding:12px 0;box-shadow:none;outline:none;}
+    .poll-title-entry input:focus,.poll-title-entry input:focus-visible {outline:none;box-shadow:none;}
     .poll-title-prefix[hidden] {display:none!important;}
     .poll-title-prefix {font-size:14px;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;}
-    .poll-title-entry:focus-within {outline:1px solid var(--muted);}
+    .poll-title-entry:focus-within {outline:none;border-color:var(--muted);box-shadow:0 0 0 1px var(--muted);}
     .plan-song-heading {display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-bottom:8px;}
     .plan-song-title {font-size:16px;font-weight:650;line-height:1.4;}
     .plan-table .plan-checkbox {font-size:11px;font-weight:400;color:var(--muted);gap:6px;margin-top:4px;}
@@ -1185,7 +1186,7 @@
         confirmDelete: '确定删除',
         roundName: '这一轮叫什么',
         roundPlaceholder: '',
-        start: '开始投票',
+        start: '发起投票',
         voteHintLike: '好听！= TA 很好听，可以当 solo。',
         voteHintAgain: '我再听听 = 我不确定 TA 是否合适，想再听听别人。',
         installTitle: '加到主屏幕',
@@ -1343,7 +1344,7 @@
         confirmDelete: 'Delete round',
         roundName: 'Name this round',
         roundPlaceholder: '',
-        start: 'Start voting',
+        start: 'Create poll',
         voteHintLike: 'Sounds great! means they sound good enough for the solo.',
         voteHintAgain: 'Not sure yet means you’re not sure they fit and want to hear the other singers.',
         installTitle: 'Add to Home Screen',
@@ -1992,7 +1993,7 @@
         el('p', { class: 'mine' }, phase.votingMode==='default'?pair(candidate.mine?'已投 TA':'尚未选择',candidate.mine?'Selected':'Not selected'):mineLabel(candidate.mine)),
         recordingList((phase.recordings||[]).filter(recording=>recording.candidateId===candidate.id)),
         candidate.isMe?recordingControls(phase,{candidateId:candidate.id}):null,
-        el('div', { class: 'votes' },
+        phase.started&&phase.participating?el('div', { class: 'votes' },
           el('button', {
             type: 'button',
             class: 'choice is-like',
@@ -2007,7 +2008,7 @@
             'aria-pressed': candidate.mine === 'again' ? 'true' : 'false',
             onclick: choose('again'),
           }, t('listenAgain')),
-        ),
+        ):null,
       );
     }
 
@@ -2112,13 +2113,13 @@
         el('h2', {}, phase.title),
         el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
         el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
-        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始投票。','Registration is open. Waiting for the MD to start voting.')):null,
+        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始竞选。','Registration is open. Waiting for the MD to start auditions.')):null,
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
       if (phase.canSeeResults) children.push(resultsToggle(phase));
-      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
-      if(phase.started&&!phase.participating)children.push(el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
+      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始竞选','Start auditions')));
+
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
         children.push(el('button', {
@@ -2153,10 +2154,11 @@
             }, t('neverMind')),
           ),
         ));
-      } else if(!phase.registrationLocked) {
+      } else {
         children.push(el('button', {
           type: 'button',
           class: 'primary',
+          disabled:phase.registrationLocked,
           onclick: () => run(() => api(`/api/phases/${phase.id}/candidacy`, {
             method: 'POST',
             body: JSON.stringify({ join: true }),
@@ -2164,14 +2166,16 @@
         }, t('run')));
       }
 
+      if(phase.started&&!phase.participating)children.push(el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('参与投票','Join voting')));
+
       if (!count) {
         children.push(el('p', { class: 'hint' }, t('nobody')));
       } else {
         children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
       }
 
-      children.push(ballotSubmit(phase,data.user.id));
-      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是点过「开始投票」的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who tapped Start voting, even after leaving; viewing activity uses the last minute.'))));} 
+      if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
+      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是点过「参与投票」的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who tapped Join voting, even after leaving; viewing activity uses the last minute.'))));} 
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',

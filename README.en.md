@@ -130,9 +130,9 @@ The MD chooses one of four methods when opening a round:
 
 1. Open **Solo / Duet voting** to see the song, arranger and voting method.
 2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Part Voting, choose your part.
-3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
-4. Select your favorites and click again to unselect. Choices save automatically and cannot be changed after the round closes.
-5. In Solo voting, select **Submit vote** to confirm your saved choices with the server. An empty selection can be submitted as an abstention, which counts as submitted. Submission status persists across refreshes and devices. The round creator sees submission progress among members who have tapped Start voting for this round, and viewers active in the last minute; completion is shown when everyone submits. You may change choices before voting closes, then submit again. Submitting does not add duplicate votes; automatically saved choices still count without this optional confirmation.
+3. Wait for the MD to select **Start auditions**. Confirmed entries are shuffled; later entries appear at the end.
+4. For Solo voting, select Join voting after the competition starts, then choose your favorites. Click again to unselect. Choices save automatically and cannot be changed after the round closes.
+5. In Solo voting, select **Submit vote** to confirm your saved choices with the server. An empty selection can be submitted as an abstention, which counts as submitted. Submission status persists across refreshes and devices. The round creator sees submission progress among members who have tapped Join voting for this round, and viewers active in the last minute; completion is shown when everyone submits. You may change choices before voting closes, then submit again. Submitting does not add duplicate votes; automatically saved choices still count without this optional confirmation.
 
 The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Part Voting needs at least one singer in each part before voting starts.
 
