@@ -319,3 +319,7 @@ CREATE TABLE IF NOT EXISTS cucac.vote_presence (
 ALTER TABLE cucac.vote_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cucac.vote_presence ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.vote_submissions,cucac.vote_presence FROM anon; END IF; IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.vote_submissions,cucac.vote_presence FROM authenticated; END IF; END $$;
+ALTER TABLE cucac.vote_presence ADD COLUMN IF NOT EXISTS joined_at timestamptz;
+INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at)
+SELECT phase_id,voter_id,'epoch'::timestamptz,now() FROM (SELECT phase_id,voter_id FROM cucac.votes UNION SELECT phase_id,voter_id FROM cucac.vote_submissions) v
+ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=coalesce(cucac.vote_presence.joined_at,excluded.joined_at);

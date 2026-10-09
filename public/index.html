@@ -1965,7 +1965,7 @@
     function ballotSubmit(phase,userId){
       const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=Object.hasOwn(phase,'submittedBallot')?phase.submittedBallot:submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
       return el('section',{class:'stack ballot-submit'},
-        el('button',{type:'button',class:'primary',disabled:!phase.started,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):votes.length?pair('提交投票','Submit vote'):pair('提交弃票','Submit abstention')),
+        el('button',{type:'button',class:'primary',disabled:!phase.started||!phase.participating,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):pair('提交投票','Submit vote')),
         confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair((receipt.votes.length?'投票提交成功！已确认：':'弃票提交成功！本轮不选择任何人。')+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。',(receipt.votes.length?'Vote submitted! Confirmed: ':'Abstention submitted. No singers selected. ')+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):(receipt||submittedBallots.has(userId+':'+phase.id))?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
     }
 
@@ -1996,14 +1996,14 @@
           el('button', {
             type: 'button',
             class: 'choice is-like',
-            disabled:!phase.started,
+            disabled:!phase.started||!phase.participating,
             'aria-pressed': candidate.mine === 'like' ? 'true' : 'false',
             onclick: choose('like'),
           }, phase.votingMode==='default'?pair(candidate.mine?'取消选择':'投 TA',candidate.mine?'Unselect':'Vote'):t('like')),
           phase.votingMode==='default'?null:el('button', {
             type: 'button',
             class: 'choice is-again',
-            disabled:!phase.started,
+            disabled:!phase.started||!phase.participating,
             'aria-pressed': candidate.mine === 'again' ? 'true' : 'false',
             onclick: choose('again'),
           }, t('listenAgain')),
@@ -2118,6 +2118,7 @@
 
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
+      if(phase.started&&!phase.participating)children.push(el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
         children.push(el('button', {
@@ -2170,7 +2171,7 @@
       }
 
       children.push(ballotSubmit(phase,data.user.id));
-      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是打开过本轮或已投票的参与者，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who visited or voted in this round, even after leaving; viewing activity uses the last minute.'))));} 
+      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是点过「开始投票」的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who tapped Start voting, even after leaving; viewing activity uses the last minute.'))));} 
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',

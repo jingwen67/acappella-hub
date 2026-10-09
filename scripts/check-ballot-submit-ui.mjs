@@ -9,7 +9,7 @@ vm.runInContext(html.slice(html.indexOf('    const submittedBallots='),html.inde
 ctx.phase={id:7,started:false,candidates:[{id:1,mine:null},{id:2,mine:null}]};
 const panel=()=>vm.runInContext('ballotSubmit(phase,42)',ctx);
 assert.equal(panel().children[0].attrs.disabled,true);
-ctx.phase.started=true;assert.equal(panel().children[0].attrs.disabled,false);assert.match(panel().children[0].children.join(''),/弃票/);await panel().children[0].attrs.onclick();assert.match(panel().children[1].children.join(''),/弃票提交成功/);calls.length=0;
+ctx.phase.started=true;assert.equal(panel().children[0].attrs.disabled,true);ctx.phase.participating=true;assert.equal(panel().children[0].attrs.disabled,false);assert.match(panel().children[0].children.join(''),/提交投票/);await panel().children[0].attrs.onclick();assert.match(panel().children[1].children.join(''),/弃票提交成功/);calls.length=0;
 ctx.phase.candidates[0].mine='like';assert.equal(panel().children[0].attrs.disabled,false);
 await panel().children[0].attrs.onclick();assert.equal(calls[0].path,'/api/phases/7/submit');assert.equal(calls[0].votes.length,1);assert.equal(calls[0].votes[0].candidateId,1);
 assert.match(panel().children[1].children.join(''),/投票提交成功/);

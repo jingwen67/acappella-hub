@@ -2,11 +2,12 @@ import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 export function createVoting(pool){return {async progress(phase,user){
+ const participating=Boolean((await pool.query('SELECT joined_at FROM cucac.vote_presence WHERE phase_id=$1 AND user_id=$2',[phase.id,user.id])).rows[0]?.joined_at);
  const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];
  const submittedBallot=own?{phaseId:phase.id,submittedAt:new Date(own.submitted_at).toISOString(),votes:own.ballot}:null;
- if(user.id!==phase.created_by)return {submittedBallot};
- const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_admin=0 AND (pr.user_id IS NOT NULL OR s.voter_id IS NOT NULL OR EXISTS(SELECT 1 FROM cucac.votes v WHERE v.phase_id=$1 AND v.voter_id=u.id))`,[phase.id])).rows[0];
- return {submittedBallot,voteProgress:{...stats,complete:stats.total>0&&stats.submitted===stats.total}};
+ if(user.id!==phase.created_by)return {submittedBallot,participating};
+ const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_admin=0 AND pr.joined_at IS NOT NULL`,[phase.id])).rows[0];
+ return {submittedBallot,participating,voteProgress:{...stats,complete:stats.total>0&&stats.submitted===stats.total}};
 },view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
  let receipt;const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
@@ -30,6 +31,9 @@ export function createVoting(pool){return {async progress(phase,user){
    if(!Array.isArray(body.votes)||!body.votes.every(v=>v&&Number.isInteger(v.candidateId)&&['like','again'].includes(v.reaction))||normalized(body.votes)!==normalized(votes))throw fail(409,'ballot_changed');
    receipt={phaseId:id,submittedAt:new Date().toISOString(),votes:votes.map(v=>({candidateId:v.candidate_id,reaction:v.reaction,name:v.name}))};
    await c.query('INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot,submitted_at) VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(phase_id,voter_id) DO UPDATE SET ballot=excluded.ballot,submitted_at=excluded.submitted_at',[id,user.id,JSON.stringify(receipt.votes),receipt.submittedAt]);
+  }else if(action==='enter'){
+   if(!p.started_at)throw fail(403,'voting_not_started');
+   await c.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at) VALUES($1,$2,now(),now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=coalesce(cucac.vote_presence.joined_at,excluded.joined_at),last_seen=excluded.last_seen',[id,user.id]);
   }else if(action==='presence'){
    if(body.active===false)await c.query("UPDATE cucac.vote_presence SET last_seen='epoch'::timestamptz WHERE phase_id=$1 AND user_id=$2",[id,user.id]);
    else await c.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen) VALUES($1,$2,now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET last_seen=excluded.last_seen',[id,user.id]);
