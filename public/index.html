@@ -817,7 +817,8 @@
     .plan-library-results {max-height:240px;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
     .plan-mobile-cards,.plan-mobile-toggle {display:none;}
     @media(max-width:600px){.plan-mobile-toggle {display:block;}.plan-mobile-cards {display:grid;gap:12px;}.plan-table-wrap {display:block;}.plan-table-wrap.mobile-open {display:block;}.plan-lineups {grid-template-columns:1fr;}}
-  </style>
+  .candidacy-status{text-align:center;padding:16px}.candidacy-title{font-size:20px;font-weight:600;margin:0 0 8px}.candidacy-count{font-size:13px;color:var(--muted);margin:0}
+</style>
 </head>
 <body>
   <a class="global-guide" href="/guide.html" aria-label="使用指南 / User guide">Guide · 使用指南</a>
@@ -2118,12 +2119,11 @@
       }
 
       if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
-      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('参与此轮竞选','Join poll'));
+      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('进入本轮','Enter round'));
       if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
       const count = phase.candidateCount??phase.candidates.length;
       const children = [
         el('h2', {}, phase.title),
-        el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
         el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
         !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')):null,
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
@@ -2133,8 +2133,8 @@
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开启投票','Start voting')));
 
+      children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+count+' 人已参选',count+' candidates registered'))));
       if (phase.iAmCandidate) {
-        children.push(el('p', { class: 'mine' }, t('joined')));
         children.push(el('button', {
           type: 'button',
           class: 'quiet',
@@ -2181,9 +2181,7 @@
 
 
 
-      if (!count) {
-        children.push(el('p', { class: 'hint' }, t('nobody')));
-      } else if(phase.started) {
+      if (count&&phase.started) {
         children.push(el('div', { class: 'cards' }, phase.candidates.map((candidate) => candidateCard(phase, candidate))));
       }
 
