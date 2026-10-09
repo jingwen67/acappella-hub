@@ -65,6 +65,11 @@ try {
  await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://example.com/folder'},400);
  plan=await api(`/api/plan/add/${planTerm}`,'md',{title:'Jiangnan',folderUrl:'https://drive.google.com/drive/folders/scoreFolder'});const planSong=plan.songs[0].id;
  assert.equal(plan.songs[0].folderUrl,'https://drive.google.com/drive/folders/scoreFolder');
+ await api(`/api/plan/lock/${planSong}`,'member',{locked:true},403);
+ await api(`/api/plan/lock/${planSong}`,'md',{locked:'yes'},400);
+ plan=await api(`/api/plan/lock/${planSong}`,'md',{locked:true});assert.equal(plan.songs[0].locked,true);
+ await api(`/api/plan/entry/${planSong}`,'member',{part:'alto'},409);
+ plan=await api(`/api/plan/lock/${planSong}`,'md',{locked:false});assert.equal(plan.songs[0].locked,false);
  await api(`/api/plan/entry/${planSong}`,'member',{memberId:md.user.id,part:'tenor'},403);
  plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'alto'});assert.ok(plan.songs[0].entries.some(e=>e.part==='alto'));
  plan=await api(`/api/plan/entry/${planSong}`,'member',{part:'tenor'});assert.equal(plan.songs[0].entries.length,2);assert.deepEqual(plan.songs[0].entries.map(e=>e.part).sort(),['alto','tenor']);

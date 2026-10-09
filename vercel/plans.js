@@ -13,7 +13,7 @@ export function createPlans(pool){
   const users=(await q.query('SELECT id,name,full_name,voice_part,is_alumni,is_crew FROM cucac.users WHERE is_admin=0')).rows;
   const entries=(await q.query('SELECT e.* FROM cucac.plan_cast e JOIN cucac.plan_songs s ON s.id=e.song_id WHERE s.term_id=$1 AND NOT s.excluded',[id])).rows;
   const included=new Set(entries.map(e=>e.member_key));
-  const members=users.filter(u=>(!u.is_alumni&&!u.is_crew)||included.has(u.id)).map(u=>({id:u.id,name:u.full_name||u.name,voiceParts:readVoiceParts(u.voice_part)}));
+  const members=users.filter(u=>(!u.is_alumni&&!u.is_crew)||included.has(u.id)).map(u=>({id:u.id,name:u.full_name||u.name,displayName:u.full_name?.trim()?u.full_name.trim().split(/\s+/)[0]:u.name,voiceParts:readVoiceParts(u.voice_part)}));
   for(const e of entries)if(!members.some(m=>m.id===e.member_key))members.push({id:e.member_key,name:e.member_name,voiceParts:[e.part],former:true});
   return members;
  }
@@ -59,6 +59,7 @@ export function createPlans(pool){
    // All mutations for a term share its lock, including signup, confirmation and archival.
    const current=(await c.query('SELECT * FROM cucac.plan_songs WHERE id=$1',[id])).rows[0];if(!current)throw fail(404,'plan_missing');
    if(action==='big'){requireManager(user);if(typeof body.bigSong!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_songs SET big_song=$1 WHERE id=$2',[body.bigSong,id]);if(body.bigSong&&!current.big_song){const people=(await c.query('SELECT id,name,full_name,voice_part FROM cucac.users WHERE is_admin=0 AND is_alumni=0 AND is_crew=0')).rows;for(const person of people)for(const part of readVoiceParts(person.voice_part).filter(p=>PLAN_PARTS.includes(p)&&p!=='solo'))await c.query('INSERT INTO cucac.plan_cast(song_id,member_key,member_id,member_name,part) VALUES($1,$2,$2,$3,$4) ON CONFLICT(song_id,member_key,part) DO NOTHING',[id,person.id,person.full_name||person.name,part]);}
+   }else if(action==='lock'){requireManager(user);if(typeof body.locked!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_songs SET locked=$1 WHERE id=$2',[body.locked,id]);
    }else if(action==='edit'){requireManager(user);if(typeof body.locked!=='boolean')throw fail(400,'plan_invalid');await c.query('UPDATE cucac.plan_songs SET title=$1,folder_url=$2,locked=$3 WHERE id=$4',[text(body.title),folder(body.folderUrl),body.locked,id]);await queue(c,folder(body.folderUrl),t.label,text(body.title));
    }else if(action==='delete'){requireChooser(user);await c.query('UPDATE cucac.plan_songs SET excluded=true WHERE id=$1',[id]);
    }else if(action==='entry'){

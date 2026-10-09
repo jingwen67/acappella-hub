@@ -750,6 +750,8 @@
     .plan-table thead th:first-child {z-index:3;}
     .plan-table .nav-btn {font:inherit;font-size:13px;padding:3px 6px;min-height:26px;}
     .plan-group th {background:var(--paper)!important;font-weight:600;}
+    .plan-song-heading {display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+    .plan-song-title {font-weight:600;}
     .plan-score-link {font-size:12px;color:var(--muted);white-space:nowrap;}
     .plan-part {display:inline-block;min-width:26px;padding:2px 5px;border-radius:5px;background:var(--paper);}
     .plan-cell {display:flex;flex-direction:column;align-items:stretch;gap:7px;text-align:left;}
@@ -1677,7 +1679,7 @@
 
     function restoreNavigation() {
       const [route, id, song] = location.hash.slice(1).split('/');
-      if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=nextSong;}
+      if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=null;}
       view = ['members', 'profile', 'poll', 'scores', 'plan'].includes(route) ? route : 'hub';
       profileId = id && /^\d+$/.test(id) ? Number(id) : null;
       profileFrom = window.history.state?.profileFrom || 'members';

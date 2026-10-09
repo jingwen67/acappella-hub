@@ -792,7 +792,7 @@ export default {
         }
         if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
           if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
-          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|current|archive|add|bulk|big|edit|delete|entry)(?:\/(\d+))?$/);
+          const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|current|archive|add|bulk|big|lock|edit|delete|entry)(?:\/(\d+))?$/);
           if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
         }
         if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
