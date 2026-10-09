@@ -1441,9 +1441,9 @@
         ballot_empty: '请先选择参选人，再提交投票',
         ballot_changed: '选择已发生变化，请刷新核对后重新提交',
         vote_limit: '已达到本轮投票上限，请先取消一个选择',
-        voting_not_started: 'MD 尚未开始投票',
+        voting_not_started: 'MD 尚未开启投票',
         need_two_candidates: '至少两位参选人才能开始',
-        registration_locked: '本组开始投票后已锁定报名',
+        registration_locked: '本组开启投票后已锁定报名',
         withdraw_locked: '请联系 MD 处理退选，避免已有选票失效',
         voting_started: '投票已经开始',
         phase_not_closed: '结束投票后才能揭晓排名',
@@ -2031,7 +2031,7 @@
       const children = [el('h2', {}, phase.title),el('p', {class:'meta'},pollTypeLabel(phase.pollType)),el('p', {class:'hint'}, phase.pollType==='pair'
         ? pair('给搭档发起组队，对方确认后参选。同一人可参加不同组合；两组最多选一组，三组及以上最多选两组。','Invite a partner; the pair joins after confirmation. Multiple partnerships are allowed. Choose one of two pairs, or up to two of three or more.')
         : pair('选择一个声部报名。两个声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join one part. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
-        !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开始投票。','Registration is open. Waiting for the MD to start voting.')) : null];
+        !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       if (phase.pollType==='pair') {
         if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
@@ -2046,7 +2046,7 @@
         if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
         else children.push(el('p',{class:'hint'},pair('两个声部的报名均已锁定。','Registration is locked for both parts.')));
       }
-      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?phase.candidates.length<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开始投票','Start voting')));
+      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?phase.candidates.length<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开启投票','Start voting')));
       for (const part of phase.pollType==='parts'?['A','B']:['pair']) {
         const entries=phase.candidates.filter(entry=>entry.part===part);
         if (phase.pollType==='parts') children.push(el('h3',{},partName(part)),el('p',{class:'hint'},pair('最多选择 '+phase.voteLimits[part]+' 位'+(locked(part)?' · 报名已锁定':''),'Select up to '+phase.voteLimits[part]+' singers'+(locked(part)?' · Registration locked':''))));
@@ -2115,13 +2115,13 @@
         el('h2', {}, phase.title),
         el('p', { class: 'meta' }, runningLine(count, phase.openedBy, phase.arranger)),
         el('p',{class:'hint'},phase.votingMode==='default'?pair('默认投票：最多选 '+phase.voteLimit+' 位，可取消选择。','Default voting: select up to '+phase.voteLimit+' singers; click again to unselect.'):pair('点赞投票：好听或再听听。','Like voting: sounds great or not sure yet.')),
-        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开始投票。','Registration is open. Waiting for the MD to start voting.')):null,
+        !phase.started?el('p',{class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')):null,
         phase.registrationLocked?el('p',{class:'hint'},pair('两人场，报名已锁定。','Two-candidate round; registration is locked.')):null,
       ];
 
-      if(!phase.participating)children.push(joinPoll());
+      if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin)children.push(joinPoll());
       if (phase.canSeeResults) children.push(resultsToggle(phase));
-      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开始投票','Start voting')));
+      if(!phase.started&&(data.user.isMd||data.user.isAdmin))children.push(el('button',{type:'button',class:'primary',disabled:count<2,onclick:()=>run(()=>api(`/api/phases/${phase.id}/start`,{method:'POST',body:'{}'}))},pair('开启投票','Start voting')));
 
       if (phase.iAmCandidate) {
         children.push(el('p', { class: 'mine' }, t('joined')));
