@@ -13,6 +13,7 @@ try{
  else if(path==='/api/plan'){result=data;}
  else if(path.startsWith('/api/plan/')){const body=JSON.parse(options.body);calls.push({path,body});const id=Number(path.split('/').at(-1));
   if(path.includes('/entry/')){const memberId=body.memberId||window.planTest.user().id,song=data.songs.find(s=>s.id===id);if(body.remove)song.entries=song.entries.filter(e=>!(e.memberId===memberId&&e.part===body.part));else if(!song.entries.some(e=>e.memberId===memberId&&e.part===body.part))song.entries.push({memberId,name:people.find(p=>p.id===memberId)?.name||'Singer',part:body.part});}
+  if(path.includes('/big/'))data.songs.find(s=>s.id===id).bigSong=body.bigSong;
   if(path.includes('/add/'))data.songs.push({id:3,title:body.title,folderUrl:'',locked:false,entries:[]});result=data;}
  return {ok:true,json:async()=>structuredClone(result)};};
  const html=fs.readFileSync('public/index.html','utf8'),main=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].find(m=>m[1].includes('const loading'))[1];
@@ -22,6 +23,8 @@ try{
  doc.querySelector('#open-plan').click();await tick();await tick();const body=doc.querySelector('#plan-body');assert.doesNotMatch(body.textContent,/null/);
  assert.deepEqual([...doc.querySelectorAll('.plan-table thead th')].slice(1).map(n=>n.textContent),['Solo','Soprano','Alto','Tenor','Baritone','Bass','Bbox']);
  assert.equal(doc.querySelector('.plan-table tbody tr th button').textContent,'江南');assert.equal(doc.querySelector('.plan-table tbody tr th a').href,'https://drive.google.com/drive/folders/song1');
+ assert.doesNotMatch(body.textContent,/Solo 由 MD 安排/);
+ const big=doc.querySelector('tr[data-song-id="1"] th input[type="checkbox"]');assert.ok(!big.disabled);big.checked=true;big.dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(calls.at(-1).path,'/api/plan/big/1');assert.equal(calls.at(-1).body.bigSong,true);assert.ok(doc.querySelector('tr[data-song-id="1"] th input').checked);
  const soloForm=doc.querySelector('tr[data-song-id="1"] td[data-part="solo"] form');soloForm.elements.memberId.value=String(people[0].id);soloForm.dispatchEvent(new window.Event('submit',{cancelable:true}));await tick();await tick();assert.equal(calls.at(-1).body.part,'solo');
  [...doc.querySelectorAll('#plan button')].find(b=>b.textContent.includes('Add / manage songs')).click();await tick();await tick();assert.equal(doc.querySelectorAll('.plan-library-choice').length,2);
  const source=doc.querySelector('#plan select[aria-label="曲库学期 / Library semester"]');source.value='11';source.dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(calls.at(-1).source,'11');assert.equal(doc.querySelectorAll('.plan-library-choice').length,1);
@@ -29,7 +32,7 @@ try{
  [...doc.querySelectorAll('#plan button')].find(b=>b.textContent.includes('Add selected songs')).click();await tick();await tick();assert.equal(calls.at(-1).body.songs[0].folderUrl,'https://drive.google.com/drive/folders/song4');
  const manual=doc.querySelector('#plan form input[name="title"]');manual.value='Unwritten score';manual.focus();window.planTest.rerender();assert.equal(doc.querySelector('#plan form input[name="title"]').value,'Unwritten score');manual.closest('form').dispatchEvent(new window.Event('submit',{cancelable:true}));await tick();await tick();assert.equal(calls.at(-1).path,'/api/plan/add/1');
  [...doc.querySelectorAll('#plan button')].find(b=>b.textContent.includes('Back to lineup')).click();assert.ok(doc.querySelector('.plan-table').textContent.includes('Scores pending'));
- data.canManage=false;data.canChoose=false;window.planTest.member();assert.equal(doc.querySelector('td[data-part="solo"] .plan-join'),null);assert.equal(doc.querySelectorAll('.plan-cell-add').length,0);
+ data.canManage=false;data.canChoose=false;window.planTest.member();assert.ok(doc.querySelector('tr[data-song-id="1"] th input').disabled);assert.equal(doc.querySelector('td[data-part="solo"] .plan-join'),null);assert.equal(doc.querySelectorAll('.plan-cell-add').length,0);
  doc.querySelector('tr[data-song-id="1"] td[data-part="bass"] .plan-join').click();await tick();await tick();assert.equal(calls.at(-1).body.part,'bass');
  doc.querySelector('tr[data-song-id="1"] td[data-part="tenor"] .plan-join').click();await tick();await tick();assert.ok(doc.querySelector('tr[data-song-id="1"] td[data-part="bass"] .plan-name'));assert.ok(doc.querySelector('tr[data-song-id="1"] td[data-part="tenor"] .plan-name'));
  doc.querySelector('tr[data-song-id="1"] td[data-part="bass"] .plan-remove').click();await tick();await tick();assert.equal(calls.at(-1).body.remove,true);assert.ok(doc.querySelector('tr[data-song-id="1"] td[data-part="tenor"] .plan-name'));assert.ok(!doc.querySelector('td[data-part="solo"] .plan-remove'));

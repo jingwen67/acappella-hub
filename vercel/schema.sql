@@ -279,3 +279,5 @@ CREATE INDEX IF NOT EXISTS plan_cast_member_idx ON cucac.plan_cast(member_id);
 ALTER TABLE cucac.plan_cast ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON cucac.plan_cast FROM anon; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.plan_cast FROM authenticated; END IF; END $$;
 INSERT INTO cucac.plan_cast(song_id,member_key,member_id,member_name,part,created_at) SELECT song_id,member_key,member_id,member_name,part,created_at FROM cucac.plan_entries ON CONFLICT(song_id,member_key,part) DO NOTHING;
+
+ALTER TABLE cucac.plan_songs ADD COLUMN IF NOT EXISTS big_song boolean NOT NULL DEFAULT false;

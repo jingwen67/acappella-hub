@@ -128,7 +128,27 @@ try {
  auto=await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo',remove:true});assert.ok(!auto.songs[0].entries.some(e=>e.part==='solo'));
  auto=await api(`/api/plan/add/${autoTerm}`,'md',{title:'Scores not ready'});const pendingSong=auto.songs.find(s=>s.title==='Scores not ready');assert.equal(pendingSong.folderUrl,'');
  auto=await api(`/api/plan/bulk/${autoTerm}`,'md',{songs:[{title:'Scores not ready',folderUrl:'https://drive.google.com/drive/folders/nowReady'}]});assert.equal(auto.songs.find(s=>s.title==='Scores not ready').id,pendingSong.id);
+ // Full-group flag fills profile parts while preserving Solo and manual assignments.
+ await api('/api/profile','member',{voiceParts:['alto','tenor','rap']});
+ await api(`/api/plan/big/${autoSong}`,'member',{bigSong:true},403);
+ await api(`/api/plan/big/${autoSong}`,'president',{bigSong:true},403);
+ await api(`/api/plan/big/${autoSong}`,'md',{bigSong:'yes'},400);
+ await api(`/api/plan/entry/${autoSong}`,'md',{memberId:member.user.id,part:'solo'});
+ auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});
+ let full=auto.songs.find(s=>s.id===autoSong);assert.equal(full.bigSong,true);
+ assert.deepEqual(full.entries.filter(e=>e.memberId===member.user.id).map(e=>e.part).sort(),['alto','solo','tenor']);
+ assert.ok(full.entries.some(e=>e.memberId===md.user.id&&e.part==='bass'));assert.ok(!full.entries.some(e=>e.part==='rap'));
+ const count=full.entries.length;auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});assert.equal(auto.songs.find(s=>s.id===autoSong).entries.length,count);
+ auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:false});assert.equal(auto.songs.find(s=>s.id===autoSong).entries.length,count);
+ await api(`/api/plan/entry/${autoSong}`,'member',{part:'tenor',remove:true});
+ await api(`/api/admin/users/${member.user.id}`,'admin',{crew:true});
+ auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});assert.ok(!auto.songs.find(s=>s.id===autoSong).entries.some(e=>e.memberId===member.user.id&&e.part==='tenor'));
+ await api(`/api/admin/users/${member.user.id}`,'admin',{crew:false});
+ await api(`/api/plan/big/${autoSong}`,'md',{bigSong:false});
+ auto=await api(`/api/plan/big/${autoSong}`,'md',{bigSong:true});assert.ok(auto.songs.find(s=>s.id===autoSong).entries.some(e=>e.memberId===member.user.id&&e.part==='tenor'));
+ console.log('PASS: full-group autofill, multiple profile parts, retained Solo/manual cast, idempotency, active-only eligibility, uncheck preservation and toggle refill.');
  auto=await api('/api/plan/term','md',{label:'2029 Spring'});assert.equal(auto.term.isCurrent,true);assert.ok(auto.terms.filter(t=>t.id!==auto.term.id).every(t=>t.archived));
+ await api(`/api/plan/big/${autoSong}`,'md',{bigSong:false},409);
  const archive=await api('/api/plan?termId='+autoTerm,'member');assert.equal(archive.term.archived,true);assert.ok(archive.songs.find(s=>s.id===autoSong).entries.some(e=>e.part==='bass'));
  console.log('PASS: Solo-only delegated signup, multi-part/multi-singer cells, cross-profile signup, isolated removal, manual titles linked to later scores, single current semester and archived history.');
  console.log('PASS: atomic bulk imports, duplicate folder prevention, preserved plans on Google failure, and durable sync retry completion.');

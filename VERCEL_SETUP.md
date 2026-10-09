@@ -115,3 +115,5 @@ Run `npm run build:vercel`, `npm run check:vercel`, `node scripts/check-duet-ui.
 运行 `vercel/repertoire-schema.sql`：新增当前学期标记和多声部阵容表 plan_cast，将原 plan_entries 报名复制到新表，保留原表供升级核对。新表使用歌曲、成员、声部三字段主键，允许一人兼任及同声部多人，Solo 由后端校验仅能委派；普通成员只能修改自己的非 Solo 报名。使用私有 schema、RLS 与后端数据库连接，不增加公开访问或环境变量。
 
 开启或指定当前学期在同一事务中锁定学期行、保存其他学期人员快照并归档，部分声部退出不影响其他声部。手填歌曲可通过同名曲库选择关联文件夹，复用原记录。升级迁移验证：`node scripts/check-repertoire-migration.mjs`；完整后端和页面检查沿用 `check:vercel` 与 `check-plan-ui.mjs`。
+
+大歌升级运行 `vercel/big-song-schema.sql`。勾选动作锁定所属学期，原子写入标记与有声部的 Active 成员；只在未勾选到勾选时填入，不清除现有阵容，取消标记不删除名单。

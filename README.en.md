@@ -110,6 +110,8 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 - **Scores ↗** opens the linked folder. Removing a song from a semester keeps its scores and signup; re-adding restores them.
 - Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
 
+- **Full group**: checking the song’s box fills every active singer into their matching profile parts, including multiple parts. Solo and existing assignments stay intact. Unchecking keeps the lineup; cells can still be adjusted individually.
+
 <a id="voting"></a>
 ### Solo / Duet Voting
 
