@@ -1026,7 +1026,16 @@ export default {
           if(!known)known=(await google.listScoreIndex()).some(item=>item.id===folderId);
           if(!known)for(const semester of await statements.listSemesters.all()){const source=await statements.semesterById.get(semester.id);if(source?.folder_id&&(await google.listScoreFolders(source.folder_id)).some(item=>item.id===folderId)){known=true;break;}}
           if(!known)throw fail(404,'folder_not_found');
-          if(pathname==='/api/scores/pdf-info')send(res,200,{...await pdfs.info(folderId),canManagePdf:Boolean(isManager(user)||user.isArranger)});
+          if(pathname==='/api/scores/pdf-info'){
+            let canManagePdfPanel=Boolean(user.isMd);
+            if(!canManagePdfPanel){
+              const rows=await google.listScoreIndex(),profile=await statements.profileById.get(user.id);
+              const normalize=value=>String(value||'').trim().toLocaleLowerCase();
+              const names=new Set([user.name,profile?.full_name,profile?.full_name?.trim().split(/\s+/)[0]].filter(Boolean).map(normalize));
+              canManagePdfPanel=rows.filter(row=>row.id===folderId).some(row=>splitArrangers(row.arranger).some(name=>names.has(normalize(name))));
+            }
+            send(res,200,{...await pdfs.info(folderId),canManagePdf:Boolean(isManager(user)||user.isArranger),canManagePdfPanel});
+          }
           else if(pathname==='/api/scores/pdf-url'){const value=url.searchParams.get('fileId');if(value&&!driveId(value))throw fail(404,'pdf_not_found');send(res,200,await pdfs.content(folderId,driveId(value)));}
           else if(pathname==='/api/scores/pdf-star'){const body=await readBody(req);const fileId=driveId(body.fileId);if(!fileId)throw fail(400,'pdf_invalid');send(res,200,await pdfs.star(folderId,fileId,user.id));}
           else {const parts=parseMultipart(await readRaw(req,4*1024*1024),req.headers['content-type']);const files=parts.filter(p=>p.filename);if(files.length!==1||!files[0].filename.toLowerCase().endsWith('.pdf')||!files[0].body.subarray(0,1024).includes(Buffer.from('%PDF-')))throw fail(400,'pdf_invalid');const file=files[0];const uploaded=await google.uploadFile({name:file.filename.replace(/[\\/]/g,' ').slice(0,180),folderId,mime:'application/pdf',bytes:file.body});send(res,200,await pdfs.star(folderId,uploaded.id,user.id));}
