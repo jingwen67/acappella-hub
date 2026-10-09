@@ -105,7 +105,7 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 - Active members can select **+ Join** in any non-Solo cell, regardless of their profile voice parts. You may sing multiple parts in one song. **×** beside your name removes only that part.
 - **The MD assigns Solo singers**; members cannot join or remove Solo themselves. The MD can add or remove singers in any part and confirm a lineup to lock member signup.
 - **Add / manage songs** supports checking multiple library songs and selecting all results. Search the whole library by default, or browse a semester’s Google Drive folder, just like updating existing scores.
-- For scores not uploaded yet, **enter the song title manually** and begin arranging the lineup. It shows “Scores pending.” Selecting the same title from the library later links its folder while preserving signup; a folder link can also be added in Song settings.
+- For scores not uploaded yet, **enter the song title manually** and begin arranging the lineup. It shows “Scores pending.” Selecting the same title from the library later links its folder while preserving signup.
 - In **Semester settings**, the MD can choose the current semester or start a new one. Switching archives the other semesters as read only, preserving their roster and lineup. The performance plan is managed independently of the contents of score-library semester folders.
 - **Scores ↗** opens the linked folder. Removing a song from a semester keeps its scores and signup; re-adding restores them.
 - Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
