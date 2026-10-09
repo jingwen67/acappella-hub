@@ -155,7 +155,7 @@ All signed-in members can play saved recordings. There is no recording time limi
 
 1. Open **Scores** from the home page.
 2. Choose a semester, such as `2026 Fall`, in the score browsing area.
-3. Select **View PDF** to read, turn pages, zoom, or enter fullscreen inside Hub. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
+3. Select **View PDF** to read, turn pages, zoom, or enter fullscreen inside Hub using the PDF’s top-right button or a double-click. Swipe horizontally to turn pages; vertical swipes turn pages at the top or bottom of a page. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
 
 Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current semester in What Are We Singing? and add a PDF. Hub PDF reading requires login and does not make scores public.
 
