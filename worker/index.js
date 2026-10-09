@@ -390,6 +390,7 @@ export default {
         votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b
       })));
       return {
+        uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
         phase: open ? (open.poll_type==='solo'&&!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:'solo',...pollProgress,candidates:[]}:{
           ...(openDuet||{}),

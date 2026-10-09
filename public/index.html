@@ -1786,6 +1786,14 @@
       startPolling();
     }
 
+    const hubUiVersion='__HUB_UI_VERSION__';
+    function needsPageUpdate(data) {
+      if(!data.uiVersion||hubUiVersion==='__HUB_UI_VERSION__'||data.uiVersion===hubUiVersion)return false;
+      banner.hidden=false;
+      banner.replaceChildren(el('button',{type:'button',class:'primary',onclick:()=>location.reload()},pair('网站已更新，点击刷新','Hub has been updated. Tap to refresh')));
+      return true;
+    }
+
     async function refresh({ force = false } = {}) {
       let res;
       try {
@@ -1803,6 +1811,7 @@
         return;
       }
       const data = await res.json();
+      if(needsPageUpdate(data))return;
       const next = JSON.stringify(data);
       const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
       if (!force && (freezeRender || typing || next === snapshot)) return;
@@ -1818,6 +1827,7 @@
       try {
         const data = await fn();
         if (data && data.user) {
+          if(needsPageUpdate(data))return;
           snapshot = JSON.stringify(data);
           freezeRender = false;
           showApp(data);
