@@ -340,6 +340,7 @@ try {
  let duet=await api('/api/phases','md',{title:'Two pairs',arrangerId:md.user.id,pollType:'pair'},201);
  let did=duet.phase.id;
  const users={md:md.user.id,outsider:outsider.user.id,retry:(await api('/api/state','retry')).user.id,invited:(await api('/api/state','invited')).user.id,single:(await api('/api/state','single')).user.id};
+ const enterDuetUsers=async()=>{const hidden=await api('/api/state','outsider');assert.deepEqual(hidden.phase.candidates,[]);assert.equal(hidden.phase.pendingPairs,undefined);for(const who of Object.keys(users))await api(`/api/phases/${did}/enter`,who,{});};await enterDuetUsers();
  await api(`/api/phases/${did}/pair`,'md',{partnerId:users.md},400);
  await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider,auditionUrl:'javascript:alert(1)'},400);
  duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider,auditionUrl:'https://drive.google.com/test'});
@@ -349,11 +350,12 @@ try {
  await api(`/api/phases/${did}/pair`,'outsider',{partnerId:users.md},409);
  await api(`/api/phases/${did}/confirm`,'md',{entryId:first},403);
  await api(`/api/phases/${did}/confirm`,'retry',{entryId:first},403);
- duet=await api(`/api/phases/${did}/confirm`,'outsider',{entryId:first});assert.equal(duet.phase.candidates.length,1);
+ duet=await api(`/api/phases/${did}/confirm`,'outsider',{entryId:first});assert.equal(duet.phase.candidateCount,1);assert.deepEqual(duet.phase.candidates,[]);assert.equal(duet.phase.ownEntries.length,1);
  await api(`/api/phases/${did}/start`,'md',{},400);
  duet=await api(`/api/phases/${did}/pair`,'retry',{partnerId:users.invited});const second=duet.phase.pendingPairs[0].id;
  await api(`/api/phases/${did}/confirm`,'invited',{entryId:second});
  duet=await api(`/api/phases/${did}/pair`,'single',{partnerId:users.md});const pending=duet.phase.pendingPairs[0].id;
+ const pairWaiting=await api('/api/state','retry');assert.deepEqual(pairWaiting.phase.candidates,[]);assert.equal(pairWaiting.phase.candidateCount,2);assert.equal(pairWaiting.phase.ownEntries.length,1);await api(`/api/phases/${did}/submit`,'retry',{votes:[]},403);
  duet=await api(`/api/phases/${did}/start`,'md',{});assert.equal(duet.phase.registrationLocked,true);
  await api(`/api/phases/${did}/confirm`,'md',{entryId:pending},403);
  await api(`/api/phases/${did}/vote`,'single',{entryId:pending,reaction:'like'},400);
@@ -363,6 +365,7 @@ try {
  await api(`/api/phases/${did}/vote`,'md',{entryId:first,reaction:null});
  duet=await api(`/api/phases/${did}/vote`,'md',{entryId:second,reaction:'like'});assert.equal(duet.phase.candidates.find(e=>e.id===second).mine,'like');
  assert.equal(duet.phase.candidates.find(e=>e.id===second).likes,undefined);
+ const pairReceipt=await api(`/api/phases/${did}/submit`,'md',{votes:[{candidateId:second,reaction:'like'}]});assert.equal(pairReceipt.voteReceipt.votes[0].candidateId,second);assert.equal((await api('/api/state','md')).phase.submittedBallot.votes.length,1);await api(`/api/phases/${did}/vote`,'md',{entryId:second,reaction:null});assert.equal((await api('/api/state','md')).phase.submittedBallot,null);await api(`/api/phases/${did}/vote`,'md',{entryId:second,reaction:'like'});const pairAbstain=await api(`/api/phases/${did}/submit`,'retry',{votes:[]});assert.equal(pairAbstain.voteReceipt.votes.length,0);await api(`/api/phases/${did}/submit`,'md',{votes:[]},409);
  await api(`/api/phases/${did}/cancel`,'md',{entryId:first},403);
  await api(`/api/phases/${did}/audition`,'retry',{entryId:first,auditionUrl:'https://example.org'},403);
  await api(`/api/phases/${did}/close`,'md',{});
@@ -372,7 +375,7 @@ try {
  await api(`/api/phases/${did}/audition`,'md',{entryId:first,auditionUrl:'https://example.org'},400);
 
  // Three-pair ballots permit two choices and append later confirmed pairs.
- duet=await api('/api/phases','md',{title:'Open pairs',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;
+ duet=await api('/api/phases','md',{title:'Open pairs',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;await enterDuetUsers();
  const pairs=[];
  for(const partner of ['outsider','retry','invited']){duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users[partner]});const entry=duet.phase.pendingPairs.find(e=>e.members.some(m=>m.id===users[partner]));pairs.push(entry.id);await api(`/api/phases/${did}/confirm`,partner,{entryId:entry.id});}
  duet=await api(`/api/phases/${did}/start`,'md',{});const pairOrder=duet.phase.candidates.map(e=>e.id);assert.equal(duet.phase.registrationLocked,false);
@@ -381,25 +384,28 @@ try {
  await api(`/api/phases/${did}/vote`,'single',{entryId:pairs[2],reaction:'like'},400);
  duet=await api(`/api/phases/${did}/pair`,'single',{partnerId:users.md});const late=duet.phase.pendingPairs[0].id;
  duet=await api(`/api/phases/${did}/confirm`,'md',{entryId:late});assert.deepEqual(duet.phase.candidates.slice(0,3).map(e=>e.id),pairOrder);assert.equal(duet.phase.candidates.at(-1).id,late);
- await api(`/api/phases/${did}/cancel`,'single',{entryId:late});
+ await api(`/api/phases/${did}/vote`,'single',{entryId:pairs[0],reaction:null});await api(`/api/phases/${did}/vote`,'single',{entryId:late,reaction:'like'});await api(`/api/phases/${did}/submit`,'single',{votes:[{candidateId:pairs[1],reaction:'like'},{candidateId:late,reaction:'like'}]});
+ await api(`/api/phases/${did}/cancel`,'single',{entryId:late});assert.equal((await api('/api/state','single')).phase.submittedBallot,null);
  await api(`/api/phases/${did}/cancel`,'md',{entryId:pairs[0]},403);
  await api(`/api/phases/${did}/close`,'md',{});
 
  // Independent part ballots, custom labels, one-part registration and per-part ties.
  const extra=await api('/api/register','sixth',{name:'Duet sixth',password:'abc12345'},201);users.sixth=extra.user.id;
- duet=await api('/api/phases','md',{title:'Part voting',arrangerId:md.user.id,pollType:'parts',partA:'High voice',partB:'Low voice'},201);did=duet.phase.id;
+ duet=await api('/api/phases','md',{title:'Part voting',arrangerId:md.user.id,pollType:'parts',partA:'High voice',partB:'Low voice'},201);did=duet.phase.id;await enterDuetUsers();
  assert.equal(duet.phase.partA,'High voice');assert.equal(duet.phase.partB,'Low voice');
  await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'A'});
  await api(`/api/phases/${did}/start`,'md',{},400);
  await api(`/api/phases/${did}/candidacy`,'md',{join:true,part:'B'},409);
  for(const who of ['outsider','retry'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'A'});
  for(const who of ['invited','single','sixth'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'B'});
+ const partsWaiting=await api('/api/state','outsider');assert.deepEqual(partsWaiting.phase.candidates,[]);assert.equal(partsWaiting.phase.candidateCount,6);assert.deepEqual(partsWaiting.phase.candidateCounts,{pair:0,A:3,B:3});assert.equal(partsWaiting.phase.ownEntries.length,1);
  duet=await api(`/api/phases/${did}/start`,'md',{});
  assert.deepEqual(duet.phase.voteLimits,{A:2,B:2});assert.deepEqual(duet.phase.partLocks,{A:false,B:false});
  const aEntries=duet.phase.candidates.filter(e=>e.part==='A'),bEntries=duet.phase.candidates.filter(e=>e.part==='B');
  for(const entry of [...aEntries.slice(0,2),...bEntries.slice(0,2)])await api(`/api/phases/${did}/vote`,'md',{entryId:entry.id,reaction:'like'});
  await api(`/api/phases/${did}/vote`,'md',{entryId:aEntries[2].id,reaction:'like'},400);
  await api(`/api/phases/${did}/vote`,'md',{entryId:bEntries[2].id,reaction:'like'},400);
+ const partsBallot=[...aEntries.slice(0,2),...bEntries.slice(0,2)].map(e=>({candidateId:e.id,reaction:'like'}));const partsReceipt=await api(`/api/phases/${did}/submit`,'md',{votes:partsBallot});assert.equal(partsReceipt.voteReceipt.votes.length,4);await api(`/api/phases/${did}/vote`,'md',{entryId:aEntries[0].id,reaction:null});assert.equal((await api('/api/state','md')).phase.submittedBallot,null);await api(`/api/phases/${did}/vote`,'md',{entryId:aEntries[0].id,reaction:'like'});
  await api(`/api/phases/${did}/cancel`,'md',{entryId:aEntries.find(e=>e.isMe).id},403);
  await query('DELETE FROM cucac.duet_votes WHERE phase_id=$1',[did]);
  for(const entries of [aEntries,bEntries])for(let i=0;i<3;i++)for(let j=0;j<(entries===bEntries?[3,2,2]:[3,2,1])[i];j++)await query('INSERT INTO cucac.duet_votes(phase_id,entry_id,voter_id) VALUES($1,$2,$3)',[did,entries[i].id,voterIds[j]]);
@@ -413,7 +419,7 @@ try {
  assert.equal((await query('SELECT count(*)::int AS n FROM cucac.duet_entries WHERE phase_id=$1',[did])).rows[0].n,0);
  assert.equal((await query('SELECT count(*)::int AS n FROM cucac.duet_votes WHERE phase_id=$1',[did])).rows[0].n,0);
 
- duet=await api('/api/phases','md',{title:'Small parts',arrangerId:md.user.id,pollType:'parts'},201);did=duet.phase.id;
+ duet=await api('/api/phases','md',{title:'Small parts',arrangerId:md.user.id,pollType:'parts'},201);did=duet.phase.id;await enterDuetUsers();
  for(const who of ['md','outsider'])await api(`/api/phases/${did}/candidacy`,who,{join:true,part:'A'});
  await api(`/api/phases/${did}/candidacy`,'single',{join:true,part:'B'});
  duet=await api(`/api/phases/${did}/start`,'md',{});assert.deepEqual(duet.phase.voteLimits,{A:1,B:1});
@@ -444,7 +450,7 @@ try {
  assert.equal((await api('/api/state','sixth')).history.find(h=>h.id===did).recordings.length,0);
  await env.recordings.cleanup();assert.equal(files.has(clip.key),false);assert.equal((await query('SELECT 1 FROM cucac.recordings WHERE id=$1',[clip.id])).rows.length,0);
  // Either confirmed partner can delete a pair's recording, but only the uploader can finalize an upload.
- duet=await api('/api/phases','md',{title:'Pair recording',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;
+ duet=await api('/api/phases','md',{title:'Pair recording',arrangerId:md.user.id,pollType:'pair'},201);did=duet.phase.id;await enterDuetUsers();
  duet=await api(`/api/phases/${did}/pair`,'md',{partnerId:users.outsider});const audioPair=duet.phase.pendingPairs[0].id;
  await api(`/api/phases/${did}/recordings`,'md',{entryId:audioPair,mime:'audio/webm',size:10},403);
  await api(`/api/phases/${did}/confirm`,'outsider',{entryId:audioPair});
@@ -452,7 +458,7 @@ try {
  await api(`/api/recordings/${pairedClip.id}/complete`,'md',{},403);
  await api(`/api/recordings/${pairedClip.id}/delete`,'md',{});assert.equal(files.has(pairedClip.key),false);
  await api(`/api/phases/${did}/close`,'md',{});
- duet=await api('/api/phases','md',{title:'Solo recording',arrangerId:md.user.id},201);did=duet.phase.id;
+ duet=await api('/api/phases','md',{title:'Solo recording',arrangerId:md.user.id},201);did=duet.phase.id;await enterDuetUsers();
  await api(`/api/phases/${did}/recordings`,'md',{candidateId:users.md,mime:'audio/webm',size:10},400);
  await api(`/api/phases/${did}/candidacy`,'md',{join:true});
  const soloClip=await putAudio('md',did,{candidateId:users.md});

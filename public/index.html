@@ -1674,7 +1674,7 @@
     }
 
     let lastVotePresence=0;
-    function votePresence(active=true){const phase=latest?.phase;if(!phase||phase.pollType!=='solo')return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
+    function votePresence(active=true){const phase=latest?.phase;if(!phase)return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
     document.addEventListener('visibilitychange',()=>{if(view==='poll')votePresence(!document.hidden);});
     function startPolling() {
       if (pollTimer) return;
@@ -1978,7 +1978,7 @@
       const votes=phase.candidates.filter(c=>c.mine).map(c=>({candidateId:c.id,reaction:c.mine})),receipt=Object.hasOwn(phase,'submittedBallot')?phase.submittedBallot:submittedBallots.get(userId+':'+phase.id),confirmed=receipt&&ballotSignature(votes)===ballotSignature(receipt.votes);
       return el('section',{class:'stack ballot-submit'},
         el('button',{type:'button',class:'primary',disabled:!phase.started||!phase.participating,onclick:()=>run(async()=>{const data=await api(`/api/phases/${phase.id}/submit`,{method:'POST',body:JSON.stringify({votes})});if(data.voteReceipt)submittedBallots.set(userId+':'+phase.id,data.voteReceipt);return data;})},confirmed?pair('已提交 · 再次确认','Submitted · Confirm again'):pair('提交投票','Submit vote')),
-        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair((receipt.votes.length?'投票提交成功！已确认：':'弃票提交成功！本轮不选择任何人。')+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。',(receipt.votes.length?'Vote submitted! Confirmed: ':'Abstention submitted. No singers selected. ')+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):(receipt||submittedBallots.has(userId+':'+phase.id))?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
+        confirmed?el('p',{class:'hint',role:'status','aria-live':'polite'},pair((receipt.votes.length?'投票提交成功！已确认：':'弃票提交成功！本轮不选择任何人。')+receipt.votes.map(v=>v.name+(v.reaction==='again'?'（再听听）':'')).join('、')+'。结束前仍可修改，修改后请重新提交。',(receipt.votes.length?'Vote submitted! Confirmed: ':'Abstention submitted. No candidates selected. ')+receipt.votes.map(v=>v.name+(v.reaction==='again'?' (not sure yet)':'')).join(', ')+'. You can change your selections before voting closes; submit again after making changes.')):(receipt||submittedBallots.has(userId+':'+phase.id))?el('p',{class:'hint',role:'status'},pair('选择已变更，请重新提交确认。','Selections changed. Submit again to confirm.')):null);
     }
 
     function candidateCard(phase, candidate) {
@@ -2031,12 +2031,14 @@
       return el('div', {class:'duet-identity'}, entry.members.map(member => el('span', {class:'roster-name'}, avatarNode({id:member.id,name:member.name,avatar:member.avatar}), el('span', {}, member.name))));
     }
 
+    function voteProgressCard(progress){return el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.')));}
+
     function renderDuetRound(data) {
       const phase = data.phase;
       const action = (name, body={}) => run(() => api(`/api/phases/${phase.id}/${name}`, {method:'POST',body:JSON.stringify(body)}));
-      const ownerEntries = phase.candidates.filter(entry => entry.isMe);
+      const ownerEntries = phase.ownEntries||phase.candidates.filter(entry => entry.isMe);
       const partName = part => part === 'A' ? phase.partA : phase.partB;
-      const countIn = part => phase.candidates.filter(entry => entry.part === part).length;
+      const countIn = part => phase.candidateCounts?.[part]??phase.candidates.filter(entry => entry.part === part).length;
       const locked = part => phase.started && (phase.pollType === 'pair' ? phase.registrationLocked : phase.partLocks[part]);
       const canWithdraw = entry => !phase.started || (!locked(entry.part) && countIn(entry.part)>3);
       const children = [el('h2', {}, phase.title),el('p', {class:'meta'},pollTypeLabel(phase.pollType)),el('p', {class:'hint'}, phase.pollType==='pair'
@@ -2044,6 +2046,8 @@
         : pair('选择一个声部报名。两个声部分别投票和排名；每声部有一至两位时最多选一位，三位及以上最多选两位。','Join one part. Each part has its own ballot and ranking: choose one of one or two singers, or up to two of three or more.')),
         !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
       if (phase.canSeeResults) children.push(resultsToggle(phase));
+      children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+(phase.candidateCount??phase.candidates.length)+' '+(phase.pollType==='pair'?'组':'人')+'已参选',(phase.candidateCount??phase.candidates.length)+' candidates registered'))));
+      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),el('button',{type:'button',class:'nav-btn',onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw'))));
       if (phase.pollType==='pair') {
         if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
           event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId'))});
@@ -2057,19 +2061,22 @@
         if (available.length) children.push(el('form',{class:'stack',onsubmit:event=>{event.preventDefault();const form=new FormData(event.target);action('candidacy',{join:true,part:form.get('part')});}},el('label',{},pair('报名声部','Choose your part'),el('select',{name:'part'},available.map(part=>el('option',{value:part},partName(part))))),el('button',{type:'submit',class:'nav-btn'},pair('报名','Join'))));
         else children.push(el('p',{class:'hint'},pair('两个声部的报名均已锁定。','Registration is locked for both parts.')));
       }
-      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?phase.candidates.length<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开启投票','Start voting')));
+      if (!phase.started&&(data.user.isMd||data.user.isAdmin)) children.push(el('button',{type:'button',class:'primary',disabled:phase.pollType==='pair'?(phase.candidateCount??phase.candidates.length)<2:!countIn('A')||!countIn('B'),onclick:()=>action('start')},pair('开启投票','Start voting')));
       for (const part of phase.pollType==='parts'?['A','B']:['pair']) {
         const entries=phase.candidates.filter(entry=>entry.part===part);
         if (phase.pollType==='parts') children.push(el('h3',{},partName(part)),el('p',{class:'hint'},pair('最多选择 '+phase.voteLimits[part]+' 位'+(locked(part)?' · 报名已锁定':''),'Select up to '+phase.voteLimits[part]+' singers'+(locked(part)?' · Registration locked':''))));
+        if(!phase.started){if(phase.pollType==='parts')children.push(el('p',{class:'candidacy-count'},pair('共 '+countIn(part)+' 人已参选',countIn(part)+' candidates registered')));continue;}
         children.push(entries.length?el('div',{class:'cards'},entries.map(entry=>el('article',{class:entry.isMe?'card is-me stack':'card stack'},duetIdentity(entry),
           phase.canSeeResults&&detailedResults.has(phase.id)?el('p',{class:'meta'},pair(entry.likes+' 票',entry.likes+' votes')):null,
-          el('button',{type:'button',class:'choice is-like',disabled:!phase.started,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')),
+          phase.participating?el('button',{type:'button',class:'choice is-like',disabled:!phase.started||!phase.participating,'aria-pressed':entry.mine?'true':'false',onclick:()=>action('vote',{entryId:entry.id,reaction:entry.mine?null:'like'})},entry.mine?pair('取消选择','Unselect'):phase.pollType==='pair'?pair('投这组','Vote for this pair'):pair('投 TA','Vote')):null,
           recordingList((phase.recordings||[]).filter(recording=>recording.entryId===entry.id)),
           entry.isMe?recordingControls(phase,{entryId:entry.id}):null,
           entry.isMe?el('button',{type:'button',class:'nav-btn',disabled:!canWithdraw(entry),onclick:()=>{if(window.confirm(both('withdrawHint')))action('cancel',{entryId:entry.id});}},pair('退出参选','Withdraw')):null,
         ))):el('p',{class:'hint'},pair('还没有参选人','No candidates yet')));
       }
-      if (data.user.isMd||data.user.isAdmin) children.push(el('button',{type:'button',class:'nav-btn',onclick:()=>{if(window.confirm(both('closeHint')))action('close');}},pair('结束投票','Close voting')));
+      if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
+      if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+      if (data.user.isMd||data.user.isAdmin) children.push(el('button',{type:'button',class:'primary',onclick:()=>{if(window.confirm(both('closeHint')))action('close');}},pair('结束投票','Close voting')));
       round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
     }
 
@@ -2118,9 +2125,9 @@
         return;
       }
 
-      if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
       const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('进入本轮','Enter round'));
       if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
+      if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
       const count = phase.candidateCount??phase.candidates.length;
       const children = [
         el('h2', {}, phase.title),
@@ -2186,7 +2193,7 @@
       }
 
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
-      if(phase.voteProgress){const progress=phase.voteProgress;children.push(el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.'))));} 
+      if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',

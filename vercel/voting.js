@@ -22,7 +22,7 @@ export function createVoting(pool){return {async progress(phase,user){
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[id]);
  }else{
   if(p.status!=='open')throw fail(400,'phase_closed');
-  if(p.poll_type&&p.poll_type!=='solo'){await duetAction(c,p,action,user,body);}else{
+  if(p.poll_type&&p.poll_type!=='solo'&&!['enter','presence'].includes(action)){receipt=await duetAction(c,p,action,user,body);if(action==='vote')await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[id,user.id]);}else{
   const candidates=(await c.query('SELECT user_id FROM cucac.candidacies WHERE phase_id=$1 ORDER BY created_at,user_id',[id])).rows.map(r=>r.user_id);
   if(action==='submit'){
    if(!p.started_at)throw fail(403,'voting_not_started');

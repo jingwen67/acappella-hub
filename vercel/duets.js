@@ -13,7 +13,16 @@ export async function duetAction(c,p,action,user,body){
  const locks=JSON.parse(p.part_locks||'{}');
  const isLocked=part=>Boolean(p.started_at&&(p.poll_type==='pair'?p.registration_locked:locks[part]));
  const append=async id=>{if(p.started_at){const order=JSON.parse(p.candidate_order);order.push(id);await c.query('UPDATE cucac.phases SET candidate_order=$1 WHERE id=$2',[JSON.stringify(order),p.id]);}};
- if(action==='start'){
+ if(action==='submit'){
+  if(!p.started_at)throw fail(403,'voting_not_started');
+  const votes=(await c.query('SELECT v.entry_id FROM cucac.duet_votes v JOIN cucac.duet_entries e ON e.id=v.entry_id WHERE v.phase_id=$1 AND v.voter_id=$2 AND e.confirmed=1 ORDER BY v.entry_id',[p.id,user.id])).rows;
+  const expected=votes.map(v=>v.entry_id),provided=Array.isArray(body.votes)&&body.votes.every(v=>v&&Number.isInteger(v.candidateId)&&v.reaction==='like')?body.votes.map(v=>v.candidateId).sort((a,b)=>a-b):null;
+  if(!provided||JSON.stringify(provided)!==JSON.stringify(expected))throw fail(409,'ballot_changed');
+  const names=(await c.query('SELECT e.id,u.name AS name1,u.full_name AS full1,v.name AS name2,v.full_name AS full2 FROM cucac.duet_entries e JOIN cucac.users u ON u.id=e.member1 LEFT JOIN cucac.users v ON v.id=e.member2 WHERE e.phase_id=$1',[p.id])).rows;
+  const receipt={phaseId:p.id,submittedAt:new Date().toISOString(),votes:expected.map(id=>{const row=names.find(r=>r.id===id);return {candidateId:id,reaction:'like',name:[row.full1||row.name1,row.full2||row.name2].filter(Boolean).join(' + ')};})};
+  await c.query('INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot,submitted_at) VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(phase_id,voter_id) DO UPDATE SET ballot=excluded.ballot,submitted_at=excluded.submitted_at',[p.id,user.id,JSON.stringify(receipt.votes),receipt.submittedAt]);
+  return receipt;
+ }else if(action==='start'){
   if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
   if(p.started_at)throw fail(409,'voting_started');
   if(p.poll_type==='pair'&&confirmed.length<2)throw fail(400,'need_two_pairs');
@@ -46,6 +55,7 @@ export async function duetAction(c,p,action,user,body){
   }else{
    const count=confirmed.filter(row=>row.part===entry.part).length;
    if(entry.confirmed&&p.started_at&&(isLocked(entry.part)||count<=3))throw fail(403,'withdraw_locked');
+   await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND EXISTS(SELECT 1 FROM jsonb_array_elements(ballot) v WHERE (v->>\'candidateId\')::int=$2)',[p.id,entry.id]);
    await c.query('DELETE FROM cucac.duet_entries WHERE id=$1',[entry.id]);
   }
  }else if(action==='candidacy'){
@@ -58,6 +68,7 @@ export async function duetAction(c,p,action,user,body){
    const inserted=(await c.query('INSERT INTO cucac.duet_entries(phase_id,member1,proposed_by,part,confirmed,audition_url,created_at) VALUES($1,$2,$2,$3,1,$4,$5) RETURNING id',[p.id,user.id,body.part,auditionUrl(body.auditionUrl),new Date().toISOString()])).rows[0];await append(inserted.id);
   }else if(existing){
    if(p.started_at&&(isLocked(existing.part)||confirmed.filter(row=>row.part===existing.part).length<=3))throw fail(403,'withdraw_locked');
+   await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND EXISTS(SELECT 1 FROM jsonb_array_elements(ballot) v WHERE (v->>\'candidateId\')::int=$2)',[p.id,existing.id]);
    await c.query('DELETE FROM cucac.duet_entries WHERE id=$1',[existing.id]);
   }
  }else if(action==='vote'){
@@ -92,7 +103,11 @@ export async function duetView(pool,p,user){
   const order=JSON.parse(p.candidate_order);candidates.sort((a,b)=>{const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?1e9:ai)-(bi<0?1e9:bi);});
  }
  const locks=JSON.parse(p.part_locks||'{}');
- return {pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partLocks:locks,candidates,
+ const confirmed=rows.filter(row=>row.confirmed);
+ const candidateCounts=Object.fromEntries(['pair','A','B'].map(part=>[part,confirmed.filter(row=>row.part===part).length]));
+ const ownEntries=p.status==='open'?candidates.filter(entry=>entry.isMe):[];
+ if(p.status==='open'&&!p.started_at)candidates=[];
+ return {candidateCount:confirmed.length,candidateCounts,ownEntries,pollType:p.poll_type,partA:p.part_a,partB:p.part_b,partLocks:locks,candidates,
   pendingPairs:p.status==='open'?rows.filter(row=>!row.confirmed&&belongs(row,user)).map(row=>({...view(row),canConfirm:row.proposed_by!==user.id})):[],
   iAmCandidate:rows.some(row=>row.confirmed&&belongs(row,user)),
   voteLimits:p.poll_type==='parts'?{A:locks.A?1:2,B:locks.B?1:2}:{pair:p.registration_locked?1:2}};

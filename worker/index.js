@@ -378,7 +378,7 @@ export default {
       if (!account) throw fail(401, 'login_required');
       const open = await statements.openPhase.get();
       const openVisible = seesResults(account, open);
-      const pollProgress=open?.poll_type==='solo'&&env.voting?.progress?await env.voting.progress(open,account):{};
+      const pollProgress=open&&env.voting?.progress?await env.voting.progress(open,account):{};
       const soloCandidates=open?.poll_type==='solo'?await loadCandidates(open.id,user.id,openVisible):[];
       const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
       const history = await Promise.all((songId?await env.plans.pollHistory(songId):await statements.history.all()).map(async phase => ({
@@ -392,10 +392,10 @@ export default {
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
-        phase: open ? (open.poll_type==='solo'&&!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:'solo',...pollProgress,candidates:[]}:{
+        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:open.poll_type,...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
-          recordings:open.poll_type==='solo'&&!open.started_at?[]:env.recordings?await env.recordings.list(open.id,account):[],
+          recordings:!open.started_at?[]:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
           status: open.status,
@@ -408,7 +408,7 @@ export default {
           canSeeResults: openVisible,
           pollType:open.poll_type,
           iAmCandidate: openDuet?openDuet.iAmCandidate:Boolean(await statements.isCandidate.get(open.id, user.id)),
-          candidateCount:openDuet?openDuet.candidates.length:soloCandidates.length,
+          candidateCount:openDuet?openDuet.candidateCount:soloCandidates.length,
           candidates: openDuet?openDuet.candidates:(!open.started_at?[]:soloCandidates).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
         }) : null,
         history,
