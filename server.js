@@ -1,6 +1,6 @@
 import { galleryService } from './gallery.js';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -17,6 +17,11 @@ const assets = {
   '/icon-192.png': ['image/png', readFileSync(join(root, 'public', 'icon-192.png'))],
   '/icon-512.png': ['image/png', readFileSync(join(root, 'public', 'icon-512.png'))],
 };
+function addWorkshopAssets(dir, prefix='/workshop/') {
+  const types={'.html':'text/html; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.pdf':'application/pdf','.mscz':'application/octet-stream'};
+  for(const name of readdirSync(dir)){const file=join(dir,name);if(statSync(file).isDirectory())addWorkshopAssets(file,prefix+name+'/');else assets[prefix+name]=[types[name.slice(name.lastIndexOf('.'))]||'application/octet-stream',readFileSync(file)];}
+}
+addWorkshopAssets(join(root,'public','workshop'));
 const dataDir = join(root, 'data');
 const google = createGoogle(dataDir);
 
