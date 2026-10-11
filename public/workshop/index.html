@@ -700,7 +700,7 @@ let scrollAnchor=window.scrollY;
 window.addEventListener('scroll',()=>{const y=window.scrollY;if(y<=8){document.body.classList.remove('reading-hidden');scrollAnchor=y;return;}if(y-scrollAnchor>12){document.body.classList.add('reading-hidden');scrollAnchor=y;}else if(y<scrollAnchor)scrollAnchor=y;},{passive:true});
 let pointerStart=null;
 document.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,y:e.clientY};},{passive:true});
-document.addEventListener('pointerup',e=>{if(pointerStart&&Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)<10&&!e.target.closest('a,button')){document.body.classList.remove('reading-hidden');scrollAnchor=window.scrollY;}pointerStart=null;},{passive:true});
+document.addEventListener('pointerup',e=>{if(pointerStart&&Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)<10&&!e.target.closest('a,button')){document.body.classList.toggle('reading-hidden');scrollAnchor=window.scrollY;}pointerStart=null;},{passive:true});
 document.addEventListener('pointercancel',()=>pointerStart=null);
 document.addEventListener('focusin',()=>document.body.classList.remove('reading-hidden'));
 </script><nav class="floating-actions" aria-label="返回与下载"><a class="back" href="/">← 返回 Hub</a><div class="downloads"><a class="download" href="workshop.mscz" download="阿卡贝拉编曲Workshop.mscz">下载 MuseScore</a><a class="download" href="workshop.pdf" download="阿卡贝拉编曲Workshop.pdf">下载 PDF</a></div></nav></body></html>
