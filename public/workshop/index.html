@@ -706,7 +706,7 @@ document.addEventListener('focusin',()=>document.body.classList.remove('reading-
 
 const fileDialog=document.getElementById('file-dialog'),downloadLink=document.getElementById('file-download'),shareButton=document.getElementById('file-share'),fileStatus=document.getElementById('file-status');
 let currentFile=null,currentKind=null,loadSequence=0;const completedDownloads=new Map();
-function updateDownloadState(){const message=completedDownloads.get(currentKind);downloadLink.textContent=message?'已下载':'下载';if(message){downloadLink.setAttribute('aria-disabled','true');shareButton.hidden=false;shareButton.textContent=canShareFile()?'分享文件':'分享链接';fileStatus.textContent=message;}else{downloadLink.removeAttribute('aria-disabled');fileStatus.textContent='';}}
+function updateDownloadState(){const message=completedDownloads.get(currentKind);downloadLink.textContent=message?'下载已发起':'下载';if(message){downloadLink.setAttribute('aria-disabled','true');shareButton.hidden=false;shareButton.textContent=canShareFile()?'分享文件':'分享链接';fileStatus.textContent=message;}else{downloadLink.removeAttribute('aria-disabled');fileStatus.textContent='';}}
 function markDownloaded(message){completedDownloads.set(currentKind,message);updateDownloadState();}
 const fileCache=new Map();
 function canShareFile(){return !!(currentFile&&navigator.share&&navigator.canShare&&navigator.canShare({files:[currentFile]}));}
