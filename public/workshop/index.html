@@ -705,9 +705,9 @@ document.addEventListener('pointercancel',()=>pointerStart=null);
 document.addEventListener('focusin',()=>document.body.classList.remove('reading-hidden'));
 
 const fileDialog=document.getElementById('file-dialog'),downloadLink=document.getElementById('file-download'),shareButton=document.getElementById('file-share'),fileStatus=document.getElementById('file-status');
-let currentFile=null,currentKind=null,loadSequence=0;const completedDownloads=new Map();
-function updateDownloadState(){const message=completedDownloads.get(currentKind);downloadLink.textContent=message?'下载已发起':'下载';if(message){downloadLink.setAttribute('aria-disabled','true');shareButton.hidden=false;shareButton.textContent=canShareFile()?'分享文件':'分享链接';fileStatus.textContent=message;}else{downloadLink.removeAttribute('aria-disabled');fileStatus.textContent='';}}
-function markDownloaded(message){completedDownloads.set(currentKind,message);updateDownloadState();}
+let currentFile=null,currentKind=null,loadSequence=0;
+function updateDownloadState(){downloadLink.textContent='下载';downloadLink.removeAttribute('aria-disabled');fileStatus.textContent='';}
+function markDownloaded(){updateDownloadState();fileStatus.textContent='✓ 下载完成';}
 const fileCache=new Map();
 function canShareFile(){return !!(currentFile&&navigator.share&&navigator.canShare&&navigator.canShare({files:[currentFile]}));}
 document.querySelectorAll('[data-file]').forEach(button=>button.addEventListener('click',async()=>{
@@ -723,8 +723,8 @@ document.querySelectorAll('[data-file]').forEach(button=>button.addEventListener
 downloadLink.addEventListener('click',async event=>{
  if(downloadLink.getAttribute('aria-disabled')==='true'){event.preventDefault();return;}
  shareButton.hidden=false;shareButton.textContent=canShareFile()?'分享文件':'分享链接';
- if(canShareFile()&&matchMedia('(pointer:coarse)').matches){event.preventDefault();downloadLink.setAttribute('aria-disabled','true');downloadLink.textContent='处理中…';try{await navigator.share({files:[currentFile]});markDownloaded('✓ 下载已发起，请查看下载记录。');}catch(error){updateDownloadState();if(error.name!=='AbortError')fileStatus.textContent='保存未完成，请重试。';}}
- else markDownloaded('✓ 下载已发起，请查看下载记录。');
+ if(canShareFile()&&matchMedia('(pointer:coarse)').matches){event.preventDefault();downloadLink.setAttribute('aria-disabled','true');downloadLink.textContent='处理中…';try{await navigator.share({files:[currentFile]});markDownloaded();}catch(error){updateDownloadState();if(error.name!=='AbortError')fileStatus.textContent='保存未完成，请重试。';}}
+ else markDownloaded();
 });
 shareButton.addEventListener('click',async()=>{
  if(!navigator.share){fileStatus.textContent='此浏览器不支持系统分享，请在下载后从「文件」App 分享。';return;}
