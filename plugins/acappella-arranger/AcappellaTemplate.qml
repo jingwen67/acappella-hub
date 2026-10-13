@@ -12,15 +12,12 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.2.4"
+    version: "0.2.5"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
-    property bool collapsed: false
-    implicitWidth: collapsed ? 76 : 480
-    implicitHeight: collapsed ? 76 : 780
-    width: implicitWidth
-    height: implicitHeight
+    width: 480
+    height: 780
     property bool busy: false
     property var nativeModel: null
     FileIO { id: templateFile }
@@ -79,10 +76,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.2.4] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.2.5] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.2.4] 创建失败：' + error.message);
+            console.error('[Jingwen 0.2.5] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -93,24 +90,10 @@ MuseScore {
         }
     }
 
-    Button {
-        visible: root.collapsed
-        anchors.fill: parent; anchors.margins: 8
-        text: "♫"; font.pixelSize: 28
-        ToolTip.visible: hovered; ToolTip.text: "打开 Jingwen 助手"
-        onClicked: root.collapsed=false
-    }
-    Button {
-        id: collapseButton; visible: !root.collapsed
-        anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 12
-        width: 54; height: 40; text: "收起"
-        enabled: !root.busy
-        onClicked: root.collapsed=true
-    }
-    TabBar { id: featureTabs; visible: !root.collapsed; anchors.top: parent.top; anchors.left: parent.left; anchors.right: collapseButton.left; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
+    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
 
     ScrollView {
-        visible: !root.collapsed && featureTabs.currentIndex === 0
+        visible: featureTabs.currentIndex === 0
         anchors.top: featureTabs.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -121,7 +104,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.2.4 · 一键建谱" }
+            Label { text: "v0.2.5 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -252,7 +235,7 @@ MuseScore {
         onTriggered: { root.syncSoloRanges(); if(autoRange.checked)root.runRange('check'); }
     }
     ScrollView {
-        visible:!root.collapsed && featureTabs.currentIndex===1
+        visible: featureTabs.currentIndex===1
         anchors.top:featureTabs.bottom;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
         anchors.margins:20;clip:true
         ColumnLayout {
@@ -273,12 +256,12 @@ MuseScore {
                     }
                 }
             }
-            CheckBox { id:autoRange;text:'自动检查（收起后也继续）';checked:true }
+            CheckBox { id:autoRange;text:'自动检查（保持助手打开）';checked:true }
             Button { text:'立即重新检查';Layout.fillWidth:true;onClicked:root.runRange('check') }
             Button { text:'清除选区内标记';Layout.fillWidth:true;onClicked:root.runRange('clear') }
             Button { text:'清除全谱标记';Layout.fillWidth:true;onClicked:root.runRange('clearAll') }
             Label { text:'清除前先在谱面选择音符或小节范围。清除后会暂停自动检查，可重新勾选开启。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
-            Label { id:rangeStatus;text:'助手打开后自动检查；可收起为悬浮图标。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Label { id:rangeStatus;text:'助手打开后自动检查，无需点击检查按钮。';Layout.fillWidth:true;wrapMode:Text.Wrap }
         }
     }
 
