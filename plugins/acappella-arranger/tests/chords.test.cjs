@@ -3,6 +3,7 @@ const root=path.resolve(__dirname,'..');
 function source(file){return fs.readFileSync(path.join(root,file),'utf8').replace(/^\.(pragma|import).*$/gm,'');}
 const engine={};vm.createContext(engine);vm.runInContext(source('ChordEngine.js'),engine);
 const bridge={Engine:engine};vm.createContext(bridge);vm.runInContext(source('ChordScore.js'),bridge);
+const rhythm={Engine:engine};vm.createContext(rhythm);vm.runInContext(source('Rhythm.js'),rhythm);
 const E={all:99,chordRest:1,harmony:3,chord:1,rest:2};
 const targets=['soprano','alto','tenor','baritone','bass'].map((profile,staff)=>({staff,profile,name:profile}));
 const expected={'':[0,4,7],m:[0,3,7],'7':[0,4,7,10],maj7:[0,4,7,11],m7:[0,3,7,10],
@@ -44,6 +45,11 @@ class Score {
         this.staves=targets.map(t=>({part:{longName:t.name,partName:t.name,hasDrumStaff:false}}));
         this.tracks={};for(let staff=0;staff<5;staff++)this.tracks[staff*4]=Array.from({length:total/1920},(_,i)=>this.rest(i*1920,(i+1)*1920));
         this.lastMeasure={tick:{ticks:total-1920},ticks:{ticks:1920}};
+        let next=null;
+        for(let start=total-1920;start>=0;start-=1920){
+            next={tick:{ticks:start},ticks:{ticks:1920},timesigNominal:{numerator:4,denominator:4},nextMeasure:next};
+        }
+        this.firstMeasure=next;
         const self=this;
         this.selection={isRange:true,startStaff:0,endStaff:1,startSegment:{tick:0},endSegment:null,
             selectRange(start,end,startStaff,endStaff){this.startSegment={tick:start};this.endSegment=end===self.total?null:{tick:end};this.startStaff=startStaff;this.endStaff=endStaff;return true;}};
@@ -84,7 +90,7 @@ class Score {
         let at=start,previous=null;
         while(at<end){const finish=Math.min(end,(Math.floor(at/1920)+1)*1920);
             const b=pitch===null?this.rest(at,finish):this.chord(at,finish,pitch);
-            if(previous)previous.tieForward={endNote:b.notes[0]};
+            if(previous){previous.tieForward={endNote:b.notes[0]};b.notes[0].tieBack={startNote:previous};}
             if(pitch!==null)previous=b.notes[0];result.push(b);at=finish;
         }
         this.tracks[track]=result.sort((a,b)=>a.start-b.start);
@@ -126,9 +132,9 @@ score=new Score(progression);score.selection.isRange=false;assert.throws(()=>bri
 const qml=fs.readFileSync(path.join(root,'AcappellaTemplate.qml'),'utf8');
 const start=qml.indexOf('    function generateChords()'),brace=qml.indexOf('{',start);let depth=1,end=brace+1;
 for(;depth;end++){if(qml[end]==='{')depth++;if(qml[end]==='}')depth--;}
-function generate(score,busy=false,mode=0){
-    const ctx={busy,rangeBusy:false,curScore:score,syncChordTargets(){},ChordScore:bridge,ChordEngine:engine,
-        sourceStaff:{currentIndex:0},chordMode:{currentIndex:mode},tonality:{currentIndex:0},division:480,chordStatus:{text:''},console:{log(){},error(){}},Segment:{All:99,ChordRest:1},
+function generate(score,busy=false,mode=0,style=0,rhythmSource=-1){
+    const ctx={busy,rangeBusy:false,curScore:score,syncChordTargets(){},ChordScore:bridge,ChordEngine:engine,Rhythm:rhythm,
+        sourceStaff:{currentIndex:0},chordMode:{currentIndex:mode},tonality:{currentIndex:0},rhythmStyle:{currentIndex:style},rhythmStaff:{currentIndex:rhythmSource+1},division:480,chordStatus:{text:''},console:{log(){},error(){}},Segment:{All:99,ChordRest:1},
         Element:{HARMONY:3,CHORD:1,REST:2},chordTargets:{count:targets.length,get:i=>({...targets[i],selected:true})}};
     ctx.root={fractionFromTicks:t=>({ticks:t})};vm.createContext(ctx);vm.runInContext(qml.slice(start,end).trim(),ctx);ctx.generateChords();return ctx;
 }
@@ -168,3 +174,5 @@ score=new Score(progression);score.staves.forEach(s=>s.key=()=>2);generate(score
 assert.deepEqual(score.commands,['start','commit']);assert.equal(score.tracks[16][0].notes[0].pitch%12,2);
 assert.equal(engine.resolve('Am','transpose',D).label,'Am → Bm');
 console.log('PASS: actual QML degree/transpose mode wiring and D-key read.');
+
+module.exports={engine,bridge,rhythm,Score,targets,E,generate};

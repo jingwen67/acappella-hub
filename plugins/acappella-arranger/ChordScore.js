@@ -131,3 +131,46 @@ function write(score,plan,enums,fractionFromTicks,division) {
         }
     }
 }
+
+function rhythmData(score,enums,sourceStaff,data,division) {
+    var measures=[],measure=score.firstMeasure;
+    while(measure) {
+        var start=fractionTicks(measure.tick),end=start+fractionTicks(measure.ticks);
+        if(start>=data.end)break;
+        if(end>data.start) {
+            var time=measure.timesigNominal || measure.timesigActual;
+            var numerator=time?Number(time.numerator):0,denominator=time?Number(time.denominator):0;
+            if(!(numerator>0 && denominator>0))throw new Error('无法读取拍号，请重新打开谱子后重试。');
+            var compound=denominator===8 && numerator>3 && numerator%3===0;
+            var beat=division*4/denominator*(compound?3:1);
+            measures.push({start:start,end:end,beat:beat,offbeat:beat*(compound?2/3:1/2)});
+        }
+        measure=measure.nextMeasure;
+    }
+    data.measures=measures;
+    if(data.rhythm!=='follow')return;
+    if(sourceStaff<0) {
+        for(var staff=0;staff<score.nstaves;staff++) {
+            var part=score.staves[staff].part;
+            if(/^solo/i.test(Engine.plain(part.longName || part.partName)) && !part.hasDrumStaff){sourceStaff=staff;break;}
+        }
+    }
+    if(sourceStaff<0 || sourceStaff>=score.nstaves)throw new Error('没有找到 Solo；请手动选择节奏来源谱表。');
+    if(score.staves[sourceStaff].part.hasDrumStaff)throw new Error('请选择有旋律的节奏来源，Beatbox 不作为旋律来源。');
+    var cursor=score.newCursor();cursor.staffIdx=sourceStaff;cursor.voice=0;cursor.rewind(0);
+    var attacks=[];
+    while(cursor.segment && cursor.tick<data.end) {
+        var element=cursor.element;
+        if(element && element.type===enums.chord) {
+            var begin=cursor.tick,end=begin+fractionTicks(element.actualDuration);
+            if(element.tuplet && end>data.start)throw new Error('来源旋律包含连音，本版请先选择不含连音的片段。');
+            var tied=element.notes.length>0;
+            for(var n=0;n<element.notes.length;n++)if(!element.notes[n].tieBack)tied=false;
+            if(tied && attacks.length && attacks[attacks.length-1].end===begin)attacks[attacks.length-1].end=end;
+            else if(!tied)attacks.push({start:begin,end:end});
+        }
+        if(!cursor.next())break;
+    }
+    data.attacks=attacks.filter(function(x){return x.end>data.start;});
+    data.rhythmSource=sourceStaff;
+}
