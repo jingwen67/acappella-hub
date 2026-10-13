@@ -12,17 +12,24 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.2.3"
+    version: "0.2.4"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
-    width: 480
-    height: 780
+    property bool collapsed: false
+    implicitWidth: collapsed ? 76 : 480
+    implicitHeight: collapsed ? 76 : 780
+    width: implicitWidth
+    height: implicitHeight
     property bool busy: false
     property var nativeModel: null
     FileIO { id: templateFile }
     MessageDialog { id: creationError; title: "未能创建新谱"; standardButtons: [StandardButton.Ok] }
-    onRun: { status.text = "选择声部后创建新谱。"; }
+    onRun: {
+        status.text = "选择声部后创建新谱。";
+        root.syncSoloRanges();
+        if (curScore) root.runRange('check');
+    }
 
     function createTemplate() {
         if (busy || rangeBusy) return;
@@ -72,10 +79,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.2.3] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.2.4] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.2.3] 创建失败：' + error.message);
+            console.error('[Jingwen 0.2.4] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -86,10 +93,24 @@ MuseScore {
         }
     }
 
-    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
+    Button {
+        visible: root.collapsed
+        anchors.fill: parent; anchors.margins: 8
+        text: "♫"; font.pixelSize: 28
+        ToolTip.visible: hovered; ToolTip.text: "打开 Jingwen 助手"
+        onClicked: root.collapsed=false
+    }
+    Button {
+        id: collapseButton; visible: !root.collapsed
+        anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 12
+        width: 54; height: 40; text: "收起"
+        enabled: !root.busy
+        onClicked: root.collapsed=true
+    }
+    TabBar { id: featureTabs; visible: !root.collapsed; anchors.top: parent.top; anchors.left: parent.left; anchors.right: collapseButton.left; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
 
     ScrollView {
-        visible: featureTabs.currentIndex === 0
+        visible: !root.collapsed && featureTabs.currentIndex === 0
         anchors.top: featureTabs.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -100,7 +121,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.2.3 · 一键建谱" }
+            Label { text: "v0.2.4 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -151,6 +172,41 @@ MuseScore {
         for(var i=0;i<soloList.count;i++)result.push({clef:['treble','tenor','bass'][soloList.get(i).clefIndex]});
         return result;
     }
+    ListModel { id: soloRanges }
+    property var rangeProfiles: ['off','soprano','alto','tenor','baritone','bass']
+    function readSoloProfiles(score) {
+        try { var saved=JSON.parse(score.metaTag('jingwenSoloRanges') || '{}'); return saved && typeof saved==='object' ? saved : {}; }
+        catch(error) { return {}; }
+    }
+    function syncSoloRanges() {
+        var score=curScore;
+        var rows=score ? RangeScan.soloEntries(score) : [];
+        var saved=score ? readSoloProfiles(score) : {};
+        var changed=rows.length!==soloRanges.count;
+        for(var i=0;i<rows.length;i++) {
+            rows[i].profileIndex=Math.max(0,rangeProfiles.indexOf(saved[rows[i].key] || 'off'));
+            if(!changed) {
+                var previous=soloRanges.get(i);
+                if(previous.key!==rows[i].key || previous.label!==rows[i].label ||
+                    previous.staff!==rows[i].staff || previous.profileIndex!==rows[i].profileIndex)changed=true;
+            }
+        }
+        if(changed) {
+            soloRanges.clear();
+            for(var n=0;n<rows.length;n++)soloRanges.append(rows[n]);
+        }
+    }
+    function setSoloRange(key,index) {
+        if(busy || rangeBusy || !curScore)return;
+        var score=curScore;
+        var saved=readSoloProfiles(score);
+        saved[key]=rangeProfiles[index];
+        score.startCmd('Jingwen Solo range');
+        score.setMetaTag('jingwenSoloRanges',JSON.stringify(saved));
+        score.endCmd();
+        syncSoloRanges();
+        if(autoRange.checked)runRange('check');
+    }
     function runRange(mode) {
         if(rangeBusy || busy)return;
         var score=curScore;
@@ -163,8 +219,13 @@ MuseScore {
         try {
             var saved={};
             try { saved=JSON.parse(score.metaTag('jingwenRangeMarks') || '{}'); }catch(error){}
-            var profiles=['off','soprano','alto','tenor','baritone','bass'];
-            var items=RangeScan.notes(score,Element.CHORD,profiles[soloRange.currentIndex]);
+            syncSoloRanges();
+            var profilesByStaff={};
+            for(var p=0;p<soloRanges.count;p++) {
+                var soloRow=soloRanges.get(p);
+                profilesByStaff[soloRow.staff]=rangeProfiles[soloRow.profileIndex];
+            }
+            var items=RangeScan.notes(score,Element.CHORD,function(name,staff){return profilesByStaff[staff] || 'off';});
             var result=RangeScan.plan(items,saved,mode,function(item){return RangeScan.selectionContains(score,item);});
             var metadata=JSON.stringify(result.marks);
             if(result.edits.length || metadata!==JSON.stringify(saved)) {
@@ -187,11 +248,11 @@ MuseScore {
     }
     Timer {
         interval: 900;repeat:true
-        running: featureTabs.currentIndex===1 && autoRange.checked && !root.busy && !root.rangeBusy
-        onTriggered: root.runRange('check')
+        running: !root.busy && !root.rangeBusy
+        onTriggered: { root.syncSoloRanges(); if(autoRange.checked)root.runRange('check'); }
     }
     ScrollView {
-        visible:featureTabs.currentIndex===1
+        visible:!root.collapsed && featureTabs.currentIndex===1
         anchors.top:featureTabs.bottom;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
         anchors.margins:20;clip:true
         ColumnLayout {
@@ -199,16 +260,25 @@ MuseScore {
             Label { text:'音域检查 · 按 Workshop 手册';font.pixelSize:20 }
             Label { text:'Soprano  G3–E5\nAlto  D3–B4\nTenor  C3–G4\nBaritone  F2–E4\nBass  下限 D2，上限未设置';Layout.fillWidth:true;wrapMode:Text.Wrap }
             Label { text:'按实际发声音高检查；Beatbox、Rap 和未识别的名称默认跳过。';Layout.fillWidth:true;wrapMode:Text.Wrap }
-            RowLayout {
-                Label { text:'Solo 按' }
-                ComboBox { id:soloRange;model:['不检查','Soprano','Alto','Tenor','Baritone','Bass'];Layout.fillWidth:true }
+            Label { text:'每个 Solo 单独选择音域'; visible:soloRanges.count>0; font.bold:true }
+            Repeater {
+                model:soloRanges
+                RowLayout {
+                    Label { text:label; Layout.preferredWidth:110 }
+                    ComboBox {
+                        model:['不检查','Soprano','Alto','Tenor','Baritone','Bass']
+                        currentIndex:profileIndex; Layout.fillWidth:true
+                        enabled:!root.busy && !root.rangeBusy
+                        onActivated:root.setSoloRange(key,currentIndex)
+                    }
+                }
             }
-            CheckBox { id:autoRange;text:'自动检查（保持插件窗口打开）';checked:true }
-            Button { text:'检查全谱';Layout.fillWidth:true;onClicked:root.runRange('check') }
+            CheckBox { id:autoRange;text:'自动检查（收起后也继续）';checked:true }
+            Button { text:'立即重新检查';Layout.fillWidth:true;onClicked:root.runRange('check') }
             Button { text:'清除选区内标记';Layout.fillWidth:true;onClicked:root.runRange('clear') }
             Button { text:'清除全谱标记';Layout.fillWidth:true;onClicked:root.runRange('clearAll') }
             Label { text:'清除前先在谱面选择音符或小节范围。清除后会暂停自动检查，可重新勾选开启。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
-            Label { id:rangeStatus;text:'选择“音域检查”后自动检查当前谱。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Label { id:rangeStatus;text:'助手打开后自动检查；可收起为悬浮图标。';Layout.fillWidth:true;wrapMode:Text.Wrap }
         }
     }
 

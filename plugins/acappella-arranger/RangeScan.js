@@ -37,7 +37,8 @@ function notes(score, chordType, profile) {
     for(var staff=0;staff<score.nstaves;staff++) {
         var part=score.staves[staff].part;
         var name=part.longName || part.partName;
-        var rule=part.hasDrumStaff ? null : classify(name,profile);
+        var soloProfile=typeof profile === 'function' ? profile(name,staff) : profile;
+        var rule=part.hasDrumStaff ? null : classify(name,soloProfile);
         for(var voice=0;voice<4;voice++) {
             var cursor=score.newCursor();cursor.staffIdx=staff;cursor.voice=voice;cursor.rewind(0);
             while(cursor.segment) {
@@ -83,4 +84,21 @@ function plan(items, saved, mode, contains) {
         }
     }
     return {marks:marks,edits:edits,count:count};
+}
+
+function soloEntries(score) {
+    var result=[], seen=[], counts={};
+    for(var staff=0;staff<score.nstaves;staff++) {
+        var part=score.staves[staff].part;
+        var duplicate=false;
+        for(var i=0;i<seen.length;i++)if(same(part,seen[i])){duplicate=true;break;}
+        if(duplicate)continue;
+        seen.push(part);
+        var name=String(part.longName || part.partName || '').replace(/<[^>]*>/g,'').trim();
+        if(!/^solo/i.test(name) || part.hasDrumStaff)continue;
+        var normalized=name.toLowerCase().replace(/\s+/g,' ');
+        counts[normalized]=(counts[normalized] || 0)+1;
+        result.push({key:normalized+'#'+counts[normalized],label:name,staff:staff});
+    }
+    return result;
 }
