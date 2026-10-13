@@ -1,6 +1,6 @@
-# 阿卡贝拉编曲助手 v0.1.3（试用版）
+# 阿卡贝拉编曲助手 v0.1.4（试用版）
 
-第一项功能：一键建立阿卡贝拉新谱。面向 MuseScore Studio 4.4 及以上的 4.x 版本；5.x 尚未验证。
+第一项功能：一键建立阿卡贝拉新谱。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
 ## 可以做什么
 
@@ -15,11 +15,13 @@
 
 1. 解压 ZIP，将整个 `acappella-arranger-v0.1` 文件夹放进 MuseScore 的插件目录。通常是 `~/Documents/MuseScore4/Plugins/`，准确路径以 MuseScore「设置／偏好设置 → 文件夹 → 插件」为准。
 2. 保持 `AcappellaTemplate.qml` 和 `Template.js` 在同一文件夹，不要只复制 QML 文件。
-3. 重启 MuseScore，在首页「插件／Plugins」中找到并启用 **阿卡贝拉编曲助手 · 建谱**。如果提供重新扫描选项，也可使用它。
+3. 重启 MuseScore，在首页「插件／Plugins」中找到并启用 **阿卡贝拉编曲助手 · Jingwen**。如果提供重新扫描选项，也可使用它。
 4. 从「插件／Plugins」菜单运行插件，选好声部后点击「创建新谱」。
 5. 关闭插件窗口，在新谱中按 `⌘S` 保存成 `.mscz`。
 
-插件在系统临时目录以曲名生成 MusicXML 并在新标签页打开，首次保存时默认使用该文件名。无法用于文件名的字符会替换成下划线；遇到同名临时文件时追加编号，避免覆盖。不会立即删除导入文件，以免 MuseScore 异步读取失败；不会自动保存 .mscz 或替换已有的谱。临时文件和最近打开记录可能保留。
+直接创建未保存的 MuseScore 新谱，不生成或导入临时 MusicXML，也不自动保存任何谱文件。曲名用于新谱标题和首次保存的默认名称。旧版导入产生的最近记录不会自动清除；可用「文件 → 打开最近 → 清除最近文件」手动清除全部记录，实际谱文件不受影响。
+
+原生流程预期不再添加临时导入记录；必须在 MuseScore 4.7.5 实际运行后确认。
 
 默认音色：Solo、Soprano、Alto、Tenor、Baritone、Bass、Rap 为 Piano；Beatbox 保持打击乐。声部名称和各自谱号保留。
 
@@ -27,7 +29,7 @@
 
 已完成：声部组合、调号、节拍时值、八度谱号、特殊字符转义及参数校验的自动检查；示例 MusicXML 的结构检查。
 
-尚未完成：在真实 MuseScore 4／macOS 中加载插件和试听的验证。本环境没有 MuseScore 桌面程序，所以这是第一版试用包。
+尚未完成：v0.1.4 在真实 MuseScore 4.7.5／macOS 中运行、播放和关闭未保存新谱后的最近记录验证。本环境没有 MuseScore 桌面程序，所以这是第一版试用包。
 
 请先试一次默认设置，确认：7 个声部、32 小节、4/4、C 调、四分音符 100 BPM，以及 Solo／Tenor／Bass／Beatbox 的谱号和名称。再试 6/8、加入 Baritone 和 Rap。若加载失败，请提供 MuseScore 的完整版本号和错误信息。
 
@@ -43,7 +45,8 @@
 
 ## 技术依据
 
-- MuseScore 官方源码：`src/engraving/api/v1/qmlpluginapi.h` 的 `readScore`；`part.h` 的声部名称属性是只读，因此本版通过 MusicXML 建谱，保留 Solo／Beatbox 等自定义名称。
+- MuseScore 官方源码，用户版本 revision `3654226`：`src/project/qml/MuseScore/Project/internal/NewScore/newscoremodel.cpp`；本版调用内部 NewScoreModel.createScore，与 MuseScore 原生新谱创建流程相同。`src/engraving/api/v1/score.cpp` 提供音色与声部名称设置。
+- 普通插件的 newScore 接口仍未完成新谱打开，因此未使用该接口。
 - MusicXML：`https://www.w3.org/2021/06/musicxml40/`
 - 插件安装：`https://handbook.musescore.org/customization/plugins`
 

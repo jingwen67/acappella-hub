@@ -2,51 +2,115 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import MuseScore 3.0
-import FileIO 3.0
 import "Template.js" as Template
 
 MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.1.3"
+    version: "0.1.4"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
     width: 480
     height: 650
     property bool busy: false
-    FileIO { id: outputFile; onError: function(message) { status.text = "文件写入失败：" + message; } }
+    property var nativeModel: null
+    property var pendingVoices: []
+    property string pendingTitle: ''
     onRun: { status.text = "选择声部后创建新谱。"; }
 
     function createTemplate() {
         if (busy) return;
         busy = true;
         try {
+            if (mscoreMajorVersion !== 4 || mscoreMinorVersion < 7)
+                throw new Error('原生建谱试用版需要 MuseScore Studio 4.7.x。');
             var meter = meters.currentText.split('/');
-            var xml = Template.build({title: scoreTitle.text, arranger: arranger.text,
+            var options = {title: scoreTitle.text.trim() || 'A Cappella', arranger: arranger.text,
                 bars: bars.value, beats: Number(meter[0]), beatType: Number(meter[1]),
                 fifths: keys.currentIndex - 7, tempo: tempo.value,
                 solo: solo.checked, soloClef: ['treble','tenor','bass'][soloClef.currentIndex],
                 soprano: soprano.checked, alto: alto.checked, tenor: tenor.checked,
-                baritone: baritone.checked, bass: bass.checked, beatbox: beatbox.checked, rap: rap.checked});
-            var stem = Template.fileStem(scoreTitle.text);
-            var tempFolder = outputFile.tempPath().replace(/\\/g, '/').replace(/\/$/, '');
-            var path = tempFolder + '/' + stem + '.musicxml';
-            outputFile.source = path;
-            var suffix = 2;
-            while (outputFile.exists()) {
-                path = tempFolder + '/' + stem + ' (' + suffix + ').musicxml';
-                outputFile.source = path;
-                suffix++;
+                baritone: baritone.checked, bass: bass.checked, beatbox: beatbox.checked, rap: rap.checked};
+            Template.build(options); // Validate settings; no file is written.
+            var definitions = Template.voices(options);
+            var ids = {Soprano:'soprano', Alto:'alto', Tenor:'tenor',
+                Baritone:'baritone', Bass:'bass', Beatbox:'drumset', Rap:'soprano'};
+            var instruments = [];
+            for (var i = 0; i < definitions.length; i++) {
+                var definition = definitions[i];
+                var id = definition.name === 'Solo'
+                    ? (definition.clef === 'F' ? 'bass' : definition.octave === -1 ? 'tenor' : 'soprano')
+                    : ids[definition.name];
+                instruments.push({instrumentId:id, isExistingPart:false, isSoloist:definition.name === 'Solo'});
             }
-            if (!outputFile.write(xml)) throw new Error('无法写入模板。请将插件文件夹放在 MuseScore 的 Plugins 文件夹中。');
-            var score = readScore(path, false);
-            if (!score) throw new Error('模板已生成，但 MuseScore 未能打开。可手动打开插件文件夹中的 MusicXML 文件。');
-            status.text = '新谱已创建！文件名默认采用曲名，按 ⌘S / Ctrl+S 保存；除 Beatbox 外均为 Piano。';
-        } catch (error) { status.text = '创建失败：' + error.message; }
+            if (!nativeModel) {
+                nativeModel = Qt.createQmlObject(
+                    'import QtQuick; import MuseScore.Project; NewScoreModel {}',
+                    root, 'JingwenNativeScoreModel');
+            }
+            pendingVoices = definitions;
+            pendingTitle = options.title;
+            var created = nativeModel.createScore({
+                title:options.title, subtitle:'', composer:'', lyricist:'', copyright:'',
+                templatePath:'', instruments:instruments, scoreOrder:{id:'custom', customized:true},
+                measureCount:options.bars, timeSignatureType:0,
+                timeSignature:{numerator:options.beats, denominator:options.beatType},
+                keySignature:{key:options.fifths}, withPickupMeasure:false,
+                pickupTimeSignature:{numerator:1, denominator:4},
+                withTempo:true, tempo:{value:options.tempo, noteIcon:0, withDot:false}
+            });
+            if (!created) throw new Error('MuseScore 未能创建新谱。');
+            finishNative.start();
+            status.text = '新谱已创建，正在设置声部音色…';
+        } catch (error) {
+            status.text = '创建失败：' + error.message;
+            busy = false;
+        }
+    }
+
+    function finishNativeScore() {
+        var score = curScore;
+        if (!score || score.title !== pendingTitle || score.parts.length !== pendingVoices.length) {
+            status.text = '新谱已创建，但声部设置未完成。请将此提示截图发给 Jingwen。';
+            busy = false;
+            return;
+        }
+        var started = false;
+        try {
+            var tick = fraction(0, 1);
+            score.startCmd('Jingwen a cappella setup');
+            started = true;
+            for (var i = 0; i < pendingVoices.length; i++) {
+                var part = score.parts[i], definition = pendingVoices[i];
+                if (definition.name !== 'Beatbox') {
+                    var originalClef = score.staves[i].clefType(tick);
+                    score.replaceInstrument(part, 'piano');
+                    var clef = newElement(Element.CLEF);
+                    clef.concertClefType = originalClef;
+                    clef.transposingClefType = originalClef;
+                    var cursor = score.newCursor();
+                    cursor.staffIdx = i;
+                    cursor.voice = 0;
+                    cursor.rewind(0);
+                    cursor.add(clef);
+                }
+                score.setInstrumentName(part, tick, definition.name);
+                score.setInstrumentAbbreviature(part, tick, definition.shortName);
+            }
+            if (arranger.text.trim()) score.setMetaTag('arranger', arranger.text.trim());
+            score.endCmd();
+            started = false;
+            status.text = '未保存的新谱已创建！需要保留时按 ⌘S / Ctrl+S。';
+        } catch (error) {
+            if (started) score.endCmd(true);
+            status.text = '新谱已创建，但音色或谱号设置失败：' + error.message;
+        }
         busy = false;
     }
+
+    Timer { id: finishNative; interval: 200; repeat: false; onTriggered: root.finishNativeScore() }
 
     ScrollView {
         anchors.fill: parent
@@ -56,7 +120,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.1.3 · 一键建谱" }
+            Label { text: "v0.1.4 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
