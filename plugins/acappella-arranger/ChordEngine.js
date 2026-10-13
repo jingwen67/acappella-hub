@@ -125,7 +125,7 @@ function plan(data,targets,division) {
         var end=i+1<events.length?events[i+1].tick:data.end;
         var start=Math.max(data.start,events[i].tick);end=Math.min(end,data.end);
         if(end<=start)continue;
-        var chord=parse(events[i].text);
+        var chord=resolve(events[i].text,data.mode || 'absolute',data.key);
         intervals.push({start:start,end:end,chord:chord});
     }
     if(!intervals.length)throw new Error('选区内没有可用的和弦符号。');
@@ -159,4 +159,55 @@ function plan(data,targets,division) {
     notes.sort(function(a,b){return a.staff-b.staff || a.tick-b.tick;});
     return {notes:notes,skipped:skipped,chords:intervals.length,restCount:restCount,
         labels:intervals.map(function(x){return x.chord.label;})};
+}
+
+function keyInfo(fifths,minor) {
+    var tpc=14+Number(fifths)+(minor?3:0);
+    for(var letter=0;letter<7;letter++)for(var alter=-2;alter<=2;alter++)
+        if(naturalTpc[letter]+7*alter===tpc)return {letter:letter,pc:mod(naturals[letter]+alter),tpc:tpc,minor:!!minor};
+    throw new Error('无法识别当前调号。');
+}
+function noteName(letter,pc) {
+    var alter=mod(pc-naturals[letter]);if(alter>6)alter-=12;
+    if(Math.abs(alter)>2)throw new Error('移调后的拼写超出支持范围。');
+    return letters[letter]+(alter<0?'bb'.slice(0,-alter):'##'.slice(0,alter));
+}
+function degreeChord(text,key) {
+    var value=plain(text).replace(/\s+/g,'').replace(/⁷/g,'7');
+    if(/^(N\.?C\.?|noChord)$/i.test(value))return parse(value);
+    var match=/^([#b]?)([1-7]|[ivIV]+)([^/]*)(?:\/([#b]?)([1-7]|[ivIV]+))?$/.exec(value);
+    if(!match)throw new Error('级数写法无法识别：'+value+'；例如 1、6、5⁷ 或 I、vi、V7。');
+    function index(value) {var roman={i:0,ii:1,iii:2,iv:3,v:4,vi:5,vii:6};return /^[1-7]$/.test(value)?Number(value)-1:roman[value.toLowerCase()];}
+    function root(acc,degree) {
+        var scales=key.minor?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];
+        return noteName((key.letter+degree)%7,mod(key.pc+scales[degree]+(acc==='#'?1:acc==='b'?-1:0)));
+    }
+    var degree=index(match[2]);if(degree===undefined)throw new Error('无效级数：'+value);
+    var quality=match[3];
+    if(!quality)quality=(key.minor?['m','dim','','m','','','']:['','m','m','','','m','dim'])[degree];
+    else if(quality==='7')quality=(key.minor?['m7','m7b5','maj7','m7','7','maj7','7']:['maj7','m7','m7','maj7','7','m7','m7b5'])[degree];
+    var symbol=root(match[1],degree)+quality;
+    if(match[5]){var bass=index(match[5]);if(bass===undefined)throw new Error('无效低音级数');symbol+='/'+root(match[4],bass);}
+    var chord=parse(symbol);chord.label=plain(text)+' → '+symbol;return chord;
+}
+function resolve(text,mode,key) {
+    if(!mode || mode==='absolute')return parse(text);
+    if(mode==='degree')return degreeChord(text,key);
+    var chord=parse(text);if(chord.silent)return chord;
+    function transpose(tone) {
+        var originalLetter=-1;
+        for(var i=0;i<7;i++)if((tone.tpc-naturalTpc[i])%7===0){originalLetter=i;break;}
+        var name=noteName((originalLetter+key.letter)%7,mod(tone.pc+key.pc));
+        return parse(name).root;
+    }
+    var original=chord.label;
+    chord.root=transpose(chord.root);chord.bass=transpose(chord.bass);
+    chord.tones=chord.tones.map(transpose);
+    function spelling(tone) {
+        for(var i=0;i<7;i++)if((tone.tpc-naturalTpc[i])%7===0)return noteName(i,tone.pc);
+    }
+    var quality=original.replace(/^[A-Ga-g][#b]{0,2}/,'').split('/')[0];
+    var symbol=spelling(chord.root)+quality;
+    if(original.indexOf('/')>=0)symbol+='/'+spelling(chord.bass);
+    chord.label=original+' → '+symbol;return chord;
 }

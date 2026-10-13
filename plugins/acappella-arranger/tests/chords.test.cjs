@@ -126,9 +126,9 @@ score=new Score(progression);score.selection.isRange=false;assert.throws(()=>bri
 const qml=fs.readFileSync(path.join(root,'AcappellaTemplate.qml'),'utf8');
 const start=qml.indexOf('    function generateChords()'),brace=qml.indexOf('{',start);let depth=1,end=brace+1;
 for(;depth;end++){if(qml[end]==='{')depth++;if(qml[end]==='}')depth--;}
-function generate(score,busy=false){
+function generate(score,busy=false,mode=0){
     const ctx={busy,rangeBusy:false,curScore:score,syncChordTargets(){},ChordScore:bridge,ChordEngine:engine,
-        sourceStaff:{currentIndex:0},division:480,chordStatus:{text:''},console:{log(){},error(){}},Segment:{All:99,ChordRest:1},
+        sourceStaff:{currentIndex:0},chordMode:{currentIndex:mode},tonality:{currentIndex:0},division:480,chordStatus:{text:''},console:{log(){},error(){}},Segment:{All:99,ChordRest:1},
         Element:{HARMONY:3,CHORD:1,REST:2},chordTargets:{count:targets.length,get:i=>({...targets[i],selected:true})}};
     ctx.root={fractionFromTicks:t=>({ticks:t})};vm.createContext(ctx);vm.runInContext(qml.slice(start,end).trim(),ctx);ctx.generateChords();return ctx;
 }
@@ -138,3 +138,33 @@ const failed=generate(score);assert.deepEqual(score.commands,['start','rollback'
 score=new Score([{tick:0,text:'C13'}]);generate(score);assert.equal(score.writes,0);assert.equal(score.commands.length,0);
 score=new Score(progression);generate(score,true);assert.equal(score.writes,0);
 console.log('PASS: 196 chord spellings/voicings, durations, slash bass, cross-bar ties, silent gaps, selection limits, existing notes/all voices/tuplets, repeat generation, unsupported symbols, one undo command and failure rollback. Real MuseScore UI not tested.');
+
+const D=engine.keyInfo(2,false);
+assert.deepEqual(['1','6','4','5⁷'].map(x=>engine.degreeChord(x,D).label),['1 → D','6 → Bm','4 → G','5⁷ → A7']);
+assert.equal(engine.degreeChord('vi',D).root.pc,11);
+assert.equal(engine.degreeChord('1/3',D).bass.pc,6);
+assert.equal(engine.resolve('C','transpose',D).root.pc,2);
+assert.equal(engine.resolve('Am','transpose',D).root.pc,11);
+assert.equal(engine.resolve('C/E','transpose',D).bass.pc,6);
+assert.equal(engine.resolve('C','absolute',D).root.pc,0);
+const Am=engine.keyInfo(0,true);assert.equal(Am.pc,9);
+assert.equal(engine.degreeChord('5⁷',Am).label,'5⁷ → E7');
+assert.equal(engine.degreeChord('1',Am).label,'1 → Am');
+for(let fifths=-7;fifths<=7;fifths++)for(const minor of [false,true]){
+    const key=engine.keyInfo(fifths,minor);
+    for(let d=1;d<=7;d++)for(const suffix of ['','7']){
+        const chord=engine.degreeChord(String(d)+suffix,key);assert.equal(chord.tones.length,suffix?4:3);
+    }
+    const chord=engine.resolve('C/E','transpose',key);
+    assert.equal(chord.root.pc,key.pc);assert.equal(chord.bass.pc,engine.mod(key.pc+4));
+}
+assert.throws(()=>engine.degreeChord('8',D),/无法识别/);
+console.log('PASS: absolute, degree and C-reference modes, all 15 signatures in major/minor, D-major progression, minor dominant, slash degrees and preserved spellings.');
+
+score=new Score(['1','6','4','57'].map((text,i)=>({tick:i*1920,text})));
+score.staves.forEach(s=>s.key=()=>2);generate(score,false,1);
+assert.deepEqual(score.commands,['start','commit']);assert.equal(score.tracks[16][0].notes[0].pitch%12,2);
+score=new Score(progression);score.staves.forEach(s=>s.key=()=>2);generate(score,false,2);
+assert.deepEqual(score.commands,['start','commit']);assert.equal(score.tracks[16][0].notes[0].pitch%12,2);
+assert.equal(engine.resolve('Am','transpose',D).label,'Am → Bm');
+console.log('PASS: actual QML degree/transpose mode wiring and D-key read.');

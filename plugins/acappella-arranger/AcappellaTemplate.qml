@@ -14,7 +14,7 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.3.1"
+    version: "0.3.2"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -79,10 +79,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.3.1] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.3.2] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.3.1] 创建失败：' + error.message);
+            console.error('[Jingwen 0.3.2] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -107,7 +107,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.3.1 · 一键建谱" }
+            Label { text: "v0.3.2 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -314,6 +314,11 @@ MuseScore {
             }
             var enums={all:Segment.All,chordRest:Segment.ChordRest,harmony:Element.HARMONY,chord:Element.CHORD,rest:Element.REST};
             var data=ChordScore.read(score,enums,sourceStaff.currentIndex-1,targets);
+            data.mode=['absolute','degree','transpose'][chordMode.currentIndex];
+            if(data.mode!=='absolute') {
+                var fifths=score.staves[data.source].key(root.fractionFromTicks(data.start));
+                data.key=ChordEngine.keyInfo(fifths,tonality.currentIndex===1);
+            }
             var plan=ChordEngine.plan(data,targets,division);
             if(!plan.notes.length) {
                 chordStatus.text='没有可填的休止符；已有音符、连音休止符及 N.C. 区间都会跳过。';
@@ -350,6 +355,10 @@ MuseScore {
                 text:'先用 ⌘K / Ctrl+K 输入和弦，再在谱面选取连续小节范围。选择来源和目标声部后生成。'
                 Layout.fillWidth:true;wrapMode:Text.Wrap
             }
+            Label { text:'生成方式';font.bold:true }
+            ComboBox { id:chordMode;model:['实际字母和弦','当前调的级数（1／I）','C 调参考和弦整体移调'];Layout.fillWidth:true;enabled:!root.busy }
+            ComboBox { id:tonality;visible:chordMode.currentIndex!==0;model:['当前调按大调','当前调按小调'];Layout.fillWidth:true;enabled:!root.busy }
+            Label { visible:chordMode.currentIndex!==0;text:'调号取和弦来源谱表选区开始处。级数模式：1、6、4、5⁷；C 调参考模式：C、Am、F、G7。小调的五级默认用大三和弦／属七。整体移调保留原和弦的大小性质。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
             Label { text:'和弦来源';font.bold:true }
             ComboBox { id:sourceStaff;model:root.chordSources;Layout.fillWidth:true;enabled:!root.busy }
             Label { text:'目标声部';font.bold:true }
