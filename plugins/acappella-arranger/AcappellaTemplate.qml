@@ -7,10 +7,10 @@ import "Template.js" as Template
 
 MuseScore {
     id: root
-    title: "阿卡贝拉编曲助手 · 建谱"
+    title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.1.0"
-    menuPath: "Plugins.Acappella Template"
+    version: "0.1.1"
+    menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
     width: 480
@@ -49,8 +49,8 @@ MuseScore {
         ColumnLayout {
             width: 430
             spacing: 10
-            Label { text: "阿卡贝拉编曲助手"; font.pixelSize: 23 }
-            Label { text: "v0.1 · 一键建谱" }
+            Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
+            Label { text: "v0.1.1 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
