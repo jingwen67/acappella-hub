@@ -11,9 +11,13 @@ function voices(options) {
         if (enabled) list.push({name:name, shortName:shortName, sound:clef === 'percussion' ? sound : 'keyboard.piano',
             clef:clef, line:line, octave:octave || 0, program:program || 1});
     }
-    var soloClef = options.soloClef || 'treble';
-    add(options.solo, 'Solo', 'Solo', 'voice', soloClef === 'bass' ? 'F' : 'G',
-        soloClef === 'bass' ? 4 : 2, soloClef === 'tenor' ? -1 : 0);
+    var solos = options.solos || (options.solo ? [{clef:options.soloClef || 'treble'}] : []);
+    for (var s = 0; s < solos.length; s++) {
+        var clef = solos[s].clef || 'treble';
+        var name = solos.length === 1 ? 'Solo' : 'Solo ' + (s+1);
+        add(true, name, name, 'voice', clef === 'bass' ? 'F' : 'G',
+            clef === 'bass' ? 4 : 2, clef === 'tenor' ? -1 : 0);
+    }
     add(options.soprano, 'Soprano', 'S.', 'voice.soprano', 'G', 2);
     add(options.alto, 'Alto', 'A.', 'voice.alto', 'G', 2);
     add(options.tenor, 'Tenor', 'T.', 'voice.tenor', 'G', 2, -1);

@@ -3,17 +3,18 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import MuseScore 3.0
 import "Template.js" as Template
+import "RangeScan.js" as RangeScan
 
 MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.1.5"
+    version: "0.2.0"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
     width: 480
-    height: 650
+    height: 780
     property bool busy: false
     property var nativeModel: null
     property var pendingVoices: []
@@ -31,7 +32,7 @@ MuseScore {
             var options = {title: scoreTitle.text.trim() || 'A Cappella', arranger: arranger.text,
                 bars: bars.value, beats: Number(meter[0]), beatType: Number(meter[1]),
                 fifths: keys.currentIndex - 7, tempo: tempo.value,
-                solo: solo.checked, soloClef: ['treble','tenor','bass'][soloClef.currentIndex],
+                solos: solo.checked ? soloSettings() : [],
                 soprano: soprano.checked, alto: alto.checked, tenor: tenor.checked,
                 baritone: baritone.checked, bass: bass.checked, beatbox: beatbox.checked, rap: rap.checked};
             Template.build(options); // Validate settings; no file is written.
@@ -41,10 +42,10 @@ MuseScore {
             var instruments = [];
             for (var i = 0; i < definitions.length; i++) {
                 var definition = definitions[i];
-                var id = definition.name === 'Solo'
+                var id = /^Solo(?: \d+)?$/.test(definition.name)
                     ? (definition.clef === 'F' ? 'bass' : definition.octave === -1 ? 'tenor' : 'soprano')
                     : ids[definition.name];
-                instruments.push({instrumentId:id, isExistingPart:false, isSoloist:definition.name === 'Solo'});
+                instruments.push({instrumentId:id, isExistingPart:false, isSoloist:/^Solo(?: \d+)?$/.test(definition.name)});
             }
             if (!nativeModel) {
                 nativeModel = Qt.createQmlObject(
@@ -134,15 +135,21 @@ MuseScore {
 
     Timer { id: finishNative; interval: 100; repeat: false; onTriggered: root.finishNativeScore() }
 
+    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
+
     ScrollView {
-        anchors.fill: parent
+        visible: featureTabs.currentIndex === 0
+        anchors.top: featureTabs.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.margins: 20
         clip: true
         ColumnLayout {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.1.5 · 一键建谱" }
+            Label { text: "v0.2.0 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -161,10 +168,17 @@ MuseScore {
             }
             Label { text: "调号按大调名称显示；BPM 为四分音符速度。"; font.pixelSize: 12 }
             Label { text: "声部 · 从上到下排列"; font.bold: true }
-            RowLayout {
-                CheckBox { id: solo; text: "Solo"; checked: true }
-                ComboBox { id: soloClef; model: ['高音谱号','高音谱号 ↓8','低音谱号']; Layout.fillWidth: true; enabled: solo.checked }
+            CheckBox { id: solo; text: "Solo"; checked: true }
+            Repeater {
+                model: soloList
+                RowLayout {
+                    visible: solo.checked
+                    Label { text: soloList.count === 1 ? "Solo" : "Solo " + (index+1) }
+                    ComboBox { model: ['高音谱号','高音谱号 ↓8','低音谱号']; currentIndex: clefIndex; Layout.fillWidth: true; onActivated: soloList.setProperty(index, "clefIndex", currentIndex) }
+                    Button { text: "−"; enabled: soloList.count > 1; onClicked: soloList.remove(index) }
+                }
             }
+            Button { text: "+ 添加 Solo"; visible: solo.checked; onClicked: soloList.append({clefIndex:0}) }
             GridLayout {
                 columns: 2
                 CheckBox { id: soprano; text: "Soprano"; checked: true }
@@ -179,4 +193,72 @@ MuseScore {
             Label { id: status; text: ""; wrapMode: Text.Wrap; Layout.fillWidth: true }
         }
     }
+    ListModel { id: soloList; ListElement { clefIndex: 0 } }
+    property bool rangeBusy: false
+    function soloSettings() {
+        var result=[];
+        for(var i=0;i<soloList.count;i++)result.push({clef:['treble','tenor','bass'][soloList.get(i).clefIndex]});
+        return result;
+    }
+    function runRange(mode) {
+        if(rangeBusy || busy)return;
+        var score=curScore;
+        if(!score){rangeStatus.text='请先打开一份谱。';return;}
+        if(mode==='clear' && !score.selection.isRange && score.selection.elements.length===0) {
+            rangeStatus.text='请先在谱面选择要清除标记的音符或小节范围。';return;
+        }
+        rangeBusy=true;
+        var started=false;
+        try {
+            var saved={};
+            try { saved=JSON.parse(score.metaTag('jingwenRangeMarks') || '{}'); }catch(error){}
+            var profiles=['off','soprano','alto','tenor','baritone','bass'];
+            var items=RangeScan.notes(score,Element.CHORD,profiles[soloRange.currentIndex]);
+            var result=RangeScan.plan(items,saved,mode,function(item){return RangeScan.selectionContains(score,item);});
+            var metadata=JSON.stringify(result.marks);
+            if(result.edits.length || metadata!==JSON.stringify(saved)) {
+                score.startCmd('Jingwen range check');
+                started=true;
+                for(var i=0;i<result.edits.length;i++)result.edits[i].note.color=result.edits[i].color;
+                score.setMetaTag('jingwenRangeMarks',metadata);
+                score.endCmd();
+                started=false;
+            }
+            if(mode==='clear' || mode==='clearAll') {
+                autoRange.checked=false;
+                rangeStatus.text='已清除 '+result.edits.length+' 个标记；自动检查已暂停，避免立即重新标红。';
+            } else rangeStatus.text='检查完成：'+result.count+' 个音符超出手册音域。';
+        } catch(error) {
+            if(started)score.endCmd(true);
+            rangeStatus.text='音域检查失败：'+error.message;
+        }
+        rangeBusy=false;
+    }
+    Timer {
+        interval: 900;repeat:true
+        running: featureTabs.currentIndex===1 && autoRange.checked
+        onTriggered: root.runRange('check')
+    }
+    ScrollView {
+        visible:featureTabs.currentIndex===1
+        anchors.top:featureTabs.bottom;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
+        anchors.margins:20;clip:true
+        ColumnLayout {
+            width:430;spacing:12
+            Label { text:'音域检查 · 按 Workshop 手册';font.pixelSize:20 }
+            Label { text:'Soprano  G3–E5\nAlto  D3–B4\nTenor  C3–G4\nBaritone  F2–E4\nBass  下限 D2，上限未设置';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Label { text:'按实际发声音高检查；Beatbox、Rap 和未识别的名称默认跳过。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            RowLayout {
+                Label { text:'Solo 按' }
+                ComboBox { id:soloRange;model:['不检查','Soprano','Alto','Tenor','Baritone','Bass'];Layout.fillWidth:true }
+            }
+            CheckBox { id:autoRange;text:'自动检查（保持插件窗口打开）';checked:true }
+            Button { text:'检查全谱';Layout.fillWidth:true;onClicked:root.runRange('check') }
+            Button { text:'清除选区内标记';Layout.fillWidth:true;onClicked:root.runRange('clear') }
+            Button { text:'清除全谱标记';Layout.fillWidth:true;onClicked:root.runRange('clearAll') }
+            Label { text:'清除前先在谱面选择音符或小节范围。清除后会暂停自动检查，可重新勾选开启。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
+            Label { id:rangeStatus;text:'选择“音域检查”后自动检查当前谱。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+        }
+    }
+
 }
