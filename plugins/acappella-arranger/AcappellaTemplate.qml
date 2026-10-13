@@ -12,7 +12,7 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.2.2"
+    version: "0.2.3"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -37,15 +37,15 @@ MuseScore {
                 solos:solo.checked ? soloSettings() : [],
                 soprano:soprano.checked,alto:alto.checked,tenor:tenor.checked,
                 baritone:baritone.checked,bass:bass.checked,beatbox:beatbox.checked,rap:rap.checked};
-            // A single-measure template supplies staff names, sounds and clefs.
+            // A native template supplies persistent staff defaults and piano instruments.
             // MuseScore's native template workflow creates the requested measures.
             Template.build(options);
             var templateOptions={};
             for(var key in options)templateOptions[key]=options[key];
             templateOptions.bars=1;
-            var xml=Template.build(templateOptions);
+            var xml=Template.buildNative(templateOptions);
             var folder=templateFile.tempPath().replace(/\\/g,'/').replace(/\/$/,'');
-            var path=folder+'/Jingwen-template-'+Date.now()+'.musicxml';
+            var path=folder+'/Jingwen-template-'+Date.now()+'.mscx';
             templateFile.source=path;
             if(templateFile.exists())throw new Error('临时模板重名，请稍后重试。');
             if(!templateFile.write(xml))throw new Error('无法写入临时模板。');
@@ -72,10 +72,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.2.2] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.2.3] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.2.2] 创建失败：' + error.message);
+            console.error('[Jingwen 0.2.3] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -100,7 +100,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.2.2 · 一键建谱" }
+            Label { text: "v0.2.3 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }

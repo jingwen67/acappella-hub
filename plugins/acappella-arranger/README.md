@@ -1,4 +1,4 @@
-# 阿卡贝拉编曲助手 v0.2.2（试用版）
+# 阿卡贝拉编曲助手 v0.2.3（试用版）
 
 功能：原生一键建谱＋按 Workshop 手册检查声部音域。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
@@ -14,12 +14,12 @@
 ## Mac 安装
 
 1. 解压 ZIP，将整个 `acappella-arranger-v0.1` 文件夹放进 MuseScore 的插件目录。通常是 `~/Documents/MuseScore4/Plugins/`，准确路径以 MuseScore「设置／偏好设置 → 文件夹 → 插件」为准。
-2. 保持文件夹完整（含 QML、Template.js、RangeScan.js 和 CreateFlow.js），不要只复制 QML 文件。
+2. 保持文件夹完整（含 QML、Template.js、NativeInstruments.js、RangeScan.js 和 CreateFlow.js），不要只复制 QML 文件。
 3. 重启 MuseScore，在首页「插件／Plugins」中找到并启用 **阿卡贝拉编曲助手 · Jingwen**。如果提供重新扫描选项，也可使用它。
 4. 从「插件／Plugins」菜单运行插件，选好声部后点击「创建新谱」。
 5. 点击创建后，助手自动关闭并打开未保存的新谱；直接输入音符，需要保留时再按 `⌘S` 保存成 `.mscz`。
 
-通过 MuseScore 的原生“从模板创建新谱”流程创建未保存新谱。内部在系统临时目录生成一个 MusicXML 模板，但不作为普通文件打开，不显示 MusicXML 文件名，也不调用普通文件导入流程；不自动保存 .mscz。曲名用于新谱标题和首次保存的默认名称。旧版导入产生的最近记录不会自动清除；可用「文件 → 打开最近 → 清除最近文件」手动清除全部记录，实际谱文件不受影响。
+通过 MuseScore 的原生“从模板创建新谱”流程创建未保存新谱。内部在系统临时目录生成一个 MuseScore 原生 MSCX 模板，但不作为普通文件打开，不显示 MusicXML 文件名，也不调用普通文件导入流程；不自动保存 .mscz。曲名用于新谱标题和首次保存的默认名称。旧版导入产生的最近记录不会自动清除；可用「文件 → 打开最近 → 清除最近文件」手动清除全部记录，实际谱文件不受影响。
 
 原生流程预期不再添加临时导入记录；必须在 MuseScore 4.7.5 实际运行后确认。
 
@@ -123,3 +123,18 @@ git -C "$HOME/Documents/CUCAC-Plugins/acappella-hub" pull --ff-only
 本次调整只在助手正常关闭、窗口不可见后，才同步调用原生建谱模型。关闭失败则取消建谱；不在关闭中的窗口上启动延时任务。点「创建新谱」会自动关闭助手，再打开未保存的新谱，无需提前保存。音域检查仍从同一个插件入口打开，手动关闭不会建谱。
 
 依据 revision `3654226`：PluginAPI.quit 的关闭通知；ExtensionViewerDialog 的关闭处理；InteractiveProvider.qml 的 closed 回调先注销窗口，再调用延迟销毁；WindowView.close 处理窗口隐藏。代码依赖内部实现，仍需在用户的 macOS 4.7.5 验证；本环境只能检查关闭／创建的调用顺序，不能验证实际桌面窗口是否正常关闭。新增阶段日志以便区分关闭与创建失败。
+
+
+## v0.2.3：保留声部谱号和 Piano
+
+建谱模板改用原生 MSCX。MusicXML 的小节谱号在模板小节重建时不能作为持久默认值保证保留；原生模板明确填写谱表 defaultClef 和 Instrument clef，并用 Piano 的 instrumentId／Channel program 保存音色。每个声部只建立一个谱表。
+
+- Solo：逐个按选择的高音、高音低八度、低音谱号；多个 Solo 的名称为 Solo 1、Solo 2…。
+- Soprano／Alto／Rap：高音谱号。
+- Tenor：高音低八度。
+- Baritone／Bass：低音谱号；Baritone 默认勾选。
+- 除 Beatbox 外全部使用 Piano；Beatbox 使用完整 Drum Kit 定义及打击乐谱号。
+
+原生乐器数据改编自 MuseScore revision `3654226` 的 Piano 和 Rock Band 模板，来源见 NativeInstruments.js（GPL-3.0-only）。沿用已由用户确认不闪退的“先关闭助手，再创建新谱”顺序；仍只创建未保存新谱。
+
+已检查默认 7 声部、3 个不同谱号的 Solo 加 Rap、单谱表、声部名称、持久谱号、Piano 的 program=0 和打击乐映射。没有实际桌面 MuseScore；新模板的显示和回放仍需在 Mac 验证。

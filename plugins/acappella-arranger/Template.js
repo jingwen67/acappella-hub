@@ -1,4 +1,5 @@
 .pragma library
+.import "NativeInstruments.js" as NativeInstruments
 
 function escapeXml(value) {
     return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -78,4 +79,34 @@ function fileStem(title) {
         .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/g, '');
     if (!stem || stem === '.' || stem === '..') stem = 'A Cappella';
     return stem.substring(0, 100);
+}
+
+// Native defaults survive MuseScore's template workflow clearing its measures.
+function buildNative(options) {
+    build(options); // Reuse parameter validation.
+    var parts = voices(options);
+    var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<museScore version="4.70"><Score><Division>480</Division>';
+    xml += '<metaTag name="workTitle">' + escapeXml(options.title || 'A Cappella') + '</metaTag>';
+    for (var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        var percussion = part.clef === 'percussion';
+        var clef = percussion ? 'PERC' : part.clef === 'F' ? 'F' : part.octave === -1 ? 'G8vb' : 'G';
+        var instrument = percussion ? NativeInstruments.drumkit : NativeInstruments.piano;
+        // One piano instrument on ONE vocal staff, with its own default clef.
+        instrument = instrument.replace(/<clef[^>]*>[\s\S]*?<\/clef>/g, '');
+        instrument = instrument.replace('<instrumentId>', '<clef>' + clef + '</clef><instrumentId>');
+        instrument = instrument.replace(/<longName>[\s\S]*?<\/longName>/g, '<longName>' + escapeXml(part.name) + '</longName>')
+            .replace(/<shortName>[\s\S]*?<\/shortName>/g, '<shortName>' + escapeXml(part.shortName) + '</shortName>')
+            .replace(/<trackName>[\s\S]*?<\/trackName>/g, '<trackName>' + escapeXml(part.name) + '</trackName>');
+        xml += '<Part><Staff id="' + (i+1) + '"><StaffType group="' + (percussion ? 'percussion' : 'pitched') + '">';
+        xml += '<name>' + (percussion ? 'perc5Line' : 'stdNormal') + '</name>';
+        if (percussion) xml += '<keysig>0</keysig>';
+        xml += '</StaffType><defaultClef>' + clef + '</defaultClef></Staff>';
+        xml += '<trackName>' + escapeXml(part.name) + '</trackName>' + instrument + '</Part>';
+    }
+    for (var p = 0; p < parts.length; p++) {
+        xml += '<Staff id="' + (p+1) + '"><Measure><voice><TimeSig><sigN>4</sigN><sigD>4</sigD></TimeSig>';
+        xml += '<Rest><durationType>measure</durationType><duration>4/4</duration></Rest></voice></Measure></Staff>';
+    }
+    return xml + '</Score></museScore>';
 }
