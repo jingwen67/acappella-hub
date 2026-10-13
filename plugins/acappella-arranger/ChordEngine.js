@@ -31,8 +31,10 @@ function spelled(letter,alter) {
 function parse(text) {
     var value=plain(text).replace(/\s+/g,'').replace(/[()]/g,'');
     if (/^(N\.?C\.?|noChord)$/i.test(value))return {label:text,silent:true};
-    var match=/^([A-G])([#b]{0,2})([^/]*)(?:\/([A-G])([#b]{0,2}))?$/.exec(value);
+    var match=/^([A-Ga-g])([#b]{0,2})([^/]*)(?:\/([A-Ga-g])([#b]{0,2}))?$/.exec(value);
     if(!match)throw new Error('不支持的和弦：'+plain(text));
+    match[1]=match[1].toUpperCase();
+    if(match[4])match[4]=match[4].toUpperCase();
     function alter(acc) { return acc.split('').reduce(function(n,c){return n+(c==='#'?1:-1);},0); }
     var root=spelled(match[1],alter(match[2])),quality=match[3];
     quality=quality.replace(/^(△|Δ)$/,'maj7').replace(/△|Δ/g,'maj').replace(/−/g,'-');

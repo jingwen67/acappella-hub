@@ -20,6 +20,13 @@ for(const [quality,tones] of Object.entries(expected))for(const key of ['C','C#'
     assert(result.pcs[chord.tones[1].pc],'third/sus tone missing');
     if(chord.tones.length===4)assert(result.pcs[chord.tones[3].pc],'seventh/sixth missing');
 }
+for(const name of ['C','Am','Bb7','F#m7b5','Dbmaj7','C/E','CM7','Cm7']) {
+    const lower=name.charAt(0).toLowerCase()+name.slice(1).replace(/\/([A-G])/g,(_,letter)=>'/'+letter.toLowerCase());
+    assert.deepEqual(JSON.parse(JSON.stringify(engine.parse(lower).tones)),JSON.parse(JSON.stringify(engine.parse(name).tones)));
+    assert.equal(engine.parse(lower).bass.pc,engine.parse(name).bass.pc);
+}
+assert.equal(engine.parse('cM7').tones[3].pc,11);
+assert.equal(engine.parse('cm7').tones[3].pc,10);
 assert.equal(engine.parse('C/E').bass.pc,4);assert.equal(engine.parse('D♭maj7').tones[0].tpc,9);
 assert.deepEqual(Array.from(engine.parse('C△').tones,t=>t.pc),[0,4,7,11]);
 assert.equal(engine.parse('Cdim7').tones[3].tpc,5); // B double flat, not A

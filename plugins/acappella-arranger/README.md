@@ -1,4 +1,4 @@
-# 阿卡贝拉编曲助手 v0.3.0（试用版）
+# 阿卡贝拉编曲助手 v0.3.1（试用版）
 
 功能：原生一键建谱、按 Workshop 手册检查声部音域、根据和弦符号生成伴唱／Bass 草稿。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
@@ -175,3 +175,8 @@ git -C "$HOME/Documents/CUCAC-Plugins/acappella-hub" pull --ff-only
 验证：`node plugins/acappella-arranger/tests/chords.test.cjs`，仅使用 Node 内置模块。覆盖 196 种和弦拼写／配音、时值、斜杠低音、跨小节延音链、无和弦与 N.C. 空白、选区边界、各音轨已有音符保护、连音跳过、重复生成、未知符号、单个撤销事务和注入失败后的回滚。分配逻辑和模拟 API 测试已通过；本环境没有桌面 MuseScore，实际 macOS 4.7.5 写谱、播放和撤销仍需试用。
 
 原有建谱函数、Piano／谱号及音域规则保持不变。此更新仅上传 main 的独立桌面插件，不触发 Hub 的 Vercel 部署。
+
+
+## v0.3.1：识别小写根音
+
+修复 MuseScore 的和弦文本返回 am、c 等小写根音时解析失败。根音及斜杠低音兼容大小写，只规范音名，不改变后缀，因此 cM7 仍是大七、cm7 仍是小七。新增小写根音、斜杠低音和 M7／m7 区分的回归检查。
