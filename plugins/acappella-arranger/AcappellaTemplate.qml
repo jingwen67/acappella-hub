@@ -1,16 +1,18 @@
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import MuseScore 3.0
 import FileIO 3.0
 import "Template.js" as Template
 import "RangeScan.js" as RangeScan
+import "CreateFlow.js" as CreateFlow
 
 MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.2.1"
+    version: "0.2.2"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -19,7 +21,7 @@ MuseScore {
     property bool busy: false
     property var nativeModel: null
     FileIO { id: templateFile }
-    Timer { id: createCooldown; interval: 1500; repeat: false; onTriggered: root.busy = false }
+    MessageDialog { id: creationError; title: "未能创建新谱"; standardButtons: [StandardButton.Ok] }
     onRun: { status.text = "选择声部后创建新谱。"; }
 
     function createTemplate() {
@@ -52,7 +54,7 @@ MuseScore {
             nativeModel=Qt.createQmlObject(
                 'import QtQuick; import MuseScore.Project; NewScoreModel {}',
                 root,'JingwenNativeScoreModel');
-            var created=nativeModel.createScore({
+            var createInfo={
                 title:options.title,subtitle:'',
                 composer:options.arranger.trim() ? 'Arranged by '+options.arranger.trim() : '',
                 lyricist:'',copyright:'',templatePath:path,instruments:[],
@@ -61,14 +63,26 @@ MuseScore {
                 keySignature:{key:options.fifths},withPickupMeasure:false,
                 pickupTimeSignature:{numerator:1,denominator:4},
                 withTempo:true,tempo:{value:options.tempo,noteIcon:0,withDot:false}
-            });
-            if(!created)throw new Error('MuseScore 未能从模板创建新谱。');
-            // No score wrappers, instrument swaps or new clefs are touched after creation.
-            status.text='未保存的新谱已创建！需要保留时按 ⌘S / Ctrl+S。';
-            createCooldown.start();
+            };
+            // quit() closes the host synchronously; QML destroy() is deferred
+            // until this script returns. Capture the window and model first.
+            var assistantWindow = root.Window.window;
+            var model = nativeModel;
+            status.text = '正在关闭助手并创建新谱…';
+            CreateFlow.run(assistantWindow,
+                function() { root.quit(); },
+                function(info) { return model.createScore(info); },
+                createInfo, function(stage) { console.log('[Jingwen 0.2.2] ' + stage); });
+            // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            status.text='创建失败：'+error.message;
-            busy=false;
+            console.error('[Jingwen 0.2.2] 创建失败：' + error.message);
+            if (root.Window.window && root.Window.window.visible) {
+                status.text='创建失败：'+error.message;
+                busy=false;
+            } else {
+                creationError.text=error.message;
+                creationError.open();
+            }
         }
     }
 
@@ -86,7 +100,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.2.1 · 一键建谱" }
+            Label { text: "v0.2.2 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
