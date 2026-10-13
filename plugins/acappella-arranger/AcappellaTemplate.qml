@@ -9,7 +9,7 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create an a cappella score with selected voices, key, meter and tempo."
-    version: "0.1.1"
+    version: "0.1.2"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -30,14 +30,24 @@ MuseScore {
                 solo: solo.checked, soloClef: ['treble','tenor','bass'][soloClef.currentIndex],
                 soprano: soprano.checked, alto: alto.checked, tenor: tenor.checked,
                 baritone: baritone.checked, bass: bass.checked, beatbox: beatbox.checked, rap: rap.checked});
-            var fileUrl = Qt.resolvedUrl('Acappella-generated-' + Date.now() + '.musicxml').toString();
+            var stem = Template.fileStem(scoreTitle.text);
+            var fileUrl = Qt.resolvedUrl(encodeURIComponent(stem) + '.musicxml').toString();
             var path = decodeURIComponent(fileUrl.replace(/^file:\/\//, ''));
             if (/^\/[A-Za-z]:/.test(path)) path = path.substring(1);
             outputFile.source = path;
+            var suffix = 2;
+            while (outputFile.exists()) {
+                var alternateUrl = Qt.resolvedUrl(encodeURIComponent(stem + ' (' + suffix + ')') + '.musicxml').toString();
+                path = decodeURIComponent(alternateUrl.replace(/^file:\/\//, ''));
+                if (/^\/[A-Za-z]:/.test(path)) path = path.substring(1);
+                outputFile.source = path;
+                suffix++;
+            }
             if (!outputFile.write(xml)) throw new Error('无法写入模板。请将插件文件夹放在 MuseScore 的 Plugins 文件夹中。');
             var score = readScore(path, false);
             if (!score) throw new Error('模板已生成，但 MuseScore 未能打开。可手动打开插件文件夹中的 MusicXML 文件。');
-            status.text = '新谱已创建！关闭此窗口后，按 ⌘S / Ctrl+S 保存为 .mscz。';
+            outputFile.remove();
+            status.text = '新谱已创建！文件名默认采用曲名，按 ⌘S / Ctrl+S 保存；除 Beatbox 外均为 Piano。';
         } catch (error) { status.text = '创建失败：' + error.message; }
         busy = false;
     }
@@ -50,7 +60,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.1.1 · 一键建谱" }
+            Label { text: "v0.1.2 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }

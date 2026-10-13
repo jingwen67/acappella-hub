@@ -8,8 +8,8 @@ function escapeXml(value) {
 function voices(options) {
     var list = [];
     function add(enabled, name, shortName, sound, clef, line, octave, program) {
-        if (enabled) list.push({name:name, shortName:shortName, sound:sound,
-            clef:clef, line:line, octave:octave || 0, program:program || 53});
+        if (enabled) list.push({name:name, shortName:shortName, sound:clef === 'percussion' ? sound : 'keyboard.piano',
+            clef:clef, line:line, octave:octave || 0, program:program || 1});
     }
     var soloClef = options.soloClef || 'treble';
     add(options.solo, 'Solo', 'Solo', 'voice', soloClef === 'bass' ? 'F' : 'G',
@@ -43,7 +43,7 @@ function build(options) {
         if (part.clef === 'percussion') channel = 10;
         else { pitchedChannel++; if (pitchedChannel === 10) pitchedChannel++; channel = pitchedChannel; }
         xml += '<score-part id="P' + (i+1) + '"><part-name>' + part.name + '</part-name><part-abbreviation>' + part.shortName + '</part-abbreviation>';
-        xml += '<score-instrument id="I' + (i+1) + '"><instrument-name>' + part.name + '</instrument-name><instrument-sound>' + part.sound + '</instrument-sound></score-instrument>';
+        xml += '<score-instrument id="I' + (i+1) + '"><instrument-name>' + (part.clef === 'percussion' ? 'Drumset' : 'Piano') + '</instrument-name><instrument-sound>' + part.sound + '</instrument-sound></score-instrument>';
         xml += '<midi-instrument id="I' + (i+1) + '"><midi-channel>' + channel + '</midi-channel><midi-program>' + part.program + '</midi-program>';
         if (part.clef === 'percussion') xml += '<midi-unpitched>39</midi-unpitched>';
         xml += '</midi-instrument></score-part>';
@@ -57,7 +57,7 @@ function build(options) {
             if (m === 1) {
                 xml += '<attributes><divisions>8</divisions>';
                 if (voice.clef !== 'percussion') xml += '<key><fifths>' + fifths + '</fifths></key>';
-                xml += '<time><beats>' + beats + '</beats><beat-type>' + beatType + '</beat-type></time><clef><sign>' + voice.clef + '</sign><line>' + voice.line + '</line>';
+                xml += '<time><beats>' + beats + '</beats><beat-type>' + beatType + '</beat-type></time><staves>1</staves><clef><sign>' + voice.clef + '</sign><line>' + voice.line + '</line>';
                 if (voice.octave) xml += '<clef-octave-change>' + voice.octave + '</clef-octave-change>';
                 xml += '</clef></attributes>';
                 if (p === 0) xml += '<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>' + tempo + '</per-minute></metronome></direction-type><sound tempo="' + tempo + '"/></direction>';
@@ -67,4 +67,11 @@ function build(options) {
         xml += '</part>';
     }
     return xml + '</score-partwise>';
+}
+
+function fileStem(title) {
+    var stem = String(title || '').replace(/^\s+|\s+$/g, '').replace(/\.[mM][sS][cC][zZxX]$/, '').replace(/\.musicxml$/i, '')
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/g, '');
+    if (!stem || stem === '.' || stem === '..') stem = 'A Cappella';
+    return stem.substring(0, 100);
 }
