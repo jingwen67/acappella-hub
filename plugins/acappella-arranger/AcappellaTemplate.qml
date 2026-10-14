@@ -10,12 +10,14 @@ import "CreateFlow.js" as CreateFlow
 import "ChordEngine.js" as ChordEngine
 import "ChordScore.js" as ChordScore
 import "Rhythm.js" as Rhythm
+import "AutoHarmony.js" as AutoHarmony
+import "AutoScore.js" as AutoScore
 
 MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create a cappella scores, check vocal ranges and generate chord accompaniment."
-    version: "0.4.0"
+    version: "0.5.0"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -29,7 +31,7 @@ MuseScore {
         status.text = "选择声部后创建新谱。";
         root.syncSoloRanges();
         root.syncChordTargets();
-        if (curScore) root.runRange('check');
+        if (curScore) { root.runRange('check'); featureTabs.currentIndex=3; }
     }
 
     function createTemplate() {
@@ -80,10 +82,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.4.0] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.5.0] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.4.0] 创建失败：' + error.message);
+            console.error('[Jingwen 0.5.0] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -94,7 +96,7 @@ MuseScore {
         }
     }
 
-    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } TabButton { text: "和弦生成" } onCurrentIndexChanged: { if(currentIndex===2)root.syncChordTargets(); } }
+    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } TabButton { text: "和弦生成" } TabButton { text: "旋律编曲" } onCurrentIndexChanged: { if(currentIndex>=2)root.syncChordTargets(); } }
 
     ScrollView {
         visible: featureTabs.currentIndex === 0
@@ -108,7 +110,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.4.0 · 一键建谱" }
+            Label { text: "v0.5.0 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -236,7 +238,7 @@ MuseScore {
     Timer {
         interval: 900;repeat:true
         running: !root.busy && !root.rangeBusy
-        onTriggered: { root.syncSoloRanges(); if(featureTabs.currentIndex===2)root.syncChordTargets(); if(autoRange.checked)root.runRange('check'); }
+        onTriggered: { root.syncSoloRanges(); if(featureTabs.currentIndex>=2)root.syncChordTargets(); if(autoRange.checked)root.runRange('check'); }
     }
     ScrollView {
         visible: featureTabs.currentIndex===1
@@ -406,4 +408,83 @@ MuseScore {
         }
     }
 
+
+    property bool autoAdvanced: false
+    property var autoOptions: []
+    property string autoSnapshot: ''
+    function autoRead() {
+        if(!curScore)throw new Error('请先打开一份谱，并输入旋律。');
+        var enums={all:Segment.All,chordRest:Segment.ChordRest,harmony:Element.HARMONY,chord:Element.CHORD,rest:Element.REST};
+        return AutoScore.read(curScore,enums,autoSource.currentIndex-1,division,function(tick){return root.fractionFromTicks(tick);});
+    }
+    function autoChoices() {
+        if(busy || rangeBusy)return;
+        try {
+            var data=autoRead(),paths=AutoHarmony.recommend(data,autoTonality.currentIndex);
+            var current=AutoHarmony.current(data,paths[0]);
+            var options=[{title:'保留当前和弦，换一种配音',path:current,variant:true}];
+            var signature=AutoHarmony.signature(current),number=1;
+            for(var p=0;p<paths.length;p++) {
+                if(AutoHarmony.signature(paths[p])===signature)continue;
+                var labels=paths[p].bars.filter(function(b){return b.chord;}).map(function(b){return b.label;});
+                options.push({title:'和弦方案 '+number+'：'+labels.slice(0,8).join(' → ')+(labels.length>8?'…':''),
+                    path:paths[p],variant:false});
+                if(++number>2)break;
+            }
+            autoSnapshot=data.snapshot;autoOptions=options;
+            autoStatus.text='点击方案替换所选小节并试听；手动修改过的小节会保留。';
+        } catch(error) { autoStatus.text=error.message; }
+    }
+    function arrangeFromMelody(option) {
+        if(busy || rangeBusy)return;
+        busy=true;
+        try {
+            var data=autoRead();
+            if(option && data.snapshot!==autoSnapshot)throw new Error('旋律或选区已变化，请重新点击“试试其他方案”。');
+            var path=option?option.path:AutoHarmony.recommend(data,autoTonality.currentIndex)[0];
+            var score=curScore,enums={all:Segment.All,chordRest:Segment.ChordRest,harmony:Element.HARMONY,chord:Element.CHORD,rest:Element.REST};
+            var targets=ChordScore.targets(score).filter(function(t){return t.staff!==data.source;});
+            var result=AutoScore.execute(score,data,path,targets,enums,division,
+                function(tick){return root.fractionFromTicks(tick);},function(type){return root.newElement(type);},option && option.variant);
+            var key=ChordEngine.keyInfo(data.bars[0].fifths,path.minor);
+            var keyName=ChordEngine.noteName(key.letter,key.pc)+(path.minor?' 小调':' 大调');
+            var labels=result.labels;
+            autoStatus.text='已写入 '+result.written+' 段伴唱；保留 '+result.protectedCount+' 个已有内容／手动修改的小节。\n'+
+                '来源：'+ChordEngine.plain(score.staves[data.source].part.longName || score.staves[data.source].part.partName)+
+                '；'+keyName+'\n'+labels.slice(0,16).join(' → ')+(labels.length>16?'…':'')+
+                '\n关闭助手试听，⌘Z / Ctrl+Z 可撤销。';
+            autoOptions=[];
+        } catch(error) {
+            console.error('[Jingwen automatic] '+error.message);
+            autoStatus.text='未完成：'+error.message;
+        } finally { busy=false; }
+    }
+    ScrollView {
+        visible:featureTabs.currentIndex===3
+        anchors.top:featureTabs.bottom;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
+        anchors.margins:20;clip:true
+        ColumnLayout {
+            width:430;spacing:12
+            Label { text:'根据旋律生成编曲';font.pixelSize:22 }
+            Label { text:'默认读取 Solo，自动推荐每小节的和弦，生成长音伴唱与 Bass。无需逐小节输入和弦。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Label { text:'选中小节时编配选区；没有范围选区时编配整谱。有多位 Solo 时可在设置中换来源。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Button { text:root.busy?'正在生成…':'根据旋律生成编曲';Layout.fillWidth:true;enabled:!root.busy && !root.rangeBusy;onClicked:root.arrangeFromMelody(null) }
+            Button { text:'试试其他方案';Layout.fillWidth:true;enabled:!root.busy && !root.rangeBusy;onClicked:root.autoChoices() }
+            Repeater {
+                model:root.autoOptions
+                Button { text:modelData.title;Layout.fillWidth:true;enabled:!root.busy;onClicked:root.arrangeFromMelody(modelData) }
+            }
+            Button { text:root.autoAdvanced?'收起设置':'展开设置';onClicked:root.autoAdvanced=!root.autoAdvanced }
+            ColumnLayout {
+                visible:root.autoAdvanced;Layout.fillWidth:true
+                Label { text:'旋律来源（第一音轨）' }
+                ComboBox { id:autoSource;model:['自动（Solo／已有小节的来源）'].concat(root.rhythmSources.slice(1));Layout.fillWidth:true;enabled:!root.busy }
+                ComboBox { id:autoTonality;model:['自动判断大小调','按大调','按小调'];Layout.fillWidth:true;enabled:!root.busy }
+                Label { text:'没有 Solo 时取最上方的非打击乐谱表。旋律所在声部始终保留；伴唱按 Soprano、Alto、Tenor、Baritone、Bass 名称识别。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
+            }
+            Label { id:autoStatus;text:'不满意哪里，就选中那些小节，再试其他方案。自动推荐是编曲草稿，不是唯一答案。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+        }
+    }
+
 }
+

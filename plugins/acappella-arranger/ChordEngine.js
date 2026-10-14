@@ -129,7 +129,7 @@ function plan(data,targets,division) {
         intervals.push({start:start,end:end,chord:chord});
     }
     if(!intervals.length)throw new Error('选区内没有可用的和弦符号。');
-    var notes=[],previous={},skipped=data.skipped || 0,restCount=0;
+    var notes=[],previous=data.initialPitches || {},skipped=data.skipped || 0,restCount=0;
     for(var j=0;j<intervals.length;j++) {
         var interval=intervals[j];
         if(interval.chord.silent) { previous={};continue; }
@@ -211,3 +211,4 @@ function resolve(text,mode,key) {
     if(original.indexOf('/')>=0)symbol+='/'+spelling(chord.bass);
     chord.label=original+' → '+symbol;return chord;
 }
+
