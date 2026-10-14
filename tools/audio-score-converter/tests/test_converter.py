@@ -5,10 +5,29 @@ from fractions import Fraction
 from xml.etree import ElementTree as ET
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from converter import convert,convert_duet,parse_csv,DIVISIONS,spell
-from app import Handler,ThreadingHTTPServer
-from audio_pipeline import monophonic_notes
+from app import Handler,ThreadingHTTPServer,score_path
+from audio_pipeline import monophonic_notes,melody_from_frames
 
 class ConverterTests(unittest.TestCase):
+    def test_frame_melody_preserves_steps_repeats_and_silence(self):
+        import numpy as np
+        frames=np.zeros((130,88));onsets=np.zeros_like(frames)
+        for a,b,p in [(0,30,60),(30,60,61),(60,90,62),(105,130,62)]:
+            frames[a:b,p-21]=.85;onsets[a,p-21]=.8
+        onsets[75,62-21]=.9
+        notes=melody_from_frames({'note':frames,'onset':onsets},np.arange(130)*.01,1.3)
+        self.assertEqual([n['pitch'] for n in notes],[60,61,62,62,62])
+        self.assertGreaterEqual(notes[-1]['start'],1.05)
+        # Weak octave leakage must not replace the lead.
+        frames[:,72-21]=.12
+        self.assertEqual([n['pitch'] for n in melody_from_frames({'note':frames,'onset':onsets},np.arange(130)*.01,1.3)],[60,61,62,62,62])
+    def test_song_filename_is_safe_and_does_not_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first=score_path(Path(tmp),'稻香','first');second=score_path(Path(tmp),'稻香','second')
+            self.assertEqual(first.name,'稻香.musicxml');self.assertNotEqual(first,second)
+            unsafe=score_path(Path(tmp),'../../bad\nname','third')
+            self.assertEqual(unsafe.parent,Path(tmp)/'scores'/'third')
+            self.assertNotIn('\n',unsafe.name)
     def check(self,rows,settings):
         blob,summary=convert(rows,settings);root=ET.fromstring(blob)
         beats,denominator=map(int,settings.get('meter','4/4').split('/'));full=beats*4/denominator*DIVISIONS

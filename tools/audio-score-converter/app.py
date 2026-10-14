@@ -2,10 +2,17 @@
 import argparse, json, os, secrets, subprocess, sys, webbrowser, threading
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 from converter import parse_csv,convert,convert_duet,finite
 
 ROOT=Path(__file__).resolve().parent
+
+def score_path(folder, title, identity):
+    # Separate export directories prevent overwrites while keeping the song name.
+    name=''.join('_' if c in '/\\:*?"<>|' or ord(c)<32 else c for c in str(title)).strip(' .')[:100] or '歌曲'
+    target=folder/'scores'/identity
+    target.mkdir(parents=True,exist_ok=True)
+    return target/(name+'.musicxml')
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -36,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
             item=self.server.files.get(path.split('/')[-1])
             if not item:return self.send(404,{'error':'文件不存在，请重新生成。'})
             blob=item.read_bytes();self.send_response(200);self.send_header('Content-Type','application/vnd.recordare.musicxml+xml')
-            self.send_header('Content-Disposition','attachment; filename="'+('Solo-Bass-draft.musicxml' if item.name.startswith('Solo-') else 'Bass-draft.musicxml')+'"');self.send_header('Content-Length',str(len(blob)));self.end_headers();self.wfile.write(blob);return
+            self.send_header('Content-Disposition','attachment; filename="score.musicxml"; filename*=UTF-8\'\''+quote(item.name));self.send_header('Content-Length',str(len(blob)));self.end_headers();self.wfile.write(blob);return
         return self.send(404,{'error':'页面不存在。'})
     def do_POST(self):
         if not self.allowed() or self.headers.get('X-Local-Token')!=self.server.token:return self.send(403,{'error':'请从本地助手页面操作。'})
@@ -87,12 +94,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,{'id':id})
             if path=='/convert-audio':
                 blob,summary=convert_duet(data['solo'],data['bass'],data['settings']);id=secrets.token_hex(12)
-                output=self.server.output/f'Solo-Bass-draft-{id}.musicxml';output.write_bytes(blob);self.server.files[id]=output
+                output=score_path(self.server.output,data['settings'].get('title'),id);output.write_bytes(blob);self.server.files[id]=output
                 return self.send(200,{'id':id,'summary':summary,'path':str(output)})
             if path=='/parse':return self.send(200,{'rows':parse_csv(data['csv'])})
             if path=='/convert':
                 blob,summary=convert(data['rows'],data['settings']);id=secrets.token_hex(12)
-                output=self.server.output/f'Bass-draft-{id}.musicxml';output.write_bytes(blob);self.server.files[id]=output
+                output=score_path(self.server.output,data['settings'].get('title'),id);output.write_bytes(blob);self.server.files[id]=output
                 return self.send(200,{'id':id,'summary':summary,'path':str(output)})
             if path=='/open':
                 output=self.server.files.get(data.get('id'))

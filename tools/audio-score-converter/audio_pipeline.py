@@ -27,6 +27,44 @@ def monophonic_notes(candidates,duration):
     return rows
 
 
+def melody_from_frames(outputs,times,duration):
+    """Decode a single vocal line from frame evidence, rather than event averages.
+
+    All semitones remain eligible. A small switch cost removes frame flicker;
+    fresh onset evidence reduces that cost, preserving steps and repeated notes.
+    """
+    import numpy as np
+    frames=np.asarray(outputs['note'],dtype=float)[:,15:64] # MIDI 36..84
+    onsets=np.asarray(outputs['onset'],dtype=float)[:,15:64]
+    if not len(frames):return []
+    strength=frames.max(axis=1)
+    evidence=np.column_stack([np.clip(.28-strength,.015,.9),np.clip(frames,.015,.99)])
+    emission=-np.log(evidence)
+    count=evidence.shape[1];switch=np.full((count,count),1.8);np.fill_diagonal(switch,0)
+    switch[0,1:]=.8;switch[1:,0]=.8
+    scores=emission[0];back=np.zeros((len(frames),count),dtype=np.int16)
+    for t in range(1,len(frames)):
+        costs=scores[:,None]+switch
+        costs[:,1:]-=np.minimum(1.4,onsets[t]*2)[None,:]*(1-np.eye(count)[:,1:])
+        back[t]=np.argmin(costs,axis=0)
+        scores=costs[back[t],np.arange(count)]+emission[t]
+    path=np.zeros(len(frames),dtype=int);path[-1]=int(np.argmin(scores))
+    for t in range(len(frames)-1,0,-1):path[t-1]=back[t,path[t]]
+    rows=[];begin=0
+    for t in range(1,len(path)+1):
+        # A new attack on the same pitch is a new sung note, not a tie.
+        repeat=(t<len(path) and path[t]>0 and path[t]==path[t-1]
+                and times[t]-times[begin]>=.09 and onsets[t,path[t]-1]>=.5
+                and onsets[t,path[t]-1]>onsets[t-1,path[t]-1]
+                and (t+1==len(path) or onsets[t,path[t]-1]>=onsets[t+1,path[t]-1]))
+        if t==len(path) or path[t]!=path[begin] or repeat:
+            a=max(0,float(times[begin]));b=min(duration,float(times[t]) if t<len(times) else duration)
+            if path[begin]>0 and b-a>=.065:
+                rows.append({'start':a,'end':b,'pitch':int(path[begin]+35)})
+            begin=t
+    return rows
+
+
 def run(input_path,work,start,end,progress):
     import numpy as np, soundfile as sf, torch,librosa
     from demucs.pretrained import get_model
@@ -54,10 +92,12 @@ def run(input_path,work,start,end,progress):
     vocals*=gain;accompaniment*=gain
     sf.write(work/'vocals.wav',vocals,sr,subtype='PCM_24');sf.write(work/'accompaniment.wav',accompaniment,sr,subtype='PCM_24')
     progress('识别人声主旋律…')
-    _,_,vocal_raw=predict(work/'vocals.wav',model_or_model_path=ICASSP_2022_MODEL_PATH,
+    vocal_outputs,_,vocal_raw=predict(work/'vocals.wav',model_or_model_path=ICASSP_2022_MODEL_PATH,
         onset_threshold=.4,frame_threshold=.3,minimum_note_length=100,minimum_frequency=65.4,maximum_frequency=1046.5,melodia_trick=True)
     candidates=[{'start':float(a),'end':float(b),'pitch':int(p),'strength':float(v),'id':i} for i,(a,b,p,v,*rest) in enumerate(vocal_raw)]
-    solo=monophonic_notes(candidates,len(samples)/sr)
+    from basic_pitch.note_creation import model_frames_to_time
+    solo=melody_from_frames(vocal_outputs,model_frames_to_time(len(vocal_outputs['note'])),len(samples)/sr)
+    if not solo:solo=monophonic_notes(candidates,len(samples)/sr)
     if not solo:raise ValueError('未识别到稳定主旋律，请换主唱更清楚的片段。')
     progress('识别伴奏中的低音与节拍…')
     outputs,_,raw=predict(work/'accompaniment.wav',model_or_model_path=ICASSP_2022_MODEL_PATH,
