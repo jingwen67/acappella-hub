@@ -7,15 +7,12 @@ import FileIO 3.0
 import "Template.js" as Template
 import "RangeScan.js" as RangeScan
 import "CreateFlow.js" as CreateFlow
-import "ChordEngine.js" as ChordEngine
-import "ChordScore.js" as ChordScore
-import "Rhythm.js" as Rhythm
 
 MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
-    description: "Create a cappella scores, check vocal ranges and generate chord accompaniment."
-    version: "0.6.1"
+    description: "Create a cappella scores, check vocal ranges with automatic vocal range checks."
+    version: "0.6.2"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -28,7 +25,6 @@ MuseScore {
     onRun: {
         status.text = "选择声部后创建新谱。";
         root.syncSoloRanges();
-        root.syncChordTargets();
         if (curScore) root.runRange('check');
     }
 
@@ -80,10 +76,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.6.1] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.6.2] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.6.1] 创建失败：' + error.message);
+            console.error('[Jingwen 0.6.2] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -94,7 +90,7 @@ MuseScore {
         }
     }
 
-    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } TabButton { text: "和弦生成" } onCurrentIndexChanged: { if(currentIndex===2)root.syncChordTargets(); } }
+    TabBar { id: featureTabs; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: 12; TabButton { text: "建谱" } TabButton { text: "音域检查" } }
 
     ScrollView {
         visible: featureTabs.currentIndex === 0
@@ -108,7 +104,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.6.1 · 一键建谱" }
+            Label { text: "v0.6.2 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -236,7 +232,7 @@ MuseScore {
     Timer {
         interval: 900;repeat:true
         running: !root.busy && !root.rangeBusy
-        onTriggered: { root.syncSoloRanges(); if(featureTabs.currentIndex===2)root.syncChordTargets(); if(autoRange.checked)root.runRange('check'); }
+        onTriggered: { root.syncSoloRanges(); if(autoRange.checked)root.runRange('check'); }
     }
     ScrollView {
         visible: featureTabs.currentIndex===1
@@ -269,141 +265,5 @@ MuseScore {
         }
     }
 
-
-    ListModel { id: chordTargets }
-    property var chordSources: ['自动（首个有和弦的谱表）']
-    property var rhythmSources: ['自动（首个 Solo）']
-    function syncChordTargets() {
-        var score=curScore;
-        var rows=score?ChordScore.targets(score):[];
-        var changed=rows.length!==chordTargets.count;
-        var chosen={};
-        for(var p=0;p<chordTargets.count;p++) {
-            var previous=chordTargets.get(p);
-            chosen[previous.staff+':'+previous.name]=previous.selected;
-            if(!changed && (previous.staff!==rows[p].staff || previous.name!==rows[p].name || previous.profile!==rows[p].profile))changed=true;
-        }
-        if(changed) {
-            chordTargets.clear();
-            for(var i=0;i<rows.length;i++) {
-                var key=rows[i].staff+':'+rows[i].name;
-                if(Object.prototype.hasOwnProperty.call(chosen,key))rows[i].selected=chosen[key];
-                chordTargets.append(rows[i]);
-            }
-        }
-        var sources=['自动（首个有和弦的谱表）'];
-        if(score)for(var s=0;s<score.nstaves;s++) {
-            var part=score.staves[s].part;
-            sources.push((s+1)+'. '+ChordEngine.plain(part.longName || part.partName || '谱表'));
-        }
-        if(JSON.stringify(sources)!==JSON.stringify(chordSources)) {
-            chordSources=sources;
-            sourceStaff.currentIndex=0;
-            rhythmSources=['自动（首个 Solo）'].concat(sources.slice(1));
-            rhythmStaff.currentIndex=0;
-        }
-    }
-    function generateChords() {
-        if(busy || rangeBusy)return;
-        var score=curScore;
-        if(!score){chordStatus.text='请先打开一份谱。';return;}
-        busy=true;
-        var started=false;
-        try {
-            syncChordTargets();
-            var targets=[];
-            for(var i=0;i<chordTargets.count;i++) {
-                var target=chordTargets.get(i);
-                if(target.selected)targets.push({staff:target.staff,name:target.name,profile:target.profile});
-            }
-            var enums={all:Segment.All,chordRest:Segment.ChordRest,harmony:Element.HARMONY,chord:Element.CHORD,rest:Element.REST};
-            var data=ChordScore.read(score,enums,sourceStaff.currentIndex-1,targets);
-            data.mode=['absolute','degree','transpose'][chordMode.currentIndex];
-            if(data.mode!=='absolute') {
-                var fifths=score.staves[data.source].key(root.fractionFromTicks(data.start));
-                data.key=ChordEngine.keyInfo(fifths,tonality.currentIndex===1);
-            }
-            data.rhythm=['long','beat','eighth','offbeat','arpeggio','alternating','follow'][rhythmStyle.currentIndex];
-            if(data.rhythm!=='long')ChordScore.rhythmData(score,enums,rhythmStaff.currentIndex-1,data,division);
-            var plan=ChordEngine.plan(data,targets,division);
-            plan=Rhythm.plan(data,targets,division,plan);
-            if(!plan.notes.length) {
-                chordStatus.text='没有可填的休止符；已有音符、连音休止符及 N.C. 区间都会跳过。';
-                return;
-            }
-            console.log('[Jingwen chords] writing '+plan.notes.length+' accompaniment sections; rhythm='+data.rhythm);
-            score.startCmd('Jingwen chord accompaniment');
-            started=true;
-            ChordScore.write(score,plan,enums,function(tick){return root.fractionFromTicks(tick);},division);
-            score.selection.selectRange(data.start,data.end,data.startStaff,data.endStaff);
-            score.endCmd();
-            started=false;
-            var source=score.staves[data.source].part;
-            chordStatus.text='已生成 '+plan.restCount+' 段伴唱，和弦：'+plan.labels.join(' → ')+
-                '\n来源：'+ChordEngine.plain(source.longName || source.partName)+
-                '。已有音符保留；可按 ⌘Z / Ctrl+Z 撤销。';
-            console.log('[Jingwen chords] completed');
-        } catch(error) {
-            if(started)score.endCmd(true);
-            console.error('[Jingwen chords] '+error.message);
-            chordStatus.text='生成失败：'+error.message;
-        } finally {
-            busy=false;
-        }
-    }
-    ScrollView {
-        visible:featureTabs.currentIndex===2
-        anchors.top:featureTabs.bottom;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
-        anchors.margins:20;clip:true
-        ColumnLayout {
-            width:430;spacing:12
-            Label { text:'和弦生成 · 伴唱节奏';font.pixelSize:20 }
-            Label {
-                text:'先用 ⌘K / Ctrl+K 输入和弦，再在谱面选取连续小节范围。选择来源和目标声部后生成。'
-                Layout.fillWidth:true;wrapMode:Text.Wrap
-            }
-            Label { text:'生成方式';font.bold:true }
-            ComboBox { id:chordMode;model:['实际字母和弦','当前调的级数（1／I）','C 调参考和弦整体移调'];Layout.fillWidth:true;enabled:!root.busy }
-            ComboBox { id:tonality;visible:chordMode.currentIndex!==0;model:['当前调按大调','当前调按小调'];Layout.fillWidth:true;enabled:!root.busy }
-            Label { visible:chordMode.currentIndex!==0;text:'调号取和弦来源谱表选区开始处。级数模式：1、6、4、5⁷；C 调参考模式：C、Am、F、G7。小调的五级默认用大三和弦／属七。整体移调保留原和弦的大小性质。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
-            Label { text:'和弦来源';font.bold:true }
-            ComboBox { id:sourceStaff;model:root.chordSources;Layout.fillWidth:true;enabled:!root.busy }
-            Label { text:'节奏型';font.bold:true }
-            ComboBox { id:rhythmStyle;model:['长音（原模式）','每拍重复','连续八分音符','反拍','八分分解和弦','Bass／伴唱交替','跟随旋律节奏'];Layout.fillWidth:true;enabled:!root.busy }
-            ComboBox { id:rhythmStaff;visible:rhythmStyle.currentIndex===6;model:root.rhythmSources;Layout.fillWidth:true;enabled:!root.busy }
-            Label { visible:rhythmStyle.currentIndex===6;text:'读取来源第一音轨的节奏与休止，不复制音高和歌词；暂不支持来源连音。';Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12 }
-            Label { text:'目标声部';font.bold:true }
-            Repeater {
-                model:chordTargets
-                CheckBox {
-                    text:name;checked:selected;enabled:!root.busy
-                    onClicked:chordTargets.setProperty(index,'selected',checked)
-                }
-            }
-            Label {
-                visible:chordTargets.count===0
-                text:'按声部名识别 Soprano、Alto、Tenor、Baritone、Bass（及常用缩写）。Solo、Rap、Beatbox 不参与。'
-                Layout.fillWidth:true;wrapMode:Text.Wrap
-            }
-            Label {
-                text:'按手册音域分配，每个声部一条线，按所选节奏生成；尽量小幅移动、不交叉。Bass 唱根音，C/E 等斜杠和弦唱指定低音。'
-                Layout.fillWidth:true;wrapMode:Text.Wrap
-            }
-            Label {
-                text:'只填第一音轨的休止符，已有音符保留；其他音轨有音符时也跳过对应休止符。选区的谱表范围不限制这里勾选的目标，只使用选区的时间范围。'
-                Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12
-            }
-            Label {
-                text:'支持：C、Cm、G7、Cmaj7、Am7、dim、dim7、m7b5、aug、sus2、sus4、7sus4、6、m6、斜杠和弦。N.C. 留空；本版跳过连音休止符。'
-                Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:12
-            }
-            Button {
-                text:root.busy?'正在生成…':'生成和弦伴唱';Layout.fillWidth:true
-                enabled:!root.busy && !root.rangeBusy && chordTargets.count>0
-                onClicked:root.generateChords()
-            }
-            Label { id:chordStatus;text:'生成的是伴唱草稿。更换节奏前，先撤销上一版或清空目标声部选区；已有音符不会被覆盖。';Layout.fillWidth:true;wrapMode:Text.Wrap }
-        }
-    }
 
 }
