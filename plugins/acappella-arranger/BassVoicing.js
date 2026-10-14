@@ -63,11 +63,12 @@ function parse(text) {
     var bass=match[4] ? spelled(match[4],alter(match[5] || '')) : root;
     return {label:plain(text),root:root,bass:bass,tones:tones,silent:false};
 }
-function candidates(target,chord,previous,melody) {
+function candidates(target,chord,previous,melody,bounds) {
     var rule=ranges[target.profile],tones=target.profile==='bass'?[chord.bass]:chord.tones;
     var high=rule.high===null ? Math.min(127,rule.low+36) : rule.high,result=[];
     for(var pitch=rule.low;pitch<=high;pitch++)for(var t=0;t<tones.length;t++) {
         if(mod(pitch)!==tones[t].pc)continue;
+        if(bounds && (pitch<=bounds.floor || pitch>=bounds.ceiling))continue;
         var motion=previous===undefined?0:Math.abs(pitch-previous);
         result.push({pitch:pitch,tpc:tones[t].tpc,pc:tones[t].pc,
             cost:motion*2+Math.abs(pitch-rule.center)*0.25+(motion>7?(motion-7)*2:0)+
@@ -76,14 +77,20 @@ function candidates(target,chord,previous,melody) {
     result.sort(function(a,b){return a.cost-b.cost;});
     return result.slice(0,10);
 }
-function voice(chord,targets,previous,melody) {
+function voice(chord,targets,previous,melody,constraints) {
     var ordered=targets.slice().sort(function(a,b){return ranges[a.profile].rank-ranges[b.profile].rank || a.staff-b.staff;});
     var states=[{cost:0,pitches:{},tpcs:{},pcs:{},last:128}];
     for(var i=0;i<ordered.length;i++) {
-        var target=ordered[i],choices=candidates(target,chord,previous[target.staff],melody),next=[];
+        var target=ordered[i],bounds={floor:-1,ceiling:128};
+        for(var f=0;f<(constraints || []).length;f++) {
+            var fixed=constraints[f],rank=ranges[fixed.profile].rank;
+            if(rank>ranges[target.profile].rank || rank===ranges[target.profile].rank && fixed.staff>target.staff)bounds.floor=Math.max(bounds.floor,fixed.pitch);
+            else if(rank<ranges[target.profile].rank || fixed.staff<target.staff)bounds.ceiling=Math.min(bounds.ceiling,fixed.pitch);
+        }
+        var choices=candidates(target,chord,previous[target.staff],melody,bounds),next=[];
         for(var s=0;s<states.length;s++)for(var c=0;c<choices.length;c++) {
             var choice=choices[c],state=states[s];
-            if(choice.pitch>state.last)continue; // no crossing of generated voices
+            if(choice.pitch>=state.last)continue; // no crossing of generated voices
             var pitches={},tpcs={},pcs={};
             for(var key in state.pitches){pitches[key]=state.pitches[key];tpcs[key]=state.tpcs[key];}
             for(var pc in state.pcs)pcs[pc]=state.pcs[pc];
@@ -92,7 +99,7 @@ function voice(chord,targets,previous,melody) {
             next.push({cost:state.cost+choice.cost+duplicate*2,pitches:pitches,tpcs:tpcs,pcs:pcs,last:choice.pitch});
         }
         next.sort(function(a,b){return a.cost-b.cost;});states=next.slice(0,160);
-        if(!states.length)throw new Error('无法在所选声部音域内分配 '+chord.label+'；请减少声部或调整选择。');
+        if(!states.length)throw new Error('无法在声部音域内、不与 Bass 或其他声部交叉地分配 '+chord.label+'；请降低 Bass 音区或调整声部。');
     }
     var essential=[chord.tones[1].pc];
     if(chord.tones.length===4)essential.push(chord.tones[3].pc);
@@ -144,7 +151,10 @@ function plan(data,targets,division) {
             if(pieces.length){active.push(target);windows[target.staff]=pieces;}
         }
         if(!active.length)continue;
-        var voicing=voice(interval.chord,active,previous,(data.solo || []).filter(function(n){return n.start<interval.end && n.end>interval.start;}));
+        var constraints=(data.fixed || []).filter(function(n){return n.start<interval.end && n.end>interval.start;});
+        for(var b=0;b<(data.bass || []).length;b++)if(data.bass[b].start<interval.end && data.bass[b].end>interval.start)
+            constraints.push({staff:-1,profile:'bass',pitch:data.bass[b].pitch});
+        var voicing=voice(interval.chord,active,previous,(data.solo || []).filter(function(n){return n.start<interval.end && n.end>interval.start;}),constraints);
         for(var v=0;v<active.length;v++) {
             var staff=active[v].staff,pieces=windows[staff];previous[staff]=voicing.pitches[staff];
             for(var p=0;p<pieces.length;p++) {

@@ -68,9 +68,23 @@ function rests(score,targets,enums,start,end) {
     }
     return {rows:result,protectedCount:protectedCount};
 }
-function generate(score,data,slots,chosen,enums,division,fraction,newElement) {
+function fixedNotes(score,targets,enums,start,end) {
+    var result=[];
+    for(var t=0;t<targets.length;t++)for(var voice=0;voice<4;voice++) {
+        var c=score.newCursor();c.staffIdx=targets[t].staff;c.voice=voice;c.rewind(0);
+        while(c.segment && c.tick<end) {
+            var e=c.element;
+            if(e && e.type===enums.chord && c.tick+Writer.fractionTicks(e.actualDuration)>start)
+                for(var n=0;n<e.notes.length;n++)result.push({staff:targets[t].staff,profile:targets[t].profile,
+                    start:c.tick,end:c.tick+Writer.fractionTicks(e.actualDuration),pitch:e.notes[n].pitch});
+            if(!c.next())break;
+        }
+    }
+    return result;
+}
+function generate(score,data,slots,chosen,enums,division,fraction,newElement,chordOnly) {
     var targets=Writer.targets(score).filter(function(t){return t.staff!==data.bassStaff && t.staff!==data.soloStaff && t.profile!=='bass';});
-    if(!targets.length)throw new Error('没有找到可写入的 Soprano／Alto／Tenor／Baritone。');
+    if(!chordOnly && !targets.length)throw new Error('没有找到可写入的 Soprano／Alto／Tenor／Baritone。');
     var available=rests(score,targets,enums,data.start,data.end),events=[];
     // Explicit N.C. boundaries prevent accompaniment through bass rests.
     for(var i=0;i<slots.length;i++) {
@@ -78,22 +92,22 @@ function generate(score,data,slots,chosen,enums,division,fraction,newElement) {
         events.push({tick:slots[i].start,text:slots[i].choices[chosen[i]].label});
         if(i+1===slots.length || slots[i+1].start>slots[i].end)events.push({tick:slots[i].end,text:'N.C.'});
     }
-    var plan=Music.plan({start:data.start,end:data.end,events:events,rests:available.rows,solo:data.solo},targets,division);
-    if(!plan.notes.length)throw new Error('没有可写入的空白伴唱位置；请先撤销上一版或选择空白范围。');
-    var started=false;
+    var plan=chordOnly?{notes:[]}:Music.plan({start:data.start,end:data.end,events:events,rests:available.rows,solo:data.solo,bass:data.bass,fixed:fixedNotes(score,targets,enums,data.start,data.end)},targets,division);
+    if(!chordOnly && !plan.notes.length)throw new Error('没有可写入的空白伴唱位置；请先撤销上一版或选择空白范围。');
+    var started=false,symbolCount=0;
     try {
         score.startCmd('Jingwen bass harmony');started=true;
-        Writer.write(score,plan,enums,fraction,division);
+        if(!chordOnly)Writer.write(score,plan,enums,fraction,division);
         // Write symbols only where accompaniment was actually generated.
         for(var i=0;i<slots.length;i++) {
-            var slot=slots[i];if(!plan.notes.some(function(n){return n.tick>=slot.start && n.tick<slot.end;}))continue;
+            var slot=slots[i];if(!chordOnly && !plan.notes.some(function(n){return n.tick>=slot.start && n.tick<slot.end;}))continue;
             var cursor=Writer.cursorAt(score,data.bassStaff,slot.start,fraction),existing=false;
             if(!cursor.segment)continue;
             for(var a=0;a<cursor.segment.annotations.length;a++)if(cursor.segment.annotations[a].type===enums.harmony &&
                 Math.floor(cursor.segment.annotations[a].track/4)===data.bassStaff)existing=true;
-            if(!existing){var symbol=newElement(enums.harmony);cursor.add(symbol);symbol.text=slot.choices[chosen[i]].label;}
+            if(!existing){var symbol=newElement(enums.harmony);cursor.add(symbol);symbol.text=slot.choices[chosen[i]].label;symbolCount++;}
         }
         score.endCmd();started=false;
-        return {written:plan.notes.length,protectedCount:available.protectedCount};
+        return {written:plan.notes.length,protectedCount:available.protectedCount,symbolCount:symbolCount};
     } catch(error){if(started)score.endCmd(true);throw error;}
 }
