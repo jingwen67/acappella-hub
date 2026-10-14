@@ -1,0 +1,70 @@
+import sys,unittest,csv,io,tempfile,threading,json,urllib.request,urllib.error
+from pathlib import Path
+from unittest.mock import patch
+from fractions import Fraction
+from xml.etree import ElementTree as ET
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from converter import convert,parse_csv,DIVISIONS,spell
+from app import Handler,ThreadingHTTPServer
+
+class ConverterTests(unittest.TestCase):
+    def check(self,rows,settings):
+        blob,summary=convert(rows,settings);root=ET.fromstring(blob)
+        beats,denominator=map(int,settings.get('meter','4/4').split('/'));full=beats*4/denominator*DIVISIONS
+        for m in root.findall('./part/measure'):
+            duration=sum(int(n.findtext('duration')) for n in m.findall('note'))
+            self.assertEqual(duration,summary['pickup']*DIVISIONS if m.get('implicit')=='yes' else full)
+        decoded=[]
+        for p in root.findall('.//pitch'):
+            step=p.findtext('step');alter=int(p.findtext('alter','0'));octave=int(p.findtext('octave'))
+            decoded.append((octave+1)*12+{'C':0,'D':2,'E':4,'F':5,'G':7,'A':9,'B':11}[step]+alter)
+        return root,summary,decoded
+    def test_clean_half_bars(self):
+        rows=[{'start':.395+i*1.486,'pitch':[45,40,42,49,47,40,45][i%7]} for i in range(15)]
+        root,s,p=self.check(rows,{'bpm':80.75,'first_beat':.395,'grid':'strong','meter':'4/4','fifths':3})
+        self.assertEqual(s['notes'],15);self.assertEqual(s['measures'],8);self.assertEqual(p,[r['pitch'] for r in rows]);self.assertEqual(root.findtext('.//clef/sign'),'F')
+        self.assertEqual(root.findtext('.//midi-program'),'1')
+    def test_cross_bar_ties(self):
+        root,s,p=self.check([{'start':0,'end':3.5,'pitch':45}],{'bpm':120,'first_beat':0,'grid':'quarter','meter':'4/4'})
+        self.assertEqual(s['measures'],2);self.assertTrue(root.findall('.//tie[@type="start"]'));self.assertTrue(root.findall('.//tie[@type="stop"]'))
+    def test_pickup_and_rests(self):
+        root,s,p=self.check([{'start':0,'end':.5,'pitch':45},{'start':1,'pitch':None},{'start':2,'pitch':40}],{'bpm':120,'first_beat':1,'grid':'quarter','meter':'4/4'})
+        self.assertEqual(s['pickup'],2);self.assertTrue(root.findall('.//rest'));self.assertEqual(root.find('./part/measure').get('implicit'),'yes')
+    def test_compound_meter(self):
+        root,s,p=self.check([{'start':0,'pitch':45},{'start':.75,'pitch':40}],{'bpm':80,'beat_unit':'dotted-quarter','first_beat':0,'grid':'strong','meter':'6/8'})
+        self.assertEqual(s['measures'],1);self.assertTrue(root.findall('.//beat-unit-dot'));self.assertEqual(root.find('.//sound').get('tempo'),'120.0')
+    def test_csv_unicode_and_invalid(self):
+        rows=parse_csv('\ufeffclip_time_seconds,midi_pitch\n0.395,45\n1.8,40\n');self.assertEqual(rows[0]['pitch'],45)
+        for text in ['clip_time_seconds,midi_pitch\nNaN,45\n','clip_time_seconds,midi_pitch\n0,128\n','wrong,pitch\n0,45\n']:
+            with self.assertRaises(ValueError):parse_csv(text)
+        with self.assertRaises(ValueError):convert(rows,{'bpm':0})
+        with self.assertRaises(ValueError):convert(rows,{'bpm':80,'first_beat':20})
+    def test_pitch_roundtrip(self):
+        for fifths in range(-7,8):
+            for p in range(128):
+                step,alt,oct=spell(p,fifths);self.assertEqual((oct+1)*12+{'C':0,'D':2,'E':4,'F':5,'G':7,'A':9,'B':11}[step]+alt,p)
+    def test_collisions_and_title_escape(self):
+        root,s,p=self.check([{'start':0,'pitch':45},{'start':.01,'pitch':40}],{'bpm':80,'first_beat':0,'title':'A < B & C'})
+        self.assertEqual(s['notes'],1);self.assertTrue(s['warnings']);self.assertEqual(root.findtext('./work/work-title'),'A < B & C')
+    def test_local_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.token='test-token';server.files={};server.output=Path(tmp)
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();base=f'http://127.0.0.1:{server.server_port}'
+            def post(route,data,token='test-token'):
+                request=urllib.request.Request(base+route,json.dumps(data).encode(),headers={'Content-Type':'application/json','X-Local-Token':token,'Origin':base})
+                with urllib.request.urlopen(request) as r:return json.load(r)
+            try:
+                page=urllib.request.urlopen(base).read().decode();self.assertIn('test-token',page)
+                rows=post('/parse',{'csv':'clip_time_seconds,midi_pitch\n0,45\n1.5,40\n'})['rows']
+                result=post('/convert',{'rows':rows,'settings':{'bpm':80,'first_beat':0}})
+                ET.fromstring(urllib.request.urlopen(base+'/download/'+result['id']).read())
+                self.assertTrue(Path(result['path']).is_file())
+                with patch('app.sys.platform','darwin'),patch('app.subprocess.run') as opened:
+                    response=post('/open',{'id':result['id'],'app':'/Applications/MuseScore 4.app'})
+                    self.assertIn('MuseScore',response['message'])
+                    self.assertEqual(opened.call_args.args[0],['open','-a','/Applications/MuseScore 4.app',result['path']])
+                with self.assertRaises(urllib.error.HTTPError):post('/convert',{'rows':rows,'settings':{}},token='wrong')
+                if sys.platform!='darwin':
+                    with self.assertRaises(urllib.error.HTTPError):post('/open',{'id':result['id']})
+            finally:server.shutdown();server.server_close();thread.join()
+if __name__=='__main__':unittest.main()
