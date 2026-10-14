@@ -227,9 +227,8 @@ function execute(score,data,path,targets,enums,division,fractionFromTicks,newEle
                 var harmony=newElement(enums.harmony);cursor.add(harmony);harmony.text=text;
             }
         }
-        score.selection.selectRange(data.start,data.end,data.source,data.source+1);
-        var input=Chords.read(score,enums,data.source,targets);
-        input.events=path.bars.map(function(b){return {tick:b.start,text:b.chord?b.label:'N.C.'};});
+        var input=Chords.read(score,enums,data.source,targets,{start:data.start,end:data.end,
+            events:path.bars.map(function(b){return {tick:b.start,text:b.chord?b.label:'N.C.'};})});
         for(var t=0;t<targets.length;t++) {
             var windows=[];
             for(var b=0;b<data.bars.length;b++) {

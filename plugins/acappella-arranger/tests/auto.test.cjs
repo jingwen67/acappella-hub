@@ -166,3 +166,9 @@ assert.equal(Object.keys(read(undone).meta.bars).length,4);
 undone.endCmd(true);
 assert.equal(run(undone).protectedCount,0);
 console.log('PASS undo/redo ownership with non-undoable native metadata.');
+
+// Automatic arrangement must not depend on native selectRange changing selection.
+const independent=new Fixture();independent.selection.isRange=false;
+independent.selection.selectRange=()=>{throw Error('automatic generation must not mutate selection')};
+assert(run(independent).written>0);
+console.log('PASS automatic generation without native selection mutation.');
