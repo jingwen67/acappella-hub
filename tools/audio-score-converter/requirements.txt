@@ -1,0 +1,13 @@
+numpy==1.26.4
+scipy==1.13.1
+librosa==0.10.2.post1
+numba==0.60.0
+llvmlite==0.43.0
+onnxruntime==1.20.1
+scikit-learn==1.5.2
+resampy==0.4.2
+pretty_midi==0.2.10
+mir_eval==0.8.2
+imageio-ffmpeg==0.6.0
+soundfile==0.12.1
+demucs==4.0.1

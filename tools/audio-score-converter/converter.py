@@ -48,7 +48,7 @@ def validate_rows(rows):
         result.append({'start':start,'end':end,'pitch':pitch})
     return sorted(result,key=lambda r:r['start'])
 
-def quantize(rows,bpm,first_beat,meter,grid='strong',beat_unit='quarter'):
+def quantize(rows,bpm,first_beat,meter,grid='strong',beat_unit='quarter',pickup_override=None):
     rows=validate_rows(rows);bpm=finite(bpm,'速度');first_beat=finite(first_beat,'第一拍位置')
     if not 20<=bpm<=300: raise ValueError('速度需在 20–300 BPM 之间。')
     if meter not in METERS: raise ValueError('不支持此拍号。')
@@ -75,6 +75,10 @@ def quantize(rows,bpm,first_beat,meter,grid='strong',beat_unit='quarter'):
         notes.append({'start':r['start'],'end':end,'pitch':r['pitch']})
     if not notes: raise ValueError('没有可输出的有声音符。')
     offset=max(Fraction(0),-min(n['start'] for n in notes))
+    if pickup_override is not None:
+        requested=Fraction(str(pickup_override))
+        if requested<offset:raise ValueError('共享弱起长度不足。')
+        offset=requested
     for n in notes:n['start']+=offset;n['end']+=offset
     return notes,offset,list(dict.fromkeys(warnings))
 
@@ -108,12 +112,12 @@ def split_duration(length):
 
 def convert(rows,settings):
     bpm=finite(settings.get('bpm',80),'速度');meter=settings.get('meter','4/4');unit=settings.get('beat_unit','quarter')
-    notes,pickup,warnings=quantize(rows,bpm,settings.get('first_beat',0),meter,settings.get('grid','strong'),unit)
+    notes,pickup,warnings=quantize(rows,bpm,settings.get('first_beat',0),meter,settings.get('grid','strong'),unit,settings.get('pickup_quarters'))
     fifths=finite(settings.get('fifths',0),'调号')
     if int(fifths)!=fifths or not -7<=fifths<=7:raise ValueError('调号需为 -7–7 整数。')
     fifths=int(fifths);beats,denominator=METERS[meter];bar_length=Fraction(beats*4,denominator)
     if pickup>=bar_length:raise ValueError('第一拍之前超过一个完整小节，请调整第一拍位置。')
-    end=max(n['end'] for n in notes);boundaries=[];at=Fraction(0)
+    end=max(max(n['end'] for n in notes),Fraction(str(settings.get('total_quarters',0))));boundaries=[];at=Fraction(0)
     if pickup:boundaries.append((at,pickup,True));at=pickup
     while at<end:
         boundaries.append((at,at+bar_length,False));at+=bar_length
@@ -166,3 +170,27 @@ def convert(rows,settings):
     ET.indent(score)
     xml=ET.tostring(score,encoding='utf-8',xml_declaration=True)
     return xml,{'measures':len(boundaries),'notes':len(notes),'pickup':float(pickup),'warnings':warnings}
+
+
+def convert_duet(solo,bass,settings):
+    """Align both parts to one pickup and shared measure boundaries."""
+    prepared=[]
+    for rows,grid in [(solo,settings.get('solo_grid','sixteenth')),(bass,settings.get('grid','strong'))]:
+        notes,pickup,warnings=quantize(rows,settings['bpm'],settings['first_beat'],settings.get('meter','4/4'),grid,settings.get('beat_unit','quarter'))
+        prepared.append((notes,pickup))
+    shared=max(p for _,p in prepared)
+    total=max(max(n['end']-p+shared for n in notes) for notes,p in prepared)
+    documents=[];summaries=[]
+    for index,(rows,grid) in enumerate([(solo,settings.get('solo_grid','sixteenth')),(bass,settings.get('grid','strong'))]):
+        options=dict(settings,grid=grid,pickup_quarters=float(shared),total_quarters=float(total))
+        blob,summary=convert(rows,options);root=ET.fromstring(blob)
+        id='P'+str(index+1);instrument_id='I'+str(index+1);definition=root.find('./part-list/score-part');definition.set('id',id)
+        definition.find('part-name').text='Solo' if index==0 else 'Bass';definition.find('part-abbreviation').text='Solo' if index==0 else 'B.'
+        definition.find('score-instrument').set('id',instrument_id);definition.find('midi-instrument').set('id',instrument_id);definition.find('./midi-instrument/midi-channel').text=str(index+1)
+        part=root.find('part');part.set('id',id)
+        if index==0:part.find('.//clef/sign').text='G';part.find('.//clef/line').text='2'
+        documents.append(root);summaries.append(summary)
+    combined=documents[0];combined.find('part-list').append(documents[1].find('./part-list/score-part'));combined.append(documents[1].find('part'))
+    ET.indent(combined)
+    return ET.tostring(combined,encoding='utf-8',xml_declaration=True),{'measures':summaries[0]['measures'],'notes':sum(s['notes'] for s in summaries),
+        'solo_notes':summaries[0]['notes'],'bass_notes':summaries[1]['notes'],'warnings':list(dict.fromkeys(w for s in summaries for w in s['warnings']))}
