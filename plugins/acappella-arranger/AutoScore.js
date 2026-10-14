@@ -222,7 +222,9 @@ function execute(score,data,path,targets,enums,division,fractionFromTicks,newEle
             else if(!matches.length && choice.chord && !bar.fixed) {
                 var cursor=Chords.cursorAt(score,data.source,bar.start,fractionFromTicks);
                 if(!cursor.segment)throw new Error('无法添加和弦符号，已取消此次生成。');
-                var harmony=newElement(enums.harmony);harmony.text=text;cursor.add(harmony);
+                // MuseScore 4.7 Harmony::setProperty(TEXT) dereferences explicitParent.
+                // Attach to the segment before assigning text; detached harmony is unsafe.
+                var harmony=newElement(enums.harmony);cursor.add(harmony);harmony.text=text;
             }
         }
         score.selection.selectRange(data.start,data.end,data.source,data.source+1);

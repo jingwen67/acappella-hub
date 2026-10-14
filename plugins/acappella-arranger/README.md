@@ -1,4 +1,4 @@
-# 阿卡贝拉编曲助手 v0.5.0（试用版）
+# 阿卡贝拉编曲助手 v0.5.1（试用版）
 
 功能：原生一键建谱、按 Workshop 手册检查声部音域、根据和弦符号或 Solo 旋律生成伴唱／Bass 草稿。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
@@ -251,3 +251,7 @@ node plugins/acappella-arranger/tests/rhythm.test.cjs
 验证：Node 模拟覆盖调性推荐、和弦符号、原旋律保留、局部替换、手工修改保护、多 Solo、失败回滚及撤销／重做。此环境没有 MuseScore 桌面程序，真实 macOS 运行仍需试用确认。
 
 更新后请完全退出并重开 MuseScore，避免加载旧的 JavaScript 模块。
+
+## v0.5.1：旋律编曲闪退修复
+
+新增和弦符号时，先通过 cursor.add 将符号加入谱面，再设置文字。MuseScore 4.7 的 Harmony::setProperty(TEXT) 会访问 explicitParent，不能先对未挂接的符号设置文字。模拟测试加入了相同的父节点前置条件；实际 Mac 运行仍需确认。更新后完全退出并重开 MuseScore。

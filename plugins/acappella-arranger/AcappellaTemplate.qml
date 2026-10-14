@@ -17,7 +17,7 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create a cappella scores, check vocal ranges and generate chord accompaniment."
-    version: "0.5.0"
+    version: "0.5.1"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -82,10 +82,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.5.0] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.5.1] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.5.0] 创建失败：' + error.message);
+            console.error('[Jingwen 0.5.1] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -110,7 +110,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.5.0 · 一键建谱" }
+            Label { text: "v0.5.1 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }

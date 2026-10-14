@@ -34,7 +34,7 @@ class Fixture extends Score {
     }
     newCursor() {
         const cursor=super.newCursor(),self=this;
-        cursor.add=function(item){item.track=this.staffIdx*4;self.events.push({tick:this.tick,staff:this.staffIdx,item,
+        cursor.add=function(item){item.attached=true;item.track=this.staffIdx*4;self.events.push({tick:this.tick,staff:this.staffIdx,item,
             get text(){return item.text},set text(v){item.text=v}})};
         return cursor;
     }
@@ -61,7 +61,11 @@ class Fixture extends Score {
     }
 }
 const fraction=t=>({ticks:t});
-const newElement=type=>({type,text:'',color:'#000000'});
+// Native Harmony TEXT setter requires an attached segment parent.
+const newElement=type=>{
+    let text='';return {type,color:'#000000',attached:false,
+        get text(){return text},set text(value){assert(this.attached,'Harmony text set before segment attachment');text=value}};
+};
 function read(score){return native.read(score,E,-1,480,fraction);}
 function run(score,path,variant=false){
     const data=read(score),chosen=bridge.targets(score).filter(t=>t.staff!==data.source);
