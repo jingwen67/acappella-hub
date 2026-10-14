@@ -94,7 +94,9 @@ function read(score,enums,index,division,fractionFromTicks) {
         if(finish>start) {
             var time=measure.timesigNominal || measure.timesigActual;
             var denominator=time?Number(time.denominator):4;
-            var beat=division*4/(denominator>0?denominator:4);
+            var numerator=time?Number(time.numerator):4;
+            var compound=denominator===8 && numerator>3 && numerator%3===0;
+            var beat=division*4/(denominator>0?denominator:4)*(compound?3:1);
             var bar={start:begin,end:finish,number:number,beat:beat,
                 fifths:score.staves[staff].key(fractionFromTicks(begin)),
                 notes:notes.filter(function(x){return x.start<finish && x.end>begin;})};

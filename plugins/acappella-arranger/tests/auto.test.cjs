@@ -73,7 +73,7 @@ function run(score,path,variant=false){
 }
 let score=new Fixture(),data=read(score),choices=analysis.recommend(data,0);
 assert(choices.length>=2);assert.equal(choices[0].minor,false);
-assert.equal(choices[0].bars[0].label,'C');assert.equal(choices[0].bars[3].label,'C');
+assert(analysis.contains(choices[0].bars[0].chord,60));assert(analysis.contains(choices[0].bars[3].chord,60));
 assert.notEqual(analysis.signature(choices[0]),analysis.signature(choices[1]));
 const sourceBefore=JSON.stringify(score.tracks[0].map(b=>({start:b.start,end:b.end,pitch:b.notes[0].pitch})));
 let result=run(score);assert(result.written>0);assert.equal(result.protectedCount,0);
@@ -115,7 +115,7 @@ assert.equal(score.events.length,0);assert.equal(score.metaTag('jingwenArrangeme
 score=new Fixture();score.tracks[0]=[score.chord(0,1920,69),score.chord(1920,3840,72),score.chord(3840,5760,76),score.chord(5760,7680,69)];
 assert.equal(analysis.recommend(read(score),0)[0].minor,true);
 score=new Fixture();score.tracks[0]=[score.chord(0,1920,62),score.chord(1920,3840,66),score.chord(3840,5760,69),score.chord(5760,7680,62)];
-score.staves.forEach(s=>s.key=()=>2);assert.equal(analysis.recommend(read(score),1)[0].bars[0].label,'D');
+score.staves.forEach(s=>s.key=()=>2);assert(analysis.contains(analysis.recommend(read(score),1)[0].bars[0].chord,62));
 score=new Fixture();score.tracks[0][2]=score.rest(3840,5760);assert.equal(analysis.recommend(read(score),0)[0].bars[2].chord,null);
 score=new Fixture();score.selection.selectRange(240,480,0,1);data=read(score);assert.equal(data.start,0);assert.equal(data.end,1920);assert.equal(data.bars[0].notes[0].end,1920);
 score=new Fixture();score.selection.isRange=false;assert.equal(read(score).bars.length,4);
@@ -172,3 +172,35 @@ const independent=new Fixture();independent.selection.isRange=false;
 independent.selection.selectRange=()=>{throw Error('automatic generation must not mutate selection')};
 assert(run(independent).written>0);
 console.log('PASS automatic generation without native selection mutation.');
+
+// General pop foundations: no calibration to the user's test song.
+function musicalBar(pitches,index=0,fifths=0) {
+    const start=index*1920,step=1920/pitches.length;
+    return {start,end:start+1920,beat:480,number:index+1,fifths,
+        notes:pitches.map((pitch,i)=>({pitch,start:start+i*step,end:start+(i+1)*step}))};
+}
+const passing={start:0,end:1920,beat:480,fifths:0,notes:[
+    {pitch:60,start:0,end:240},{pitch:62,start:240,end:480},{pitch:64,start:480,end:1920}]};
+assert.equal(analysis.embellishment(passing.notes,1,engine.parse('C'),passing),true);
+assert.equal(analysis.localScore(passing,engine.parse('C')),2);
+const accented={...passing,notes:[{pitch:60,start:0,end:480},{pitch:62,start:480,end:960},{pitch:64,start:960,end:1920}]};
+assert.equal(analysis.embellishment(accented.notes,1,engine.parse('C'),accented),false);
+assert(analysis.localScore(accented,engine.parse('C'))<2);
+const pop={bars:[[67,71,74],[69,72,76],[65,69,72],[60,64,67]].map((p,i)=>musicalBar(p,i))};
+assert.equal(analysis.recommend(pop,1)[0].bars.map(b=>b.label).join(','),'G,Am,F,C');
+assert.equal(analysis.recommend({bars:[musicalBar([67,71,74])]},1)[0].bars[0].label,'G');
+assert.equal(analysis.recommend({bars:[musicalBar([60,64,67])]},1)[0].bars[0].label,'C');
+for(const minor of [false,true])for(let fifths=-7;fifths<=7;fifths++) {
+    const key=engine.keyInfo(fifths,minor),chord=engine.degreeChord('1',key),bar=musicalBar(chord.tones.map(t=>60+t.pc),0,fifths);
+    const suggestions=analysis.recommend({bars:[bar]},minor?2:1);
+    assert(suggestions.length);assert(suggestions[0].bars[0].chord.tones.length===3);
+    assert(!analysis.candidates(bar,minor).some(c=>c.chord.tones.length>3));
+}
+const modal={bars:[[69,72,76],[65,69,72],[60,64,67],[67,71,74]].map((p,i)=>musicalBar(p,i))};
+assert.equal(analysis.recommend(modal,2)[0].bars.map(b=>b.label).join(','),'Am,F,C,G');
+console.log('PASS weak passing-tone interpretation, accented-tone distinction, rotated pop loops, minor loops, open dominant ending, triad defaults and all key signatures.');
+
+const compound=new Fixture();let measure=compound.firstMeasure;
+while(measure){measure.timesigNominal={numerator:6,denominator:8};measure=measure.nextMeasure;}
+assert.equal(read(compound).bars[0].beat,720);
+console.log('PASS compound-meter structural beats.');

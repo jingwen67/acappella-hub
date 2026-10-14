@@ -17,7 +17,7 @@ MuseScore {
     id: root
     title: "阿卡贝拉编曲助手 · Jingwen"
     description: "Create a cappella scores, check vocal ranges and generate chord accompaniment."
-    version: "0.5.2"
+    version: "0.6.0"
     menuPath: "Plugins.Acappella Arranger - Jingwen"
     pluginType: "dialog"
     requiresScore: false
@@ -82,10 +82,10 @@ MuseScore {
             CreateFlow.run(assistantWindow,
                 function() { root.quit(); },
                 function(info) { return model.createScore(info); },
-                createInfo, function(stage) { console.log('[Jingwen 0.5.2] ' + stage); });
+                createInfo, function(stage) { console.log('[Jingwen 0.6.0] ' + stage); });
             // Do not access the closing UI or schedule work after this call.
         } catch(error) {
-            console.error('[Jingwen 0.5.2] 创建失败：' + error.message);
+            console.error('[Jingwen 0.6.0] 创建失败：' + error.message);
             if (root.Window.window && root.Window.window.visible) {
                 status.text='创建失败：'+error.message;
                 busy=false;
@@ -110,7 +110,7 @@ MuseScore {
             width: 430
             spacing: 10
             Label { text: "阿卡贝拉编曲助手 · Jingwen"; font.pixelSize: 23 }
-            Label { text: "v0.5.2 · 一键建谱" }
+            Label { text: "v0.6.0 · 一键建谱" }
             Label { text: "谱名" }
             TextField { id: scoreTitle; text: "A Cappella"; Layout.fillWidth: true }
             Label { text: "编曲者（可留空）" }
@@ -427,7 +427,7 @@ MuseScore {
             for(var p=0;p<paths.length;p++) {
                 if(AutoHarmony.signature(paths[p])===signature)continue;
                 var labels=paths[p].bars.filter(function(b){return b.chord;}).map(function(b){return b.label;});
-                options.push({title:'和弦方案 '+number+'：'+labels.slice(0,8).join(' → ')+(labels.length>8?'…':''),
+                options.push({title:(paths[p].name || '和弦方案')+' '+number+'：'+labels.slice(0,8).join(' → ')+(labels.length>8?'…':''),
                     path:paths[p],variant:false});
                 if(++number>2)break;
             }
@@ -451,7 +451,7 @@ MuseScore {
             var labels=result.labels;
             autoStatus.text='已写入 '+result.written+' 段伴唱；保留 '+result.protectedCount+' 个已有内容／手动修改的小节。\n'+
                 '来源：'+ChordEngine.plain(score.staves[data.source].part.longName || score.staves[data.source].part.partName)+
-                '；'+keyName+'\n'+labels.slice(0,16).join(' → ')+(labels.length>16?'…':'')+
+                '；'+keyName+'；'+(path.name || '当前和弦')+'\n'+labels.slice(0,16).join(' → ')+(labels.length>16?'…':'')+
                 '\n关闭助手试听，⌘Z / Ctrl+Z 可撤销。';
             autoOptions=[];
         } catch(error) {
@@ -466,7 +466,7 @@ MuseScore {
         ColumnLayout {
             width:430;spacing:12
             Label { text:'根据旋律生成编曲';font.pixelSize:22 }
-            Label { text:'默认读取 Solo，自动推荐每小节的和弦，生成长音伴唱与 Bass。无需逐小节输入和弦。';Layout.fillWidth:true;wrapMode:Text.Wrap }
+            Label { text:'默认读取 Solo，以基础流行进行和三和弦编配长音伴唱与 Bass；比较完整循环、不同起点及换和弦速度。';Layout.fillWidth:true;wrapMode:Text.Wrap }
             Label { text:'选中小节时编配选区；没有范围选区时编配整谱。有多位 Solo 时可在设置中换来源。';Layout.fillWidth:true;wrapMode:Text.Wrap }
             Button { text:root.busy?'正在生成…':'根据旋律生成编曲';Layout.fillWidth:true;enabled:!root.busy && !root.rangeBusy;onClicked:root.arrangeFromMelody(null) }
             Button { text:'试试其他方案';Layout.fillWidth:true;enabled:!root.busy && !root.rangeBusy;onClicked:root.autoChoices() }

@@ -1,4 +1,4 @@
-# 阿卡贝拉编曲助手 v0.5.2（试用版）
+# 阿卡贝拉编曲助手 v0.6.0（试用版）
 
 功能：原生一键建谱、按 Workshop 手册检查声部音域、根据和弦符号或 Solo 旋律生成伴唱／Bass 草稿。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
@@ -259,3 +259,23 @@ node plugins/acappella-arranger/tests/rhythm.test.cjs
 ## v0.5.2：自动编曲的范围读取
 
 自动编曲直接向伴唱生成器传入已经分析的起止小节及推荐和弦，不再在生成过程中重新设置并读取 MuseScore 蓝色选区。修复已选小节仍提示需要连续选区的问题；没有范围选区时继续处理全谱。新增测试保证自动生成不调用 selection.selectRange。更新后完全退出并重开 MuseScore。
+
+## v0.6.0：基础流行伴奏的和弦推荐
+
+本版重写旋律和弦推荐，以基础流行伴奏为目标，不针对某一首测试曲调参。
+
+- 大调比较 I–V–vi–IV、I–vi–IV–V、I–IV–V–I、I–vi–ii–V；小调比较 i–VI–III–VII、i–VII–VI–V、i–iv–V–i。另有主和弦延续及基础自由进行。
+- 比较整个循环、循环的不同起点，以及每小节／每两小节换和弦。方案按钮显示进行类型。四和弦循环不是四小节乐句检测；这版还不会自动分析乐句。
+- 自动候选以三和弦为主，不主动加入七和弦或原位减和弦。手工写好的可识别和弦仍保留；小调同时允许大属和弦与小属和弦。
+- 短于一拍、处于弱拍、通过级进连接当前和弦两个和弦音的经过音／辅助音，可作为装饰而非冲突处理。不是所有非和弦音都可以忽略；强拍、长音仍要检查。
+- 不再给“选区开头／结尾用主和弦”加分，也不再只凭最后一个音判断大小调。自动大小调使用整段主音强调作轻微比较线索；不确定时在设置中指定。
+- 6/8 等复合拍子按附点四分音符大拍识别位置；旋律分析仍以第一音轨为来源。
+- 仍生成长音伴唱和 Bass；一次小节内换多个和弦、挂留／倚音的完整识别、Solo 与伴唱的联合声部优化尚未实现。
+
+实现依据：
+- [Open Music Theory：Four-Chord Schemas](https://viva.pressbooks.pub/openmusictheory/chapter/4-chord-schemas/)：流行循环及其旋转。
+- [Multimodal Musicianship：Melody harmonization](https://pressbooks.macalester.digital/multimodalmusicianship/chapter/melody-harmonization/)：重要旋律音、和声节奏与试听比较。
+- [Multimodal Musicianship：Harmony in pop and rock](https://pressbooks.macalester.digital/multimodalmusicianship/chapter/harmony-in-pop-rock/)：流行和声不局限于古典功能方向。
+- [Comprehensive Musicianship：Harmonizing a Melody](https://iastate.pressbooks.pub/comprehensivemusicianship/chapter/11-1-introduction-to-harmonizing-a-melody-tutorial/)：旋律、和声连接与声部写作。
+
+程序仍需要数值比较候选，但比较对象改为具有音乐结构的方案；具体参数是工程设定，没有教材给出的唯一公式，也未经真实试听验证。代码测试检查经过音、强拍区别、循环旋转、大小调候选、开放结尾、复合拍子、各调移调与已有内容保护，不能代替听感验证。更新后完全退出并重开 MuseScore。
