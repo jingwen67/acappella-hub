@@ -13,11 +13,11 @@ function targets(score) {
 function fractionTicks(value) {
     return typeof value==='number'?value:value ? Number(value.ticks) : 0;
 }
-function read(score,enums,sourceStaff,selectedTargets,rangeInput) {
+function read(score,enums,sourceStaff,selectedTargets) {
     var selection=score.selection;
-    if(!rangeInput && (!selection.isRange || !selection.startSegment))throw new Error('请先在谱面选取连续的小节范围（蓝色选框）。');
-    var start=rangeInput?rangeInput.start:selection.startSegment.tick;
-    var end=rangeInput?rangeInput.end:selection.endSegment?selection.endSegment.tick:
+    if(!selection.isRange || !selection.startSegment)throw new Error('请先在谱面选取连续的小节范围（蓝色选框）。');
+    var start=selection.startSegment.tick;
+    var end=selection.endSegment?selection.endSegment.tick:
         fractionTicks(score.lastMeasure.tick)+fractionTicks(score.lastMeasure.ticks);
     if(end<=start)throw new Error('选区范围无效。');
     var byStaff={},segment=score.firstSegment(enums.all);
@@ -44,7 +44,6 @@ function read(score,enums,sourceStaff,selectedTargets,rangeInput) {
                 throw new Error('同一位置有不同和弦符号，请先删除重复符号。');
         } else events.push(event);
     }
-    if(rangeInput)events=rangeInput.events || [];
     if(!events.length)throw new Error('所选来源谱表没有和弦符号。请用 MuseScore 的和弦符号输入（⌘K / Ctrl+K）。');
     var rests={},skipped=0;
     for(var t=0;t<selectedTargets.length;t++) {
@@ -175,4 +174,3 @@ function rhythmData(score,enums,sourceStaff,data,division) {
     data.attacks=attacks.filter(function(x){return x.end>data.start;});
     data.rhythmSource=sourceStaff;
 }
-

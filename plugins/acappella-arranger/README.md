@@ -1,6 +1,6 @@
-# 阿卡贝拉编曲助手 v0.6.0（试用版）
+# 阿卡贝拉编曲助手 v0.6.1（试用版）
 
-功能：原生一键建谱、按 Workshop 手册检查声部音域、根据和弦符号或 Solo 旋律生成伴唱／Bass 草稿。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
+功能：原生一键建谱、按 Workshop 手册检查声部音域、根据和弦符号和节奏型生成伴唱／Bass 草稿。本版针对 MuseScore Studio 4.7.5，使用其内部 NewScoreModel 原生建谱模型。它不是稳定的公开插件接口，其他版本不能保证兼容；4.7 以下不支持本版。
 
 ## 可以做什么
 
@@ -14,7 +14,7 @@
 ## Mac 安装
 
 1. 解压 ZIP，将整个 `acappella-arranger-v0.1` 文件夹放进 MuseScore 的插件目录。通常是 `~/Documents/MuseScore4/Plugins/`，准确路径以 MuseScore「设置／偏好设置 → 文件夹 → 插件」为准。
-2. 保持文件夹完整（含 QML、Template.js、NativeInstruments.js、RangeScan.js、CreateFlow.js、ChordEngine.js、ChordScore.js、Rhythm.js、AutoHarmony.js 和 AutoScore.js），不要只复制 QML 文件。
+2. 保持文件夹完整（含 QML、Template.js、NativeInstruments.js、RangeScan.js、CreateFlow.js、ChordEngine.js、ChordScore.js 和 Rhythm.js），不要只复制 QML 文件。
 3. 重启 MuseScore，在首页「插件／Plugins」中找到并启用 **阿卡贝拉编曲助手 · Jingwen**。如果提供重新扫描选项，也可使用它。
 4. 从「插件／Plugins」菜单运行插件，选好声部后点击「创建新谱」。
 5. 点击创建后，助手自动关闭并打开未保存的新谱；直接输入音符，需要保留时再按 `⌘S` 保存成 `.mscz`。
@@ -39,7 +39,7 @@
 2. 声部音域检查（已有）
 3. 根据和弦符号生成伴唱／Bass（本版）
 4. 伴唱节奏型／使用已有节奏作模板（本版）
-5. 根据旋律推荐和弦、生成伴唱，再局部换方案（本版）
+5. 根据旋律推荐候选和弦，再试听和选择
 
 生成结果均为供听辨、修改的草稿。
 
@@ -233,49 +233,6 @@ node plugins/acappella-arranger/tests/rhythm.test.cjs
 
 下一步为根据旋律推荐候选和弦。
 
-## v0.5.0：根据旋律生成编曲
+## v0.6.1：移除旋律自动编曲
 
-有谱子时，打开助手默认进入「旋律编曲」。首次试用，先在 Solo 写旋律，其余伴唱声部留空。
-
-1. 点击「根据旋律生成编曲」。默认读取 Solo，自动比较大调／小调，根据旋律的长音、强拍和前后和弦，选一套和弦并写入 Soprano、Alto、Tenor、Baritone、Bass。Solo 保留原样。
-2. 没有选择范围时处理全谱；选中一段时处理所有接触到的小节。一次最多 128 小节。
-3. 对某段不满意，在谱面选中这些小节，点击「试试其他方案」。可选择相同和弦的另一个配音，或其他候选和弦。点击方案才写入；试听请使用 MuseScore 播放。
-4. 「高级设置」可指定旋律声部及大调／小调。多个 Solo 可分段选择来源；自动来源优先沿用该段已有的来源。
-
-本版以每小节一个和弦、长音伴唱为起点，候选以调内三和弦和部分七和弦为主。旋律没有音符的小节保持休止。旋律不能唯一确定和弦，生成内容是可听辨和修改的草稿。
-
-已有的手工伴唱不会被覆盖，包括旧版和弦功能生成但没有自动编曲记录的音符。新功能生成的小节可替换；若音高、时值、歌词、颜色、其他声部或已生成的和弦符号发生手工变化，整小节会跳过。手工写好的和弦符号作为约束保留；小节中途换和弦暂时跳过。
-
-生成与替换各是一条撤销操作。保存谱子后会保留生成记录；记录另外保存最近 32 个小节状态，以跟随 MuseScore 的撤销／重做。更早且无法匹配的状态会保守跳过。不要手工编辑生成记录。
-
-验证：Node 模拟覆盖调性推荐、和弦符号、原旋律保留、局部替换、手工修改保护、多 Solo、失败回滚及撤销／重做。此环境没有 MuseScore 桌面程序，真实 macOS 运行仍需试用确认。
-
-更新后请完全退出并重开 MuseScore，避免加载旧的 JavaScript 模块。
-
-## v0.5.1：旋律编曲闪退修复
-
-新增和弦符号时，先通过 cursor.add 将符号加入谱面，再设置文字。MuseScore 4.7 的 Harmony::setProperty(TEXT) 会访问 explicitParent，不能先对未挂接的符号设置文字。模拟测试加入了相同的父节点前置条件；实际 Mac 运行仍需确认。更新后完全退出并重开 MuseScore。
-
-## v0.5.2：自动编曲的范围读取
-
-自动编曲直接向伴唱生成器传入已经分析的起止小节及推荐和弦，不再在生成过程中重新设置并读取 MuseScore 蓝色选区。修复已选小节仍提示需要连续选区的问题；没有范围选区时继续处理全谱。新增测试保证自动生成不调用 selection.selectRange。更新后完全退出并重开 MuseScore。
-
-## v0.6.0：基础流行伴奏的和弦推荐
-
-本版重写旋律和弦推荐，以基础流行伴奏为目标，不针对某一首测试曲调参。
-
-- 大调比较 I–V–vi–IV、I–vi–IV–V、I–IV–V–I、I–vi–ii–V；小调比较 i–VI–III–VII、i–VII–VI–V、i–iv–V–i。另有主和弦延续及基础自由进行。
-- 比较整个循环、循环的不同起点，以及每小节／每两小节换和弦。方案按钮显示进行类型。四和弦循环不是四小节乐句检测；这版还不会自动分析乐句。
-- 自动候选以三和弦为主，不主动加入七和弦或原位减和弦。手工写好的可识别和弦仍保留；小调同时允许大属和弦与小属和弦。
-- 短于一拍、处于弱拍、通过级进连接当前和弦两个和弦音的经过音／辅助音，可作为装饰而非冲突处理。不是所有非和弦音都可以忽略；强拍、长音仍要检查。
-- 不再给“选区开头／结尾用主和弦”加分，也不再只凭最后一个音判断大小调。自动大小调使用整段主音强调作轻微比较线索；不确定时在设置中指定。
-- 6/8 等复合拍子按附点四分音符大拍识别位置；旋律分析仍以第一音轨为来源。
-- 仍生成长音伴唱和 Bass；一次小节内换多个和弦、挂留／倚音的完整识别、Solo 与伴唱的联合声部优化尚未实现。
-
-实现依据：
-- [Open Music Theory：Four-Chord Schemas](https://viva.pressbooks.pub/openmusictheory/chapter/4-chord-schemas/)：流行循环及其旋转。
-- [Multimodal Musicianship：Melody harmonization](https://pressbooks.macalester.digital/multimodalmusicianship/chapter/melody-harmonization/)：重要旋律音、和声节奏与试听比较。
-- [Multimodal Musicianship：Harmony in pop and rock](https://pressbooks.macalester.digital/multimodalmusicianship/chapter/harmony-in-pop-rock/)：流行和声不局限于古典功能方向。
-- [Comprehensive Musicianship：Harmonizing a Melody](https://iastate.pressbooks.pub/comprehensivemusicianship/chapter/11-1-introduction-to-harmonizing-a-melody-tutorial/)：旋律、和声连接与声部写作。
-
-程序仍需要数值比较候选，但比较对象改为具有音乐结构的方案；具体参数是工程设定，没有教材给出的唯一公式，也未经真实试听验证。代码测试检查经过音、强拍区别、循环旋转、大小调候选、开放结尾、复合拍子、各调移调与已有内容保护，不能代替听感验证。更新后完全退出并重开 MuseScore。
+因生成质量未达到要求，移除「旋律编曲」入口及自动推荐代码。保留原有建谱、自动音域检查、手动和弦生成与节奏型功能。已经写入用户谱子的音符、和弦及元数据不做改动。更新后完全退出并重开 MuseScore。
