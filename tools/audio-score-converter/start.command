@@ -14,10 +14,10 @@ if [ -z "$helper_python" ]; then
   read -r -p '按回车关闭…'
   exit 1
 fi
-if [ ! -f "$helper_runtime/.audio-v0.2-ready" ]; then
+if [ ! -f "$helper_runtime/.audio-v0.2.1-ready" ]; then
   echo '首次启动：正在安装本地音频识别依赖，请保留此终端。'
   "$helper_python" -m venv "$helper_runtime"
-  "$helper_runtime/bin/python" -m pip install --upgrade pip setuptools wheel
+  "$helper_runtime/bin/python" -m pip install --upgrade pip wheel 'setuptools==75.8.0'
   if [ "$(uname -s)" = 'Darwin' ]; then
     "$helper_runtime/bin/python" -m pip install 'torch==2.5.1' 'torchaudio==2.5.1'
   else
@@ -26,6 +26,6 @@ if [ ! -f "$helper_runtime/.audio-v0.2-ready" ]; then
   "$helper_runtime/bin/python" -m pip install -r requirements.txt
   "$helper_runtime/bin/python" -m pip install --no-deps 'basic-pitch==0.4.0'
   "$helper_runtime/bin/python" -c 'import torch,torchaudio,librosa,onnxruntime,demucs;from basic_pitch.inference import predict'
-  touch "$helper_runtime/.audio-v0.2-ready"
+  touch "$helper_runtime/.audio-v0.2.1-ready"
 fi
 exec "$helper_runtime/bin/python" app.py
