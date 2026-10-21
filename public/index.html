@@ -873,7 +873,7 @@
         <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
         <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
         <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">这学期唱什么</button>
-        <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">查看/上传乐谱</button>
+        <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">乐谱库</button>
         <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">Solo 投票</button>
         <button class="hub-card" type="button" onclick="location.href='/workshop/index.html'" data-i18n="workshopButton">编曲Workshop</button>
       </div>
@@ -935,21 +935,29 @@
         <div>
           <button id="scores-back" class="nav-btn" type="button" data-i18n="back">返回</button>
           <p class="kicker">CU Chinese A Cappella</p>
-          <h1 data-i18n="scoresTitle">查看/上传乐谱</h1>
+          <h1 data-i18n="scoresTitle">乐谱库</h1>
         </div>
         <div class="who">
           <button id="scores-logout" class="nav-btn" type="button" data-i18n="logout">退出</button>
           <span id="scores-me"></span>
         </div>
       </header>
-      <h2 data-i18n="browseTitle">查看乐谱</h2>
+      <div id="score-menu" class="hub-actions">
+        <button id="open-score-search" class="hub-card" type="button" data-i18n="findScores">查找乐谱</button>
+        <button id="open-score-upload" class="hub-card" type="button" data-i18n="uploadScoresEntry">上传／更新乐谱</button>
+      </div>
+      <div id="score-search-page" class="stack" hidden>
+      <h2 data-i18n="findScores">查找乐谱</h2>
       <div id="score-browse" class="stack">
         <label><span data-i18n="semester">学期</span>
           <select id="browse-semester"></select>
         </label>
+        <label><span data-i18n="searchSong">输入曲名搜索</span><input id="browse-search" type="search" autocomplete="off" maxlength="80"></label>
         <a id="browse-semester-link" class="semester-link" target="_blank" rel="noopener" hidden></a>
         <div id="browse-folders"></div>
       </div>
+      </div>
+      <div id="score-upload-page" hidden>
       <div id="upload-header" class="upload-header" hidden><h2 id="upload-heading" data-i18n="uploadTitle">上传新曲目</h2><button id="edit-song" class="nav-btn" type="button" data-i18n="editSong">更新已有曲目</button></div>
       <p id="scores-wait" class="hint" hidden></p>
       <form id="score-form" class="panel stack" hidden>
@@ -1000,6 +1008,7 @@
         <button id="upload-submit" class="primary" type="submit" data-i18n="uploadScore">上传</button>
         </fieldset>
       </form>
+      </div>
       <div id="score-setup" hidden>
         <h2 data-i18n="libraryAdmin">乐谱设置</h2>
         <p id="google-status" class="hint"></p>
@@ -1060,6 +1069,7 @@
     const scoreForm = document.querySelector('#score-form');
     const scoresWait = document.querySelector('#scores-wait');
     const browseSemesterSelect = document.querySelector('#browse-semester');
+    const browseSearch = document.querySelector('#browse-search');
     const browseSemesterLink = document.querySelector('#browse-semester-link');
     const browseFolders = document.querySelector('#browse-folders');
     const uploadHeader = document.querySelector('#upload-header');
@@ -1132,8 +1142,10 @@
         delete_recording_confirm: '确定删除这段录音吗？',
         workshopButton: '编曲Workshop',
         pollButton: 'Solo 投票',
-        scoresButton: '查看/上传乐谱',
-        scoresTitle: '查看/上传乐谱',
+        scoresButton: '乐谱库',
+        findScores: '查找乐谱',
+        uploadScoresEntry: '上传／更新乐谱',
+        scoresTitle: '乐谱库',
         browseTitle: '查看乐谱',
         uploadTitle: '上传新曲目',
         editSong: '更新已有曲目',
@@ -1291,8 +1303,10 @@
         delete_recording_confirm: 'Delete this recording?',
         workshopButton: 'Arranging Workshop',
         pollButton: 'Solo voting',
-        scoresButton: 'View / upload scores',
-        scoresTitle: 'View / upload scores',
+        scoresButton: 'Score Library',
+        findScores: 'Find scores',
+        uploadScoresEntry: 'Upload / update scores',
+        scoresTitle: 'Score Library',
         browseTitle: 'View scores',
         uploadTitle: 'Upload a new song',
         editSong: 'Update an existing song',
@@ -1468,7 +1482,7 @@
         invite_required: '需要邀请码',
         invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: '这张照片用不了，请从相册另选一张',
-        not_arranger: '只有被指定为编曲者的人可以上传',
+        not_arranger: '仅编曲者可上传或更新乐谱，请联系 MD。',
         user_missing: '找不到这个用户',
         cannot_change_admin: '不能改管理员的权限',
         song_required: '请填写曲名',
@@ -1555,7 +1569,7 @@
         invite_required: 'An invitation code is required',
         invite_invalid: '邀请码无效、已使用或已过期 / Invitation is invalid, used, or expired',
         avatar_type: 'Couldn’t use that photo. Choose another one from your library.',
-        not_arranger: 'Only an assigned arranger can upload',
+        not_arranger: 'Only arrangers can upload or update scores. Please contact an MD.',
         user_missing: 'That person was not found',
         cannot_change_admin: 'The admin’s permission can’t be changed',
         song_required: 'Enter the song name',
@@ -1705,6 +1719,7 @@
       issuedInvitation = null;
       detailedResults.clear();
       latest = null;
+      browseSemester='all';browseCache=null;browseError='';browseLoadingId='';browseSearch.value='';
       view = 'hub';
       window.history.replaceState({view: 'hub'}, '', '/');
       loading.hidden = true;
@@ -1720,7 +1735,8 @@
     function showView(next, { record = true } = {}) {
       if(view==='poll'&&next!=='poll')votePresence(false);
       if (next!=='poll') disposeCapture();
-      view = ['hub', 'members', 'profile', 'poll', 'scores', 'plan'].includes(next) ? next : 'hub';
+      if(next==='score-upload'&&latest&&!latest.user.isArranger){showBanner(errorText('not_arranger'));next='scores';}
+      view = ['hub', 'members', 'profile', 'poll', 'scores', 'score-search', 'score-upload', 'plan'].includes(next) ? next : 'hub';
       const fragment = view === 'hub' ? '' : '#' + view + (view === 'profile' && profileId != null ? '/' + profileId : view==='plan'&&planTermId?'/'+planTermId+(planSongId?'/'+planSongId:''):'');
       const state = { view, profileId, profileFrom };
       if (record && location.hash !== fragment) window.history.pushState(state, '', '/' + fragment);
@@ -1729,8 +1745,9 @@
       members.hidden = view !== 'members';
       profile.hidden = view !== 'profile';
       app.hidden = view !== 'poll';
-      scores.hidden = view !== 'scores';
+      scores.hidden = !['scores','score-search','score-upload'].includes(view);
       planPage.hidden = view !== 'plan';
+      if(latest&&['scores','score-search','score-upload'].includes(view))renderScores(latest);
       if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
       if(view==='poll')votePresence();
       if(view==='poll'&&latest&&!latest.phase)planLoadPollSongs(true);
@@ -1744,7 +1761,7 @@
     function restoreNavigation() {
       const [route, id, song] = location.hash.slice(1).split('/');
       if(route==='plan'){const term=id?Number(id):null,nextSong=song?Number(song):null;if(term!==planTermId){planEditing=false;planDraftChanges=[];planSemesterId=null;planChoosing=false;planData=null;planTermId=term;planLoading=false;}if(nextSong!==planSongId)planChoosing=false;planSongId=null;}
-      view = ['members', 'profile', 'poll', 'scores', 'plan'].includes(route) ? route : 'hub';
+      view = ['members', 'profile', 'poll', 'scores', 'score-search', 'score-upload', 'plan'].includes(route) ? route : 'hub';
       profileId = id && /^\d+$/.test(id) ? Number(id) : null;
       profileFrom = window.history.state?.profileFrom || 'members';
       if (latest && auth.hidden) {
@@ -1753,7 +1770,7 @@
           renderProfile(latest);
         }
         showView(view, { record: false });
-        if (view === 'scores') ensureBrowse(latest.library?.semesters || []);
+        if (view === 'score-search') ensureBrowse(latest.library?.semesters || []);
         if(view==='plan')renderPlan();
       }
     }
@@ -2897,18 +2914,16 @@
       updateArrangerButton();
     }
 
-    let browseSemester = '';
+    let browseSemester = 'all';
     let browseCache = null;
     let browseError = '';
     let browseLoadingId = '';
 
     function renderBrowse(loading) {
       const semesters = latest?.library?.semesters || [];
-      const current = browseSemesterSelect.value;
-      browseSemesterSelect.replaceChildren(...semesters.map((item) => el('option', { value: String(item.id) }, item.label)));
-      if (semesters.some((item) => String(item.id) === (browseSemester || current))) {
-        browseSemesterSelect.value = browseSemester || current;
-      }
+      browseSemesterSelect.replaceChildren(el('option',{value:'all'},both('allSemesters')),...semesters.map(item=>el('option',{value:String(item.id)},item.label)));
+      browseSemesterSelect.value=browseSemester;
+      browseSearch.placeholder=both('searchSong');
       if (!semesters.length) {
         browseSemesterLink.hidden = true;
         browseFolders.replaceChildren(el('p', { class: 'hint' }, t('noSemesters')));
@@ -2925,24 +2940,27 @@
         return;
       }
       if (!browseCache) return;
-      browseSemesterLink.hidden = false;
-      browseSemesterLink.href = browseCache.url;
-      browseSemesterLink.textContent = browseCache.label;
-      browseFolders.replaceChildren(browseCache.folders.length
-        ? el('div', { class: 'card' }, browseCache.folders.map((item) => el('div', {class:'browse-score-row',style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url},true))))
-        : el('p', { class: 'hint' }, t('noFolders')));
+      browseSemesterLink.hidden = !browseCache.url;
+      browseSemesterLink.href = browseCache.url||'';
+      browseSemesterLink.textContent = browseCache.label||'';
+      const normalize=text=>String(text||'').normalize('NFKC').toLowerCase().replace(/\s+/g,'');
+      const query=normalize(browseSearch.value),folders=browseCache.folders.filter(item=>normalize(item.name).includes(query));
+      browseFolders.replaceChildren(folders.length
+        ? el('div', { class: 'card' }, folders.map((item) => el('div', {class:'browse-score-row',style:'display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 0'},el('span',{class:'score-link',style:'overflow-wrap:anywhere'},item.name),planScoreLink({folderUrl:item.url},true))))
+        : el('p', { class: 'hint' }, t(query?'noSearch':'noFolders')));
     }
 
     async function ensureBrowse(semesters) {
-      if (view !== 'scores') return;
+      if (view !== 'score-search') return;
       if (!semesters.length) {
         browseCache = null;
         browseError = '';
         renderBrowse();
         return;
       }
-      if (!semesters.some((item) => String(item.id) === browseSemester)) browseSemester = String(semesters[0].id);
-      if (browseCache && String(browseCache.id) === browseSemester) {
+      if (browseSemester!=='all'&&!semesters.some(item=>String(item.id)===browseSemester))browseSemester='all';
+      const sourceKey=semesters.map(item=>item.id).join(',');
+      if (browseCache && String(browseCache.id) === browseSemester&&browseCache.sourceKey===sourceKey) {
         renderBrowse();
         return;
       }
@@ -2958,7 +2976,7 @@
       try {
         const data = await api(`/api/library/folders?semesterId=${requested}`);
         if (browseSemester !== requested) return;
-        browseCache = data;
+        browseCache = {...data,sourceKey};
         browseError = '';
       } catch (error) {
         if (browseSemester !== requested) return;
@@ -2971,6 +2989,9 @@
     }
 
     function renderScores(data) {
+      document.querySelector('#score-menu').hidden=view!=='scores';
+      document.querySelector('#score-search-page').hidden=view!=='score-search';
+      document.querySelector('#score-upload-page').hidden=view!=='score-upload'||!data.user.isArranger;
       const library = data.library || { ready: false, semesters: [], setup: null, arrangers: [] };
       const upload = Boolean(data.user.isArranger);
       scoreForm.hidden = !upload || !library.ready;
@@ -2986,7 +3007,7 @@
       if (library.semesters.some((item) => String(item.id) === currentSemester)) semesterSelect.value = currentSemester;
       renderArrangers(library.arrangers);
 
-      scoreSetup.hidden = !data.user.isAdmin || !library.setup;
+      scoreSetup.hidden = !data.user.isAdmin || !library.setup || view==='score-search';
       if (!library.setup) return;
       const setup = library.setup;
       googleStatus.replaceChildren(setup.connected
@@ -3097,15 +3118,17 @@
     document.querySelector('#poll-back').addEventListener('click', () => showView('hub'));
     document.querySelector('#open-scores').addEventListener('click', () => {
       showView('scores');
-      ensureBrowse(latest?.library?.semesters || []);
     });
+    document.querySelector('#open-score-search').addEventListener('click',()=>showView('score-search'));
+    document.querySelector('#open-score-upload').addEventListener('click',()=>showView('score-upload'));
+    browseSearch.addEventListener('input',()=>renderBrowse(Boolean(browseLoadingId)));
     browseSemesterSelect.addEventListener('change', () => {
       browseSemester = browseSemesterSelect.value;
       browseCache = null;
       browseError = '';
       ensureBrowse(latest?.library?.semesters || []);
     });
-    document.querySelector('#scores-back').addEventListener('click', () => showView('hub'));
+    document.querySelector('#scores-back').addEventListener('click', () => showView(view==='scores'?'hub':'scores'));
 
     arrangerButton.addEventListener('click', () => {
       arrangerMenu.hidden = !arrangerMenu.hidden;
@@ -3328,6 +3351,7 @@
         editPicker.hidden = true;
         syncSongSearch();
         scoreForm.reset();
+        browseCache=null;
         return data;
       });
     });

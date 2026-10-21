@@ -156,6 +156,7 @@ export default {
       arrangerByName: db.prepare(`SELECT id, name FROM arrangers WHERE name = ? COLLATE NOCASE`),
       insertArranger: db.prepare(`INSERT INTO arrangers (name, created_at) VALUES (?, ?)`),
       listSemesters: db.prepare(`SELECT id, label FROM semesters ORDER BY id DESC`),
+      listSemesterFolders: db.prepare(`SELECT id,label,folder_id FROM semesters ORDER BY id DESC`),
       semesterById: db.prepare(`SELECT id, label, folder_id FROM semesters WHERE id = ?`),
       insertSemester: db.prepare(`INSERT INTO semesters (label, folder_id, created_at) VALUES (?, ?, ?)`),
       scoreCountForSemester: db.prepare(`SELECT COUNT(*) AS n FROM scores WHERE semester_id = ?`),
@@ -998,6 +999,13 @@ export default {
         }
         if (req.method === 'GET' && pathname === '/api/library/folders') {
           await requireUser(req);
+          if(url.searchParams.get('semesterId')==='all'){
+            const semesters=(await statements.listSemesterFolders.all()).filter(item=>item.folder_id);
+            const batches=new Array(semesters.length);let cursor=0;
+            await Promise.all(Array.from({length:Math.min(4,semesters.length)},async()=>{while(cursor<semesters.length){const i=cursor++;batches[i]=await google.listScoreFolders(semesters[i].folder_id);}}));
+            const unique=new Map();for(const folders of batches)for(const folder of folders)if(!unique.has(folder.id))unique.set(folder.id,folder);
+            send(res,200,{id:'all',label:'',url:'',folders:[...unique.values()].sort((a,b)=>a.name.localeCompare(b.name,'zh'))});return;
+          }
           const semester = await statements.semesterById.get(Number(url.searchParams.get('semesterId')));
           if (!semester?.folder_id) throw fail(404, 'semester_missing');
           const folders = await google.listScoreFolders(semester.folder_id);

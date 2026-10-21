@@ -30,7 +30,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 1. Open the **CUCAC** home screen icon or the website link above.
 2. Tap **第一次来？注册** (“First time? Register”) to create an account with your name, or sign in if you already have one.
 3. Fill in your information under **My profile**.
-4. From the home page, open **Members**, **Scores**, or **Solo / Duet voting**.
+4. From the home page, open **Members**, **Score Library**, or **Solo / Duet voting**.
 
 ## Contents
 
@@ -154,8 +154,8 @@ All signed-in members can play saved recordings. There is no recording time limi
 <a id="scores"></a>
 ### Browse Scores
 
-1. Open **Scores** from the home page.
-2. Choose a semester, such as `2026 Fall`, in the score browsing area.
+1. Open **Score Library → Find scores** from the home page.
+2. **All semesters** is selected by default. Type a song title to search, or choose a specific semester such as `2026 Fall`.
 3. Select **View PDF** to read, turn pages, zoom, or enter fullscreen inside Hub using the PDF’s top-right button or a double-click. Phones fit the screen width by default; computers start at 200%. Select Fit after zooming to restore screen-width reading. Tap the reading-direction button to switch between horizontal page turns and continuous vertical scrolling with pages directly following each other. Fullscreen uses a black surround; tap to show controls, and double-click again to exit. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
 
 Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current semester in What Are We Singing? and add a PDF. Hub PDF reading requires login and does not make scores public.
@@ -171,7 +171,7 @@ Only accounts assigned the **Arranger** role can upload and edit scores. Being a
 
 #### Upload a New Song
 
-1. Open **Scores** and find the upload form.
+1. Open **Score Library → Upload / update scores**.
 2. Enter the song title.
 3. Select one or more arrangers. If a name is missing, enter it and select **Add**.
 4. Choose a semester.

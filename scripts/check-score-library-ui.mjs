@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {Window} from 'happy-dom';
+const state=JSON.parse(fs.readFileSync('/tmp/plan-state.json','utf8'));
+state.uiVersion='';state.phase=null;state.history=[];state.admin=null;state.user={...state.user,isAdmin:false,isMd:false,isArranger:false};
+state.library={ready:true,semesters:[{id:1,label:'2026 Fall'},{id:2,label:'2025 Fall'}],arrangers:[],setup:null};
+const songs=[{id:'oldSong',name:'旧歌',url:'https://drive.google.com/drive/folders/oldSong'},{id:'newSong',name:'Love Yourself',url:'https://drive.google.com/drive/folders/newSong'}];
+const calls=[],window=new Window({url:'http://localhost/',settings:{disableJavaScriptFileLoading:true,disableCSSFileLoading:true,enableJavaScriptEvaluation:true,suppressInsecureJavaScriptEnvironmentWarning:true}});
+try{
+ window.document.write(fs.readFileSync('public/index.html','utf8').replace(/<script[\s\S]*?<\/script>/g,''));
+ window.fetch=async(url,options={})=>{const parsed=new URL(url,'http://localhost');calls.push(parsed.pathname+parsed.search);let data={};if(parsed.pathname==='/api/state')data=state;else if(parsed.pathname==='/api/library/folders'){const id=parsed.searchParams.get('semesterId');data={id,label:id==='all'?'':'2025 Fall',url:id==='all'?'':'https://drive.google.com/drive/folders/term',folders:id==='all'?songs:songs.slice(0,1)};}else if(parsed.pathname==='/api/plan/poll-songs')data={songs:[]};return {ok:true,json:async()=>structuredClone(data)};};
+ const html=fs.readFileSync('public/index.html','utf8'),main=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].find(m=>m[1].includes('const loading'))[1];
+ window.eval(fs.readFileSync('public/plan.js','utf8')+'\n'+main+'\nwindow.scoreTest={arranger:()=>{latest.user.isArranger=true;render(latest);},reload:()=>refresh({force:true})};');
+ const tick=()=>new Promise(resolve=>setTimeout(resolve,0));await tick();await tick();const doc=window.document;
+ assert.ok(doc.querySelector('#open-scores').textContent.includes('乐谱库'));doc.querySelector('#open-scores').click();assert.equal(window.location.hash,'#scores');assert.equal(doc.querySelector('#score-menu').hidden,false);assert.equal(doc.querySelector('#score-search-page').hidden,true);assert.equal(doc.querySelector('#score-upload-page').hidden,true);assert.equal(calls.filter(x=>x.includes('/library/folders')).length,0);
+ doc.querySelector('#open-score-upload').click();assert.equal(window.location.hash,'#scores');assert.ok(doc.querySelector('#banner').textContent.includes('请联系 MD'));assert.equal(doc.querySelector('#score-upload-page').hidden,true);
+ doc.querySelector('#open-score-search').click();await tick();await tick();assert.equal(window.location.hash,'#score-search');assert.equal(doc.querySelector('#browse-semester').value,'all');assert.ok(calls.includes('/api/library/folders?semesterId=all'));assert.equal(doc.querySelectorAll('.browse-score-row').length,2);assert.equal(doc.querySelector('#browse-semester-link').hidden,true);
+ const search=doc.querySelector('#browse-search');search.value='LOVEyourSELF';search.dispatchEvent(new window.Event('input'));assert.equal(doc.querySelectorAll('.browse-score-row').length,1);assert.ok(doc.querySelector('#browse-folders').textContent.includes('Love Yourself'));assert.equal(doc.querySelectorAll('.score-actions a').length,2);
+ search.value='没有这首歌';search.dispatchEvent(new window.Event('input'));assert.equal(doc.querySelectorAll('.browse-score-row').length,0);assert.ok(doc.querySelector('#browse-folders').textContent.includes('没有找到'));
+ search.value='';search.dispatchEvent(new window.Event('input'));const term=doc.querySelector('#browse-semester');term.value='2';term.dispatchEvent(new window.Event('change'));await tick();await tick();assert.equal(doc.querySelectorAll('.browse-score-row').length,1);assert.equal(doc.querySelector('#browse-semester-link').hidden,false);assert.ok(calls.includes('/api/library/folders?semesterId=2'));
+ doc.querySelector('#scores-back').click();assert.equal(window.location.hash,'#scores');doc.querySelector('#scores-back').click();assert.equal(window.location.hash,'');
+ window.scoreTest.arranger();doc.querySelector('#open-scores').click();doc.querySelector('#open-score-upload').click();assert.equal(window.location.hash,'#score-upload');assert.equal(doc.querySelector('#score-upload-page').hidden,false);assert.equal(doc.querySelector('#score-form').hidden,false);assert.equal(doc.querySelector('#score-search-page').hidden,true);assert.ok(doc.querySelector('#score-upload-page #edit-song'));assert.ok(doc.querySelector('#score-upload-page #score-form'));
+ window.history.back();await tick();await tick();assert.equal(window.location.hash,'#scores');assert.equal(doc.querySelector('#score-menu').hidden,false);
+ console.log('PASS: Score Library menu, permission toast, all-term default, title search, term filters, PDF/folder links, upload nesting and browser back navigation.');
+}finally{await window.happyDOM.close();}
