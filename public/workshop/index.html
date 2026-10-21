@@ -716,17 +716,23 @@ document.querySelectorAll('[data-file]').forEach(button=>button.addEventListener
  document.getElementById('file-title').textContent=kind==='pdf'?'Workshop PDF':'Workshop MuseScore';
  document.getElementById('file-description').textContent=kind==='pdf'?'无需下载，直接上下滑动阅读全文。':'阿卡贝拉编曲Workshop.mscz';
  downloadLink.href='workshop.'+kind;downloadLink.download='阿卡贝拉编曲Workshop.'+kind;
- shareButton.hidden=true;fileStatus.textContent='准备文件中…';downloadLink.setAttribute('aria-disabled','true');downloadLink.textContent='准备中…';downloadLink.target='_blank';downloadLink.rel='noopener';const preview=document.getElementById('pdf-preview');preview.hidden=kind!=='pdf';fileDialog.classList.toggle('pdf-view',kind==='pdf');fileDialog.showModal();if(kind==='pdf')openPDF();
+ shareButton.hidden=kind!=='pdf';if(kind==='pdf')shareButton.textContent='分享链接';fileStatus.textContent='准备文件中…';downloadLink.setAttribute('aria-disabled','true');downloadLink.textContent='准备中…';downloadLink.target='_blank';downloadLink.rel='noopener';const preview=document.getElementById('pdf-preview');preview.hidden=kind!=='pdf';fileDialog.classList.toggle('pdf-view',kind==='pdf');fileDialog.showModal();if(kind==='pdf')openPDF();
  try{let file=fileCache.get(kind);if(!file){const response=await fetch('workshop.'+kind);if(!response.ok)throw Error('load');file=new File([await response.blob()],'阿卡贝拉编曲Workshop.'+kind,{type:kind==='pdf'?'application/pdf':'application/octet-stream'});fileCache.set(kind,file);}if(sequence!==loadSequence)return;currentFile=file;updateDownloadState();}
  catch{if(sequence===loadSequence){updateDownloadState();fileStatus.textContent='文件分享暂时不可用，仍可点击下载。';}}
 }));
 downloadLink.addEventListener('click',async event=>{
  if(downloadLink.getAttribute('aria-disabled')==='true'){event.preventDefault();return;}
- shareButton.hidden=false;shareButton.textContent=canShareFile()?'分享文件':'分享链接';
+ shareButton.hidden=false;shareButton.textContent=currentKind==='pdf'?'分享链接':canShareFile()?'分享文件':'分享链接';
  if(canShareFile()&&matchMedia('(pointer:coarse)').matches){event.preventDefault();downloadLink.setAttribute('aria-disabled','true');downloadLink.textContent='处理中…';try{await navigator.share({files:[currentFile]});markDownloaded();}catch(error){updateDownloadState();if(error.name!=='AbortError')fileStatus.textContent='保存未完成，请重试。';}}
  else markDownloaded();
 });
 shareButton.addEventListener('click',async()=>{
+ if(currentKind==='pdf'){
+  const url=new URL('index.html',location.href);url.search='?preview=pdf';url.hash='';
+  try{if(navigator.share){try{await navigator.share({title:'阿卡贝拉编曲Workshop PDF',url:url.href});return;}catch(error){if(error.name==='AbortError')return;}}if(!navigator.clipboard?.writeText)throw Error('clipboard');await navigator.clipboard.writeText(url.href);fileStatus.textContent='链接已复制，打开即可查看 Hub 中的 PDF。';}
+  catch{fileStatus.textContent='请复制链接分享：';const input=document.createElement('input');input.readOnly=true;input.value=url.href;input.setAttribute('aria-label','PDF 分享链接');fileStatus.append(input);input.focus();input.select();}return;
+ }
+
  if(!navigator.share){fileStatus.textContent='此浏览器不支持系统分享，请在下载后从「文件」App 分享。';return;}
  try{const data=canShareFile()?{files:[currentFile]}:{title:'阿卡贝拉编曲Workshop',url:new URL('workshop.'+currentKind,location.href).href};await navigator.share(data);fileStatus.textContent='';}
  catch(error){if(error.name!=='AbortError')fileStatus.textContent='分享未完成，可以再试一次，或从「文件」App 分享。';}
@@ -738,4 +744,5 @@ let pdfDocument=null,pdfSequence=0,pdfResizeTimer,lastPDFWidth=0;
 async function openPDF(){const sequence=++pdfSequence;const loading=document.getElementById('pdf-loading');loading.hidden=false;loading.textContent='正在加载全部页面…';document.getElementById('pdf-pages').replaceChildren();try{const pdfjs=await import('/pdfjs.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/pdfjs-worker.mjs';const doc=await pdfjs.getDocument({url:'workshop.pdf',cMapUrl:'/pdfjs/cmaps/',cMapPacked:true,standardFontDataUrl:'/pdfjs/standard_fonts/'}).promise;if(sequence!==pdfSequence){doc.destroy();return;}if(pdfDocument)pdfDocument.destroy();pdfDocument=doc;await renderPDF();}catch{if(sequence===pdfSequence){loading.hidden=false;loading.textContent='预览加载失败，请关闭后重新打开；仍可下载 PDF。';}}}
 async function renderPDF(){if(!pdfDocument)return;const doc=pdfDocument,sequence=++pdfSequence,container=document.getElementById('pdf-pages'),loading=document.getElementById('pdf-loading');const width=container.clientWidth;if(!width)return;lastPDFWidth=width;container.replaceChildren();loading.hidden=false;loading.textContent='正在显示全部 '+doc.numPages+' 页…';try{for(let number=1;number<=doc.numPages;number++){if(sequence!==pdfSequence)return;const page=await doc.getPage(number);if(sequence!==pdfSequence)return;const natural=page.getViewport({scale:1});const scale=width/natural.width;const ratio=Math.min(devicePixelRatio||1,2);const viewport=page.getViewport({scale:scale*ratio});const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);canvas.style.width='100%';canvas.style.height='auto';canvas.setAttribute('role','img');canvas.setAttribute('aria-label','PDF 第 '+number+' 页');const block=document.createElement('div');block.className='pdf-page';block.append(canvas);container.append(block);await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;}if(sequence===pdfSequence)loading.hidden=true;}catch{if(sequence===pdfSequence){loading.hidden=false;loading.textContent='部分页面加载失败，请重新打开 PDF。';}}}
 new ResizeObserver(()=>{clearTimeout(pdfResizeTimer);pdfResizeTimer=setTimeout(()=>{const width=document.getElementById('pdf-pages').clientWidth;if(pdfDocument&&fileDialog.open&&currentKind==='pdf'&&Math.abs(width-lastPDFWidth)>2)renderPDF();},180);}).observe(document.getElementById('pdf-preview'));
+if(new URLSearchParams(location.search).get('preview')==='pdf')document.querySelector('[data-file=pdf]').click();
 </script></body></html>
