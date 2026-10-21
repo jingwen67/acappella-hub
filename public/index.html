@@ -1610,13 +1610,14 @@
     }
     const startParams = new URLSearchParams(location.search);
     const pendingPdfReturn=safePdfReturn(startParams.get('next'));
+    const loginReturnQuery=pendingPdfReturn?'?next='+encodeURIComponent(pendingPdfReturn):'';
     let view = startParams.get('scores') === '1' ? 'scores' : 'hub';
     let pendingBanner = startParams.get('google') === 'denied'
       ? 'google_denied'
       : startParams.get('google') === 'error'
         ? 'google_auth'
         : '';
-    if (startParams.toString()) window.history.replaceState({}, '', '/' + (view === 'scores' ? '#scores' : location.hash));
+    if (startParams.toString()) window.history.replaceState({}, '', '/' + loginReturnQuery + (view === 'scores' ? '#scores' : location.hash));
     let mode = 'login';
     let pollTimer = null;
     let snapshot = '';
@@ -1728,7 +1729,7 @@
       latest = null;
       browseSemester='all';browseCache=null;browseError='';browseLoadingId='';browseSearch.value='';
       view = 'hub';
-      window.history.replaceState({view: 'hub'}, '', '/');
+      window.history.replaceState({view: 'hub'}, '', '/'+loginReturnQuery);
       loading.hidden = true;
       auth.hidden = false;
       hub.hidden = true;
