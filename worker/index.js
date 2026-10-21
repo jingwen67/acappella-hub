@@ -462,14 +462,22 @@ export default {
         name
       }));
     }
+    async function rootLibrary(){
+      const config=await google.load();if(!config.parentFolderId)return null;
+      const existing=(await statements.listSemesterFolders.all()).find(row=>row.label==='__root_library__');if(existing?.folder_id===config.parentFolderId)return existing;
+      await db.prepare(`INSERT INTO semesters(label,folder_id,created_at) VALUES(?,?,?) ON CONFLICT(lower(label)) DO UPDATE SET folder_id=excluded.folder_id`).run('__root_library__',config.parentFolderId,now());
+      const rows=await statements.listSemesterFolders.all();return rows.find(row=>row.label==='__root_library__');
+    }
     async function libraryFor(account) {
       const config = await google.load();
+      if(env.FLAT_LIBRARY&&config.refreshToken)await rootLibrary();
       const semesters = (await statements.listSemesters.all()).map(row => ({
         id: row.id,
-        label: row.label
+        label: env.FLAT_LIBRARY?'乐谱库':row.label
       }));
       const connected = Boolean(config.refreshToken);
       return {
+        flat: Boolean(env.FLAT_LIBRARY),
         ready: connected && Boolean(config.spreadsheetId) && semesters.length > 0,
         semesters,
         arrangers: await rankedArrangers(),
@@ -998,8 +1006,14 @@ export default {
           send(res, 200, await stateFor(user));
           return;
         }
+        if(req.method==='POST'&&pathname==='/api/library/sync'){
+          const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');if(!env.FLAT_LIBRARY)throw fail(404,'not_found');
+          const task=async()=>{const root=await rootLibrary();if(!root)throw fail(400,'parent_missing');return google.syncRootFolders(root.folder_id);};
+          send(res,200,env.withLibraryLock?await env.withLibraryLock(task):await task());return;
+        }
         if (req.method === 'GET' && pathname === '/api/library/folders') {
           await requireUser(req);
+          if(env.FLAT_LIBRARY){const root=await rootLibrary();if(!root)throw fail(400,'parent_missing');send(res,200,{id:url.searchParams.get('semesterId')||'all',label:'',url:'',folders:await google.listScoreFolders(root.folder_id)});return;}
           if(url.searchParams.get('semesterId')==='all'){
             const semesters=(await statements.listSemesterFolders.all()).filter(item=>item.folder_id);
             const batches=new Array(semesters.length);let cursor=0;
@@ -1022,7 +1036,8 @@ export default {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
           const semesters = await statements.listSemesters.all();
-          const folders = (await google.listScoreIndex()).map(item => ({...item, semesterId:semesters.find(s => item.semester.split(/[,，]/).some(label => label.trim().toLowerCase() === s.label.toLowerCase()))?.id || 0}));
+          const root=env.FLAT_LIBRARY?await rootLibrary():null;
+          const folders = (await google.listScoreIndex()).map(item => ({...item, semesterId:env.FLAT_LIBRARY?root?.id:semesters.find(s => item.semester.split(/[,，]/).some(label => label.trim().toLowerCase() === s.label.toLowerCase()))?.id || 0}));
           send(res, 200, {folders});
           return;
         }
@@ -1038,6 +1053,7 @@ export default {
           if(writing&&!isManager(user)&&!user.isArranger)throw fail(403,'forbidden');
           const folderId=driveId(url.searchParams.get('folderId'));if(!folderId)throw fail(404,'folder_not_found');
           let known=await env.plans?.hasFolder(folderId);
+          if(!known&&env.FLAT_LIBRARY){const root=await rootLibrary();if(root)known=(await google.listScoreFolders(root.folder_id)).some(item=>item.id===folderId);}
           if(!known)known=(await google.listScoreIndex()).some(item=>item.id===folderId);
           if(!known)for(const semester of await statements.listSemesters.all()){const source=await statements.semesterById.get(semester.id);if(source?.folder_id&&(await google.listScoreFolders(source.folder_id)).some(item=>item.id===folderId)){known=true;break;}}
           if(!known)throw fail(404,'folder_not_found');
@@ -1115,9 +1131,9 @@ export default {
           const arranger = arrangerNames.join(', ');
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
           const kinds = ['all', 'group', 'video'].filter(item => picked.has(item));
-          const source = await statements.semesterById.get(Number(field('sourceSemesterId')));
+          const source = env.FLAT_LIBRARY?await rootLibrary():await statements.semesterById.get(Number(field('sourceSemesterId')));
           const multiSemester = field('semesterSelection')==='1';
-          const semester = multiSemester ? source : await statements.semesterById.get(Number(field('semesterId')));
+          const semester = env.FLAT_LIBRARY||multiSemester ? source : await statements.semesterById.get(Number(field('semesterId')));
           const folderId = driveId(field('folderId'));
           if (!title) throw fail(400, 'song_required');
           if (!arranger) throw fail(400, 'arranger_required');
@@ -1166,7 +1182,7 @@ export default {
               title: match.name,
               semester: source.label
             });
-            if(multiSemester){const selected=[...new Set(parts.filter(part=>part.name==='semester'&&!part.filename).map(part=>cleanText(part.body.toString('utf8'),40)))];const allowed=new Set((await statements.listSemesters.all()).map(item=>item.label));for(const label of [...String(row.semester||'').split(/[,，、;]/),...(row.semesterOptions||[])])allowed.add(label.trim());if(!selected.length||selected.some(label=>!label||!allowed.has(label)))throw fail(400,'semester_missing');sheetValues.semester=selected.join(', ');}else sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
+            if(env.FLAT_LIBRARY){delete sheetValues.semester;}else if(multiSemester){const selected=[...new Set(parts.filter(part=>part.name==='semester'&&!part.filename).map(part=>cleanText(part.body.toString('utf8'),40)))];const allowed=new Set((await statements.listSemesters.all()).map(item=>item.label));for(const label of [...String(row.semester||'').split(/[,，、;]/),...(row.semesterOptions||[])])allowed.add(label.trim());if(!selected.length||selected.some(label=>!label||!allowed.has(label)))throw fail(400,'semester_missing');sheetValues.semester=selected.join(', ');}else sheetValues.semester = semesterCell(row.semester, source.label, semester.label);
             if (row.row) await google.updateScoreRow(row.row, sheetValues,{replaceSemesters:multiSemester});else await google.appendRow(sheetValues);
             const driveName = nextTitle === match.name ? undefined : nextTitle;
             const moveTo = source.folder_id === semester.folder_id ? '' : semester.folder_id;
@@ -1225,7 +1241,7 @@ export default {
           const arranger = arrangerNames.join(', ');
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
           const kinds = ['all', 'group', 'video'].filter(item => picked.has(item));
-          const semester = await statements.semesterById.get(Number(field('semesterId')));
+          const semester = env.FLAT_LIBRARY?await rootLibrary():await statements.semesterById.get(Number(field('semesterId')));
           if (!title) throw fail(400, 'song_required');
           if (!arranger) throw fail(400, 'arranger_required');
           if (!kinds.length) throw fail(400, 'kind_required');
@@ -1251,7 +1267,7 @@ export default {
             await google.appendRow({
               title,
               arranger,
-              semester: semester.label,
+              semester: env.FLAT_LIBRARY?'':semester.label,
               kind: kindText,
               link: sheetLink(songUrl, title)
             });

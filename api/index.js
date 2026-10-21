@@ -13,6 +13,8 @@ function configuredEnv(){
  for(const name of ['DATABASE_URL','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','ADMIN_PASSWORD','PUBLIC_ORIGIN'])if(!process.env[name])throw new Error('Missing configuration: '+name);
  const pool=createPool(process.env.DATABASE_URL);
  environment={DB:createDatabase(pool),FILES:createStorage({url:process.env.SUPABASE_URL,key:process.env.SUPABASE_SERVICE_ROLE_KEY,bucket:process.env.SUPABASE_STORAGE_BUCKET||'cucac-private'}),ADMIN_PASSWORD:process.env.ADMIN_PASSWORD,PUBLIC_ORIGIN:process.env.PUBLIC_ORIGIN,INVITE_REQUIRED:true,invitations:createInvitations(pool),voting:createVoting(pool)};
+ environment.FLAT_LIBRARY=process.env.HUB_PROFILE==='new-club';
+ environment.withLibraryLock=async task=>{const client=await pool.connect();try{await client.query("SELECT pg_advisory_lock(748219)");return await task();}finally{try{await client.query("SELECT pg_advisory_unlock(748219)");}finally{client.release();}}};
  environment.recordings=createRecordings(pool,environment.FILES);
  environment.plans=createPlans(pool);
  return environment;

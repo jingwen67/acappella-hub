@@ -2931,6 +2931,7 @@
 
     function renderBrowse(loading) {
       const semesters = latest?.library?.semesters || [];
+      browseSemesterSelect.closest('label').hidden=Boolean(latest?.library?.flat);
       browseSemesterSelect.replaceChildren(el('option',{value:'all'},both('allSemesters')),...semesters.map(item=>el('option',{value:String(item.id)},item.label)));
       browseSemesterSelect.value=browseSemester;
       browseSearch.placeholder=both('searchSong');
@@ -3003,6 +3004,7 @@
       document.querySelector('#score-search-page').hidden=view!=='score-search';
       document.querySelector('#score-upload-page').hidden=view!=='score-upload'||!data.user.isArranger;
       const library = data.library || { ready: false, semesters: [], setup: null, arrangers: [] };
+      if(library.flat){scoreForm.querySelector('[data-i18n=uploadHint]').replaceChildren(pair('文件会放进乐谱库下、以曲名命名的文件夹。','Files go into a song folder directly inside the score library.'));document.querySelector('[data-i18n=editPick]').replaceChildren(pair('搜索曲名，选择歌曲后修改资料或乐谱文件。','Search by title, then select a song to update its details or files.'));}
       const upload = Boolean(data.user.isArranger);
       scoreForm.hidden = !upload || !library.ready;
       uploadHeader.hidden = !upload;
@@ -3018,6 +3020,8 @@
       renderArrangers(library.arrangers);
 
       scoreSetup.hidden = !data.user.isAdmin || !library.setup || view==='score-search';
+      document.querySelector('#semester-form').hidden=Boolean(library.flat);
+      semesterList.hidden=Boolean(library.flat);
       if (!library.setup) return;
       const setup = library.setup;
       googleStatus.replaceChildren(setup.connected
@@ -3047,6 +3051,11 @@
       } else if (setup.hasClient) {
         googleConnect.append(el('p', { class: 'hint' }, t('connectHere')));
       }
+      if(library.flat&&setup.connected)googleConnect.append(el('button',{type:'button',class:'nav-btn',onclick:async event=>{
+        const button=event.currentTarget;button.disabled=true;
+        try{const result=await api('/api/library/sync',{method:'POST',body:'{}'});browseCache=null;editCache=null;showBanner(`同步完成：新增 ${result.added} 首，补全 ${result.linked} 个链接；已有资料已保留。\nSynced: ${result.added} added, ${result.linked} linked; existing information kept.`);await refresh();}
+        catch(error){showBanner(error.message);}finally{button.disabled=false;}
+      }},pair('同步 Drive 曲目到表格','Sync Drive to Sheet')));
       googleConnect.hidden = googleConnect.childElementCount === 0;
       semesterList.replaceChildren(library.semesters.length
         ? el('section', { class: 'card' }, library.semesters.map((item) => el('div', { class: 'person-row' },
@@ -3176,7 +3185,7 @@
 
     function syncEditChrome() {
       const searching = !editPicker.hidden;
-      document.querySelector('#new-song-semester').hidden=Boolean(editingSong);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong;document.querySelector('#edit-semesters').disabled=!editingSong;if(!editingSong)closeSemesterMenu();
+      document.querySelector('#new-song-semester').hidden=Boolean(editingSong||latest?.library?.flat);semesterSelect.disabled=Boolean(editingSong);document.querySelector('#edit-semesters').hidden=!editingSong||Boolean(latest?.library?.flat);document.querySelector('#edit-semesters').disabled=!editingSong;if(!editingSong)closeSemesterMenu();
       songInfo.hidden = searching;
       songInfo.disabled = searching;
       uploadHeading.replaceChildren(t(searching || editingSong ? 'editSong' : 'uploadTitle'));
@@ -3225,6 +3234,7 @@
     }
 
     function renderEditSongs(loading) {
+      editFilter.closest('label').hidden=Boolean(latest?.library?.flat);
       const current = editFilter.value;
       editSongs.classList.toggle('semester-results', Boolean(current));
       const semesters = latest?.library?.semesters || [];
@@ -3339,7 +3349,7 @@
         return;
       }
       if (editingSong) {
-        if(!body.getAll('semester').length){showBanner(errorText('semester_missing'));return;}
+        if(!latest?.library?.flat&&!body.getAll('semester').length){showBanner(errorText('semester_missing'));return;}
         body.delete('semesterId');
         body.set('semesterSelection','1');
         body.set('folderId', editingSong.folderId);

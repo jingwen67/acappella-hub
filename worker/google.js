@@ -308,6 +308,34 @@ export function createGoogle(storage) {
       })
     });
   }
+  async function syncRootFolders(folderId){
+    const folders=await listScoreFolders(folderId);
+    // Initialize only a truly empty sheet; existing headers and metadata remain intact.
+    let index;
+    try{index=await readScoreSheet();}catch(error){
+      if(error.message!=='sheet_headers')throw error;
+      const sheet=await spreadsheet();const data=await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(sheet.quoted+'!A:Z')}`);
+      if((data.values||[]).some(row=>row.some(value=>String(value).trim())))throw error;
+      await googleJson(sheet.token,`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/${encodeURIComponent(sheet.quoted+'!A1')}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[['曲名Song Title','编曲Arranger','性质Type','链接Link']]})});
+      index=await readScoreSheet();
+    }
+    if(!index.keys.includes('link'))throw fail(400,'sheet_headers');
+    let added=0,linked=0,skipped=0;
+    const normalize=value=>String(value||'').normalize('NFKC').trim().toLowerCase();
+    for(const folder of folders){
+      const direct=index.rows.filter(row=>[folder.id,folder.shortcutId].filter(Boolean).includes(parseFolderId(row.link)));
+      if(direct.length){skipped++;continue;}
+      const names=index.rows.filter(row=>normalize(row.title)===normalize(folder.name));
+      // Link only a unique title with an empty link; never overwrite a conflicting link.
+      if(names.length===1&&!String(names[0].link||'').trim()){
+        await updateScoreRow(names[0].row,{link:sheetLink(folder.url,folder.name)});names[0].link=folder.url;linked++;continue;
+      }
+      if(names.length){skipped++;continue;}
+      await appendRow({title:folder.name,link:sheetLink(folder.url,folder.name)});
+      index.rows.push({title:folder.name,link:folder.url});added++;
+    }
+    return {added,linked,skipped,total:folders.length};
+  }
   async function listScoreFolders(folderId) {
     const token = await accessToken();
     const safeId = String(folderId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -470,6 +498,7 @@ export function createGoogle(storage) {
     deleteFile,
     appendRow,
     listScoreFolders,
+    syncRootFolders,
     listScoreIndex,
     recordPlanSemesters,
     listFolderFiles,
