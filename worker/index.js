@@ -180,6 +180,7 @@ export default {
       const kinds = [];
       if (text.includes('大歌') || text.includes('all members') || /(?:^|[^a-z])all(?:[^a-z]|$)/.test(text)) kinds.push('all');
       if (text.includes('小组') || text.includes('小歌') || text.includes('small group') || text.includes('group')) kinds.push('group');
+      if(text.includes('短视频')||text.includes('short video')||/(?:^|[^a-z])video(?:[^a-z]|$)/.test(text))kinds.push('video');
       return kinds;
     }
     function semesterCell(existing, sourceLabel, destLabel) {return mergeSemesters(existing,sourceLabel,destLabel);}
@@ -1113,7 +1114,7 @@ export default {
           }
           const arranger = arrangerNames.join(', ');
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
-          const kinds = ['all', 'group'].filter(item => picked.has(item));
+          const kinds = ['all', 'group', 'video'].filter(item => picked.has(item));
           const source = await statements.semesterById.get(Number(field('sourceSemesterId')));
           const multiSemester = field('semesterSelection')==='1';
           const semester = multiSemester ? source : await statements.semesterById.get(Number(field('semesterId')));
@@ -1140,7 +1141,7 @@ export default {
           const config = await google.load();
           if (!config.refreshToken || !config.spreadsheetId) throw fail(400, 'google_disconnected');
           const songUrl = `https://drive.google.com/drive/folders/${folderId}`;
-          const kindText = kinds.map(item => item === 'all' ? '大歌/all members' : '小组/small group').join(', ');
+          const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/groups',video:'短视频/short video'})[item]).join(', ');
           const sheetValues = {
             title: nextTitle,
             arranger,
@@ -1223,7 +1224,7 @@ export default {
           }
           const arranger = arrangerNames.join(', ');
           const picked = new Set(parts.filter(item => item.name === 'kind' && !item.filename).map(item => item.body.toString('utf8')));
-          const kinds = ['all', 'group'].filter(item => picked.has(item));
+          const kinds = ['all', 'group', 'video'].filter(item => picked.has(item));
           const semester = await statements.semesterById.get(Number(field('semesterId')));
           if (!title) throw fail(400, 'song_required');
           if (!arranger) throw fail(400, 'arranger_required');
@@ -1246,7 +1247,7 @@ export default {
               });
               stored.push(uploaded.id);
             }
-            const kindText = kinds.map(item => item === 'all' ? '大歌/all members' : '小组/small group').join(', ');
+            const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/groups',video:'短视频/short video'})[item]).join(', ');
             await google.appendRow({
               title,
               arranger,

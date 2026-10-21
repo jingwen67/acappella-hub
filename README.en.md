@@ -175,7 +175,7 @@ Only accounts assigned the **Arranger** role can upload and edit scores. Being a
 2. Enter the song title.
 3. Select one or more arrangers. If a name is missing, enter it and select **Add**.
 4. Choose a semester.
-5. Select **All members**, **Small group**, or both. At least one is required.
+5. Select **All members**, **Small group**, and/or **Short video**. At least one is required.
 6. Select one or more files, or upload a folder using a browser that supports folder selection.
 7. Select **Upload** and wait for the success message.
 

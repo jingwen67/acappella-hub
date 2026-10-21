@@ -994,8 +994,9 @@
           <legend data-i18n="kind">性质</legend>
           <label><input type="checkbox" name="kind" value="all"> <span data-i18n="allMembers">大歌</span></label>
           <label><input type="checkbox" name="kind" value="group"> <span data-i18n="smallGroup">小组</span></label>
+          <label><input type="checkbox" name="kind" value="video"> <span data-i18n="shortVideo">短视频</span></label>
         </fieldset>
-        <p class="hint" data-i18n="kindHint">可以同时选两项。</p>
+        <p class="hint" data-i18n="kindHint">可多选。</p>
         <label><span data-i18n="scoreFile">文件</span>
           <input name="files" type="file" multiple>
         </label>
@@ -1227,9 +1228,10 @@
         addArranger: '添加',
         newArrangerPlace: '新的名字',
         kind: '性质',
-        kindHint: '可以同时选两项。',
+        kindHint: '可多选。',
         allMembers: '大歌',
         smallGroup: '小组',
+        shortVideo: '短视频',
         semester: '学期',
         scoreFile: '文件',
         scoreFolder: '文件夹',
@@ -1388,9 +1390,10 @@
         addArranger: 'Add',
         newArrangerPlace: 'New name',
         kind: 'Type',
-        kindHint: 'You can select both.',
+        kindHint: 'Select one or more.',
         allMembers: 'All members',
         smallGroup: 'Small group',
+        shortVideo: 'Short video',
         semester: 'Semester',
         scoreFile: 'Files',
         scoreFolder: 'Folder',
@@ -1487,7 +1490,7 @@
         cannot_change_admin: '不能改管理员的权限',
         song_required: '请填写曲名',
         arranger_required: '请选择编曲者，可以多选',
-        kind_required: '请选择性质，可以同时选大歌和小组',
+        kind_required: '请选择至少一种性质，可多选',
         semester_required: '请填写学期名称',
         semester_missing: '请选择学期',
         semester_taken: '这个学期已经有了',
@@ -1574,7 +1577,7 @@
         cannot_change_admin: 'The admin’s permission can’t be changed',
         song_required: 'Enter the song name',
         arranger_required: 'Choose at least one arranger',
-        kind_required: 'Choose a type. You can select both.',
+        kind_required: 'Choose a type. Select one or more.',
         semester_required: 'Enter a semester name',
         semester_missing: 'Choose a semester',
         semester_taken: 'That semester already exists',
@@ -2883,6 +2886,7 @@
       const names = {
         all: 'allMembers',
         group: 'smallGroup',
+        video: 'shortVideo',
         big: 'allMembers',
         small: 'smallGroup',
       };
