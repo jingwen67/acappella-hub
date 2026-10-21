@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {applyClubProfile} from './club-profile.mjs';
+if(process.env.VERCEL_GIT_COMMIT_REF==='feature/new-club-isolated'&&process.env.HUB_PROFILE!=='new-club')throw Error('This preparation branch must deploy as a NEW club project with HUB_PROFILE=new-club');
+applyClubProfile();
 const entry=fs.readFileSync('public/index.html','utf8').replace(/const hubUiVersion='[^']*';/,"const hubUiVersion='__HUB_UI_VERSION__';");
 const uiVersion=createHash('sha256').update(entry).digest('hex').slice(0,16);
 fs.writeFileSync('public/index.html',entry.replace('__HUB_UI_VERSION__',uiVersion));

@@ -358,3 +358,7 @@ npm start
 
 `worker/assets.js` 由托管构建从 `public/` 自动生成，不纳入此仓库的版本管理。GitHub 提交不会自动重新部署 Sites；需要上线时，请将更新后的源码发布到现有 Site。
 
+
+## 给另一个社团独立部署
+
+见 [独立社团部署指南](docs/NEW_CLUB_DEPLOYMENT.md)。必须新建数据库和文件存储；不要复制本团数据或环境密钥。
