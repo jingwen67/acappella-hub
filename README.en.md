@@ -119,7 +119,7 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 <a id="voting"></a>
 ### Voting
 
-**Custom polls:** The MD selects **Custom poll**, enters a title and options (one per line), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **Enter round**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
+**Custom polls:** The MD selects **Custom poll**, enters a title and options (two separate boxes by default; select Add option for more), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **Enter round**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
 
 The MD chooses one of four methods when opening a round:
 

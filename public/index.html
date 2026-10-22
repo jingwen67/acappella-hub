@@ -2152,14 +2152,25 @@
     }
     let pollComposer='solo';
     function customPollForm(){
+      const rows=el('div',{class:'stack custom-option-rows'}),records=[];
+      const limit=el('input',{name:'maxVotes',type:'number',min:1,max:2,step:1,value:1,required:true});
+      const addButton=el('button',{type:'button',class:'nav-btn add-option',onclick:()=>add().focus()},pair('添加选项','Add option'));
+      const update=()=>{records.forEach((record,i)=>{record.label.replaceChildren(pair('选项 '+(i+1),'Option '+(i+1)));record.remove.disabled=records.length<=2;});addButton.disabled=records.length>=100;limit.max=String(records.length);};
+      const add=()=>{
+        if(records.length>=100)return;
+        const input=el('input',{name:'entries',maxlength:120,required:true,autocomplete:'off'}),record={label:el('span',{})};
+        record.remove=el('button',{type:'button',class:'nav-btn remove-part',onclick:()=>{if(records.length<=2)return;record.row.remove();records.splice(records.indexOf(record),1);update();}},pair('移除','Remove'));
+        record.row=el('div',{class:'part-setup-row'},el('label',{},record.label,input),record.remove);records.push(record);rows.append(record.row);update();return input;
+      };
+      add();add();
       return el('form',{class:'stack',id:'custom-poll-form',onsubmit:event=>{
         event.preventDefault();const form=new FormData(event.target);
-        const entries=String(form.get('entries')||'').split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
+        const entries=form.getAll('entries').map(value=>String(value).trim());
         run(()=>api('/api/phases',{method:'POST',body:JSON.stringify({pollType:'custom',title:form.get('title'),entries,maxVotes:Number(form.get('maxVotes'))})}));
       }},
        el('label',{},pair('投票名称','Poll title'),el('input',{name:'title',maxlength:'40',required:true,autocomplete:'off'})),
-       el('label',{},pair('投票选项（每行一个）','Options (one per line)'),el('textarea',{name:'entries',rows:6,maxlength:12100,required:true})),
-       el('label',{},pair('每人最多可选几项','Maximum choices per person'),el('input',{name:'maxVotes',type:'number',min:1,max:100,step:1,value:1,required:true})),
+       rows,addButton,
+       el('label',{},pair('每人最多可选几项','Maximum choices per person'),limit),
        el('p',{class:'hint'},pair('发起后立即开放投票；每个选项最多选一次，也可以不选。','Voting opens immediately. Each option can be selected once; choosing none is allowed.')),
        el('button',{class:'primary',type:'submit'},pair('发起投票','Launch poll')));
     }
