@@ -1,7 +1,8 @@
+import {isCustomRound,createCustomPoll,customView,customAction} from './custom-polls.js';
 import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-export function createVoting(pool){return {async progress(phase,user){
+export function createVoting(pool){return {createCustom:(user,body)=>createCustomPoll(pool,user,body),customView:(phase,user)=>customView(pool,phase,user),async progress(phase,user){
  if(phase.started_at&&(user.isMd||user.isAdmin))await pool.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at) VALUES($1,$2,now(),now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=excluded.joined_at WHERE cucac.vote_presence.joined_at IS NULL',[phase.id,user.id]);
  const participating=Boolean((await pool.query('SELECT joined_at FROM cucac.vote_presence WHERE phase_id=$1 AND user_id=$2',[phase.id,user.id])).rows[0]?.joined_at);
  const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];
@@ -13,7 +14,8 @@ export function createVoting(pool){return {async progress(phase,user){
  let receipt;const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
- if(action==='edit'){
+ if(isCustomRound(p)&&!['enter','presence'].includes(action)){receipt=await customAction(c,p,action,user,body);}
+ else if(action==='edit'){
   if(!user.isMd)throw fail(403,'forbidden');if(p.status!=='closed'||p.poll_type!=='solo')throw fail(400,'phase_not_closed');
   if(typeof body.title!=='string'||!body.title.trim()||body.title.trim().length>40)throw fail(400,'title_required');let title=body.title.trim();const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const song=(await c.query('SELECT title FROM cucac.plan_songs WHERE id=$1',[songId])).rows[0];if(!song)throw fail(404,'plan_missing');title=song.title+'-'+title;}await c.query('UPDATE cucac.phases SET title=$1,plan_song_id=$2 WHERE id=$3',[title,songId,id]);
  }else if(action==='reveal'){

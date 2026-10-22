@@ -30,7 +30,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 1. Open the **CUCAC** home screen icon or the website link above.
 2. Tap **第一次来？注册** (“First time? Register”) to create an account with your name, or sign in if you already have one.
 3. Fill in your information under **My profile**.
-4. From the home page, open **Members**, **Score Library**, or **Solo / Duet voting**.
+4. From the home page, open **Members**, **Score Library**, or **Voting**.
 
 ## Contents
 
@@ -41,7 +41,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 - [My Profile](#profile)
 - [Members](#roster)
 - [What Are We Singing?](#song-plan)
-- [Solo Voting](#voting)
+- [Voting](#voting)
 - [Browse Scores](#scores)
 - [Upload and Edit Scores](#upload)
 - [Administrators and Music Directors](#management)
@@ -117,7 +117,9 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 
 
 <a id="voting"></a>
-### Solo / Duet Voting
+### Voting
+
+**Custom polls:** The MD selects **Custom poll**, enters a title and options (one per line), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **Enter round**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
 
 The MD chooses one of four methods when opening a round:
 
@@ -128,7 +130,7 @@ The MD chooses one of four methods when opening a round:
 | **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
 | **Duet · Multi-part Voting** | Two parts are the default; add or remove parts as needed. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
-1. Open **Solo / Duet voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
+1. Open **Voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
 2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Multi-part Voting, choose your part.
 3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
 4. Before voting starts, see candidate counts and manage your own registration; other candidate names stay hidden. Pair Voting requires the invited partner to confirm. After the MD starts voting, see the shuffled candidates and choose directly. Click again to unselect, then **Submit vote** to confirm, including empty ballots. Changing a selection requires re-confirmation. Choices save automatically and cannot be changed after the round closes.
