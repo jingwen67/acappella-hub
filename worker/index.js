@@ -1,3 +1,4 @@
+import {isCustomRound} from '../vercel/custom-polls.js';
 import {createPdfs} from './pdfs.js';
 import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
@@ -89,7 +90,7 @@ export default {
       reassignPhaseCreator: db.prepare(`UPDATE phases SET created_by = ? WHERE created_by = ?`),
       reassignScoreUploader: db.prepare(`UPDATE scores SET uploaded_by = ? WHERE uploaded_by = ?`),
       listRounds: db.prepare(`
-    SELECT p.id, p.title, p.status, p.closed_at,p.poll_type,p.plan_song_id,s.title AS plan_song_title, u.name AS opened_by
+    SELECT p.id, p.title, p.status, p.closed_at,p.poll_type,p.part_a,p.plan_song_id,s.title AS plan_song_title, u.name AS opened_by
     FROM phases p
     JOIN users u ON u.id = p.created_by
     LEFT JOIN cucac.plan_songs s ON s.id=p.plan_song_id
@@ -367,6 +368,7 @@ export default {
       return account.isAdmin;
     }
     async function rankedResults(phase,account){
+      if(isCustomRound(phase))return (await env.voting.customView(phase,account)).candidates;
       if (phase.poll_type!=='solo') return (await env.voting.view(phase,account)).candidates;
       if(Array.isArray(phase.solo_results))return phase.solo_results.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?{...c,isMe:c.id===account.id}:{id:c.id,name:c.name,rank:c.rank,isMe:c.id===account.id});
       const all=(await loadCandidates(phase.id,account.id,true)).sort(byScore);
@@ -382,6 +384,7 @@ export default {
       const openVisible = seesResults(account, open);
       const pollProgress=open&&env.voting?.progress?await env.voting.progress(open,account):{};
       const soloCandidates=open?.poll_type==='solo'?await loadCandidates(open.id,user.id,openVisible):[];
+      const openCustom=open&&isCustomRound(open)?await env.voting.customView(open,account):null;
       const openDuet = open && open.poll_type!=='solo' ? await env.voting.view(open,account) : null;
       const history = await Promise.all((songId?await env.plans.pollHistory(songId):await statements.history.all()).map(async phase => ({
         id: phase.id,
@@ -389,12 +392,12 @@ export default {
         planSongId:phase.plan_song_id||null,planSongTitle:phase.plan_song_id?(await env.plans.songInfo(phase.plan_song_id))?.title||'':'',
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.isMd&&!account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:isCustomRound(phase)?'custom':phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
       })));
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
-        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:open.poll_type,...pollProgress,candidates:[]}:{
+        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:isCustomRound(open)?'custom':open.poll_type,...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
           recordings:!open.started_at?[]:env.recordings?await env.recordings.list(open.id,account):[],
@@ -411,7 +414,8 @@ export default {
           pollType:open.poll_type,
           iAmCandidate: openDuet?openDuet.iAmCandidate:Boolean(await statements.isCandidate.get(open.id, user.id)),
           candidateCount:openDuet?openDuet.candidateCount:soloCandidates.length,
-          candidates: openDuet?openDuet.candidates:(!open.started_at?[]:soloCandidates).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
+          ...(openCustom||{}),
+          candidates: openCustom?openCustom.candidates:openDuet?openDuet.candidates:(!open.started_at?[]:soloCandidates).sort((a,b)=>{const order=JSON.parse(open.candidate_order);const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?100000:ai)-(bi<0?100000:bi);})
         }) : null,
         history,
         profile: publicProfile(await statements.profileById.get(account.id)),
@@ -422,7 +426,7 @@ export default {
             title: row.title,
             status: row.status,
             openedBy: row.opened_by,
-            closedAt: row.closed_at,pollType:row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
+            closedAt: row.closed_at,pollType:isCustomRound(row)?'custom':row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
           }))
         } : null,
         library: await libraryFor(account)
@@ -683,6 +687,7 @@ export default {
           }
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
           try {
+            if(body.pollType==='custom'){await env.voting.createCustom(user,body);send(res,201,await stateFor(user));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
             const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
