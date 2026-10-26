@@ -1,3 +1,4 @@
+import {updateRequestedCurrentPoll} from '../vercel/current-poll-update.js';
 import worker from '../dist/vercel-worker.mjs';
 import {createDatabase,createPool} from '../vercel/database.js';
 import {createStorage} from '../vercel/storage.js';
@@ -13,12 +14,14 @@ function configuredEnv(){
  environment={DB:createDatabase(pool),FILES:createStorage({url:process.env.SUPABASE_URL,key:process.env.SUPABASE_SERVICE_ROLE_KEY,bucket:process.env.SUPABASE_STORAGE_BUCKET||'cucac-private'}),ADMIN_PASSWORD:process.env.ADMIN_PASSWORD,PUBLIC_ORIGIN:process.env.PUBLIC_ORIGIN,INVITE_REQUIRED:true,invitations:createInvitations(pool),voting:createVoting(pool)};
  environment.recordings=createRecordings(pool,environment.FILES);
  environment.plans=createPlans(pool);
+ let prepared;environment.prepare=()=>prepared??=(updateRequestedCurrentPoll(pool,process.env.HUB_PROFILE).catch(error=>{prepared=undefined;throw error;}));
  return environment;
 }
 export const config={api:{bodyParser:false}};
 export default async function handler(req,res){
  try {
   const env=configuredEnv(),origin=new URL(env.PUBLIC_ORIGIN).origin;
+  await env.prepare();
   const headers=new Headers();for(const [k,v] of Object.entries(req.headers)){if(v!=null)headers.set(k,Array.isArray(v)?v.join(','):v);}
   const url=new URL(req.url,origin);
   let body;

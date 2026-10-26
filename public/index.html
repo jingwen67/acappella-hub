@@ -1943,7 +1943,7 @@
         if (detailedResults.has(item.id)) detailedResults.delete(item.id);
         else detailedResults.add(item.id);
         if (latest) { renderRound(latest); renderHistory(latest.history); }
-      }}, detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
+      }}, item.status==='open'?(detailedResults.has(item.id)?pair('收起实时结果','Hide live results'):pair('查看实时结果','View live results')):detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
     }
 
     let captureSession = null;
@@ -2104,7 +2104,12 @@
       const box=el('details',{class:'card stack poll-inspection',open:inspectionExpanded.has(key),'data-kind':kind,ontoggle:event=>{if(!box.isConnected)return;if(box.open){inspectionExpanded.add(key);load();}else inspectionExpanded.delete(key);}},el('summary',{},kind==='ballots'?pair('查看投票明细','View individual ballots'):kind==='submitted'?pair('谁投票了？','Who has submitted?'):pair('谁还没投？','Who hasn’t submitted?')),body,el('button',{type:'button',class:'nav-btn',onclick:load},pair('刷新名单','Refresh list')));
       return box;
     }
-    function pollManagement(phase){return [phase.canInspectVotes?pollInspection(phase,'ballots'):null,phase.canSeePending?pollInspection(phase,'pending'):null,phase.canSeePending?pollInspection(phase,'submitted'):null];}
+    function liveResults(phase){
+      if(!phase.canSeeResults||!phase.started||!detailedResults.has(phase.id))return null;
+      const rowsFor=entries=>{let rank=0,last=null;return [...entries].sort((a,b)=>(b.likes||0)-(a.likes||0)||a.id-b.id).map(entry=>{const likes=Number(entry.likes)||0;if(likes!==last){rank++;last=likes;}return el('div',{class:'result-row'},el('span',{class:'rank'},rank),entry.members?duetIdentity(entry):el('span',{},entry.name),el('span',{class:'meta'},phase.votingMode==='feedback'?scoreLine(likes,entry.again||0):pair(likes+' 票',likes+' votes')));});};
+      return el('section',{class:'card stack live-results'},el('h3',{},pair('实时结果','Live results')),el('p',{class:'hint'},pair('随选票自动更新，包含已保存但尚未提交确认的选择。','Updates with saved choices, including ballots not yet submitted for confirmation.')),phase.pollType==='parts'?pollParts(phase).flatMap(part=>[el('h4',{},part.name),...rowsFor(phase.candidates.filter(entry=>entry.part===part.id))]):rowsFor(phase.candidates));
+    }
+    function pollManagement(phase){return [liveResults(phase),phase.canInspectVotes?pollInspection(phase,'ballots'):null,phase.canSeePending?pollInspection(phase,'pending'):null,phase.canSeePending?pollInspection(phase,'submitted'):null];}
 
     function voteProgressCard(progress){return el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.')));}
 
@@ -2199,7 +2204,7 @@
     function renderCustomRound(data){
       const phase=data.phase,selected=phase.candidates.filter(option=>option.mine).length;
       const action=(kind,body={})=>run(()=>api(`/api/phases/${phase.id}/${kind}`,{method:'POST',body:JSON.stringify(body)}));
-      const children=[el('h2',{},phase.title),el('p',{class:'meta'},pollTypeLabel('custom')),el('p',{class:'hint'},pair(`最多选择 ${phase.voteLimit} 项 · 已选 ${selected} 项`,`Choose up to ${phase.voteLimit} · ${selected} selected`)),
+      const children=[el('h2',{},phase.title),el('p',{class:'meta'},pollTypeLabel('custom')),phase.canSeeResults?resultsToggle(phase):null,el('p',{class:'hint'},pair(`最多选择 ${phase.voteLimit} 项 · 已选 ${selected} 项`,`Choose up to ${phase.voteLimit} · ${selected} selected`)),
        el('div',{class:'cards'},phase.candidates.map(option=>el('article',{class:option.mine?'card is-me stack':'card stack'},el('h3',{style:'overflow-wrap:anywhere'},option.name),el('button',{type:'button',class:'choice is-like','aria-pressed':option.mine?'true':'false',disabled:!option.mine&&selected>=phase.voteLimit,onclick:()=>action('vote',{candidateId:option.id,reaction:option.mine?null:'like'})},option.mine?pair('取消选择','Unselect'):pair('选择','Select'))))),ballotSubmit(phase,data.user.id)];
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
       children.push(...pollManagement(phase));
