@@ -1,9 +1,10 @@
+import {ensurePollPrivacy} from './poll-privacy.js';
 import {inspectPoll} from './poll-inspection.js';
 import {isCustomRound,createCustomPoll,customView,customAction} from './custom-polls.js';
 import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-export function createVoting(pool){return {inspect:(id,user,kind)=>inspectPoll(pool,id,user,kind),createCustom:(user,body)=>createCustomPoll(pool,user,body),customView:(phase,user)=>customView(pool,phase,user),async progress(phase,user){
+export function createVoting(pool){let privacyReady;const ensurePrivacy=()=>privacyReady??=(ensurePollPrivacy(pool).catch(error=>{privacyReady=undefined;throw error;}));return {ensurePrivacy,inspect:(id,user,kind)=>inspectPoll(pool,id,user,kind),createCustom:async(user,body)=>{await ensurePrivacy();return createCustomPoll(pool,user,body);},customView:(phase,user)=>customView(pool,phase,user),async progress(phase,user){
  if(phase.started_at&&(user.isMd||user.isAdmin))await pool.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at) VALUES($1,$2,now(),now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=excluded.joined_at WHERE cucac.vote_presence.joined_at IS NULL',[phase.id,user.id]);
  const participating=Boolean((await pool.query('SELECT joined_at FROM cucac.vote_presence WHERE phase_id=$1 AND user_id=$2',[phase.id,user.id])).rows[0]?.joined_at);
  const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];

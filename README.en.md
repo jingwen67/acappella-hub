@@ -119,6 +119,8 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 <a id="voting"></a>
 ### Voting
 
+All voting methods ask whether the poll is anonymous; the default is Yes. Anonymous polls do not expose individual ballots. For non-anonymous polls, only the creator and administrator can inspect them. This setting is fixed after launch. Existing rounds default to anonymous; aggregate results and submission progress are unchanged.
+
 **Custom polls:** The MD selects **Custom poll**, enters a title and options (two separate boxes by default; select Add option for more), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **I’m here**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
 
 The MD chooses one of four methods when opening a round:
