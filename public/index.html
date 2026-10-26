@@ -1705,6 +1705,7 @@
     }
 
     async function api(path, options = {}) {
+      if(selectedPollId&&path.startsWith('/api/'))path+=(path.includes('?')?'&':'?')+'phaseId='+selectedPollId;
       const res = await fetch(path, {
         credentials: 'same-origin',
         cache: 'no-store',
@@ -1713,11 +1714,12 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {const error=new Error(errorText(data.error));error.code=data.error;throw error;}
+      if(options.method==='POST'&&new URL(path,location.origin).pathname==='/api/phases'&&data.user){composingPoll=false;selectedPollId=data.phase?.id||null;}
       return data;
     }
 
     let lastVotePresence=0;
-    function votePresence(active=true){const phase=latest?.phase;if(!phase)return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
+    function votePresence(active=true){const phase=latest?.phase;if(!phase||composingPoll)return;if(active&&(view!=='poll'||document.hidden))return;if(active&&Date.now()-lastVotePresence<20000)return;lastVotePresence=active?Date.now():0;api(`/api/phases/${phase.id}/presence`,{method:'POST',body:JSON.stringify({active})}).catch(()=>{});}
     document.addEventListener('visibilitychange',()=>{if(view==='poll')votePresence(!document.hidden);});
     function startPolling() {
       if (pollTimer) return;
@@ -1821,6 +1823,8 @@
 
     function showApp(data) {
       if(pendingPdfReturn){location.replace(pendingPdfReturn);return;}
+      if(!data.user.isMd)composingPoll=false;
+      selectedPollId=data.phase?.id||null;
       latest = data;
       loading.hidden = true;
       auth.hidden = true;
@@ -1846,7 +1850,7 @@
     async function refresh({ force = false } = {}) {
       let res;
       try {
-        res = await fetch('/api/state', { credentials: 'same-origin', cache: 'no-store' });
+        res = await fetch('/api/state'+(selectedPollId?'?phaseId='+selectedPollId:''), { credentials: 'same-origin', cache: 'no-store' });
       } catch {
         showBanner(errorText('offline'));
         return;
@@ -2179,6 +2183,11 @@
     }
     function anonymityField(){return el('div',{class:'stack'},el('label',{},pair('是否匿名投票？','Anonymous voting?'),el('select',{name:'anonymous'},el('option',{value:'true',selected:true},pair('是（默认）','Yes (default)')),el('option',{value:'false'},pair('否','No')))),el('p',{class:'hint'},pair('匿名时不提供个人选票明细；非匿名时，仅管理员和发起者可查看。','Anonymous polls hide individual ballots. For non-anonymous polls, only the administrator and poll creator can view them.')));}
     function anonymityLabel(phase){return pair(phase.anonymous!==false?'匿名投票':'非匿名投票',phase.anonymous!==false?'Anonymous poll':'Non-anonymous poll');}
+    let selectedPollId=null,composingPoll=false;
+    function pollRoundChooser(data){
+      const active=data.activeRounds||(data.phase?[data.phase]:[]);if(!active.length)return null;
+      return el('section',{class:'panel stack poll-round-chooser'},el('label',{},pair('进行中的投票','Active polls'),el('select',{class:'active-poll-select',value:data.phase?.id||'',onchange:event=>{if(busy)return;votePresence(false);lastVotePresence=0;selectedPollId=Number(event.target.value);composingPoll=false;run(()=>api('/api/state'));}},active.map(p=>el('option',{value:p.id,selected:p.id===data.phase?.id},p.title)))),data.user.isMd?el('button',{type:'button',class:'nav-btn new-poll',onclick:()=>{if(busy)return;votePresence(false);composingPoll=!composingPoll;renderRound(data);}},composingPoll?pair('返回投票','Back to voting'):pair('发起新投票','New poll')):null);
+    }
     let pollComposer='solo';
     function customPollForm(){
       const rows=el('div',{class:'stack custom-option-rows'}),records=[];
@@ -2215,10 +2224,11 @@
       round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
     }
     function renderRound(data) {
-      if(captureSession && captureSession.phaseId!==data.phase?.id)disposeCapture();
+      if(captureSession && (composingPoll||captureSession.phaseId!==data.phase?.id))disposeCapture();
       round.replaceChildren();
       round.className = 'history';
-      const phase = data.phase;
+      const chooser=pollRoundChooser(data);if(chooser)round.append(chooser);
+      const phase = composingPoll?null:data.phase;
       if (!phase) {
         if(!planPollSongs)planLoadPollSongs();
         const arrangers = (data.members || []).filter((person) => person.isArranger && !person.isAlumni);
