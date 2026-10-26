@@ -1,3 +1,4 @@
+import {updateRequestedCurrentPoll} from '../vercel/current-poll-update.js';
 import worker from '../dist/vercel-worker.mjs';
 import {validateClubIsolation} from '../vercel/deployment-guard.js';
 import {createDatabase,createPool} from '../vercel/database.js';
@@ -17,12 +18,14 @@ function configuredEnv(){
  environment.withLibraryLock=async task=>{const client=await pool.connect();try{await client.query("SELECT pg_advisory_lock(748219)");return await task();}finally{try{await client.query("SELECT pg_advisory_unlock(748219)");}finally{client.release();}}};
  environment.recordings=createRecordings(pool,environment.FILES);
  environment.plans=createPlans(pool);
+ let prepared;environment.prepare=()=>prepared??=(updateRequestedCurrentPoll(pool,process.env.HUB_PROFILE).catch(error=>{prepared=undefined;throw error;}));
  return environment;
 }
 export const config={api:{bodyParser:false}};
 export default async function handler(req,res){
  try {
   const env=configuredEnv(),origin=new URL(env.PUBLIC_ORIGIN).origin;
+  await env.prepare();
   const headers=new Headers();for(const [k,v] of Object.entries(req.headers)){if(v!=null)headers.set(k,Array.isArray(v)?v.join(','):v);}
   const url=new URL(req.url,origin);
   let body;
