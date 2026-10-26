@@ -29,7 +29,7 @@ export function createRecordings(pool,files){
   if(!size||size>MAX_AUDIO_BYTES||!types[mime]){await files.delete(r.object_key);await pool.query('DELETE FROM cucac.recordings WHERE id=$1',[r.id]);throw fail(400,'audio_type');}
   await pool.query("UPDATE cucac.recordings SET status='ready',size=$1,mime=$2 WHERE id=$3",[size,mime,r.id]);return p.id;
  }
- async function play(id){const r=await row(id);if(r.status!=='ready'||!r.phase_id||(!r.candidate_id&&!r.entry_id))throw fail(404,'recording_missing');const p=await phase(r.phase_id);if(expired(p))throw fail(410,'recording_expired');
+ async function play(id,user){const r=await row(id);if(r.status!=='ready'||!r.phase_id||(!r.candidate_id&&!r.entry_id))throw fail(404,'recording_missing');const p=await phase(r.phase_id);if(expired(p))throw fail(410,'recording_expired');if(p.status==='open'&&!p.started_at)await owned(p,r.candidate_id,r.entry_id,user);
   const remaining=p.status==='closed'?Math.floor((Date.parse(p.closed_at)+7*86400000-Date.now())/1000):3600;
   return files.audioPlaybackUrl(r.object_key,Math.max(1,Math.min(3600,remaining)));
  }
@@ -40,7 +40,7 @@ export function createRecordings(pool,files){
    FROM cucac.recordings r LEFT JOIN cucac.users u ON u.id=r.candidate_id LEFT JOIN cucac.duet_entries e ON e.id=r.entry_id
    LEFT JOIN cucac.users a ON a.id=e.member1 LEFT JOIN cucac.users b ON b.id=e.member2
    WHERE r.phase_id=$1 AND r.status='ready' AND (r.candidate_id IS NOT NULL OR e.id IS NOT NULL) ORDER BY r.created_at`,[id])).rows;
-  return rows.map(r=>({id:r.id,url:'/api/recordings/'+r.id,name:r.solo_full||r.solo_name||[r.full1||r.name1,r.full2||r.name2].filter(Boolean).join(' + '),candidateId:r.candidate_id,entryId:r.entry_id,
+  return rows.filter(r=>p.status!=='open'||p.started_at||r.candidate_id===user.id||r.member1===user.id||r.member2===user.id).map(r=>({id:r.id,url:'/api/recordings/'+r.id,name:r.solo_full||r.solo_name||[r.full1||r.name1,r.full2||r.name2].filter(Boolean).join(' + '),candidateId:r.candidate_id,entryId:r.entry_id,
    canDelete:r.candidate_id===user.id||r.member1===user.id||r.member2===user.id,createdAt:r.created_at}));
  }
  // Public maintenance can only remove server-determined expired/orphaned uploads; it accepts no target IDs.

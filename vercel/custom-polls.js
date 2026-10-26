@@ -50,7 +50,7 @@ export async function customView(pool,p,user){
 }
 export async function customAction(c,p,action,user,body){
  if(action==='reveal'){
-  if(!user.isMd||user.isAdmin)throw fail(403,'forbidden');if(p.status!=='closed')throw fail(400,'phase_not_closed');
+  if(user.id!==p.created_by||user.isAdmin)throw fail(403,'forbidden');if(p.status!=='closed')throw fail(400,'phase_not_closed');
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[p.id]);return;
  }
  if(p.status!=='open')throw fail(400,'phase_closed');

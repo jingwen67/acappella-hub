@@ -1,13 +1,14 @@
+import {inspectPoll} from './poll-inspection.js';
 import {isCustomRound,createCustomPoll,customView,customAction} from './custom-polls.js';
 import {randomInt} from 'node:crypto';
 import {duetAction,duetView} from './duets.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
-export function createVoting(pool){return {createCustom:(user,body)=>createCustomPoll(pool,user,body),customView:(phase,user)=>customView(pool,phase,user),async progress(phase,user){
+export function createVoting(pool){return {inspect:(id,user,kind)=>inspectPoll(pool,id,user,kind),createCustom:(user,body)=>createCustomPoll(pool,user,body),customView:(phase,user)=>customView(pool,phase,user),async progress(phase,user){
  if(phase.started_at&&(user.isMd||user.isAdmin))await pool.query('INSERT INTO cucac.vote_presence(phase_id,user_id,last_seen,joined_at) VALUES($1,$2,now(),now()) ON CONFLICT(phase_id,user_id) DO UPDATE SET joined_at=excluded.joined_at WHERE cucac.vote_presence.joined_at IS NULL',[phase.id,user.id]);
  const participating=Boolean((await pool.query('SELECT joined_at FROM cucac.vote_presence WHERE phase_id=$1 AND user_id=$2',[phase.id,user.id])).rows[0]?.joined_at);
  const own=(await pool.query('SELECT ballot,submitted_at FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[phase.id,user.id])).rows[0];
  const submittedBallot=own?{phaseId:phase.id,submittedAt:new Date(own.submitted_at).toISOString(),votes:own.ballot}:null;
- if(user.id!==phase.created_by)return {submittedBallot,participating};
+ if(user.id!==phase.created_by&&!user.isAdmin)return {submittedBallot,participating};
  const stats=(await pool.query(`SELECT count(*)::int AS total,count(s.voter_id)::int AS submitted,count(pr.user_id)::int AS visited,count(pr.user_id) FILTER (WHERE pr.last_seen>now()-interval '60 seconds')::int AS online FROM cucac.users u LEFT JOIN cucac.vote_submissions s ON s.voter_id=u.id AND s.phase_id=$1 LEFT JOIN cucac.vote_presence pr ON pr.user_id=u.id AND pr.phase_id=$1 WHERE u.is_admin=0 AND pr.joined_at IS NOT NULL`,[phase.id])).rows[0];
  return {submittedBallot,participating,voteProgress:{...stats,complete:stats.total>0&&stats.submitted===stats.total}};
 },view:(phase,user)=>duetView(pool,phase,user),async action(id,action,user,body={}){
@@ -19,7 +20,7 @@ export function createVoting(pool){return {createCustom:(user,body)=>createCusto
   if(!user.isMd)throw fail(403,'forbidden');if(p.status!=='closed'||p.poll_type!=='solo')throw fail(400,'phase_not_closed');
   if(typeof body.title!=='string'||!body.title.trim()||body.title.trim().length>40)throw fail(400,'title_required');let title=body.title.trim();const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const song=(await c.query('SELECT title FROM cucac.plan_songs WHERE id=$1',[songId])).rows[0];if(!song)throw fail(404,'plan_missing');title=song.title+'-'+title;}await c.query('UPDATE cucac.phases SET title=$1,plan_song_id=$2 WHERE id=$3',[title,songId,id]);
  }else if(action==='reveal'){
-  if(!user.isMd||user.isAdmin)throw fail(403,'forbidden');
+  if(user.id!==p.created_by||user.isAdmin)throw fail(403,'forbidden');
   if(p.status!=='closed')throw fail(400,'phase_not_closed');
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[id]);
  }else{

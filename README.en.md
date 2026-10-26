@@ -119,7 +119,7 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 <a id="voting"></a>
 ### Voting
 
-**Custom polls:** The MD selects **Custom poll**, enters a title and options (two separate boxes by default; select Add option for more), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **Enter round**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
+**Custom polls:** The MD selects **Custom poll**, enters a title and options (two separate boxes by default; select Add option for more), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **I’m here**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.
 
 The MD chooses one of four methods when opening a round:
 
@@ -130,7 +130,7 @@ The MD chooses one of four methods when opening a round:
 | **Duet · Pair Voting** | Invite a partner; they must confirm before the pair joins. Choose one of two pairs, or up to two of three or more. A singer may join multiple pairs with different partners. |
 | **Duet · Multi-part Voting** | Two parts are the default; add or remove parts as needed. You can register for multiple parts. Vote and rank separately within each part: choose one of one or two singers, or up to two of three or more. |
 
-1. Open **Voting** and select **Enter round**. Before entering, only the round title and entry button are visible.
+1. Open **Voting** and select **I’m here**. Before entering, only the round title and entry button are visible.
 2. For Pair Voting, invite a partner, who can confirm or decline after signing in. For Multi-part Voting, choose your part.
 3. Wait for the MD to select **Start voting**. Confirmed entries are shuffled; later entries appear at the end.
 4. Before voting starts, see candidate counts and manage your own registration; other candidate names stay hidden. Pair Voting requires the invited partner to confirm. After the MD starts voting, see the shuffled candidates and choose directly. Click again to unselect, then **Submit vote** to confirm, including empty ballots. Changing a selection requires re-confirmation. Choices save automatically and cannot be changed after the round closes.
@@ -142,15 +142,15 @@ Starting with two soloists or two pairs locks registration. In Multi-part Voting
 
 #### Results and History
 
-Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Multi-part Voting ranks each part separately. The MD can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
+Results rank by support votes. The first two ranks, including all ties, are initially shown. Pair Voting ranks pairs; Multi-part Voting ranks each part separately. Only the round creator can reveal later ranks. Member views do not show aggregate counts. Up to 12 completed rounds appear in history.
 
 Results help the MD and arranger decide; the system does not automatically choose the performers. The same singer may appear in multiple leading pairs.
 
 #### Record and listen back
 
-After joining, open **Record / upload audio** on your own entry. Allow microphone access, then choose **Record → Stop and preview → Save recording**. You can record again or upload an existing audio file. Duet pairs must be confirmed first; either partner can add or delete recordings for their pair.
+After registering as a candidate, open **Record / upload audio** on your own entry, even before voting starts. Allow microphone access, then choose **Record → Stop and preview → Save recording**. You can record again or upload an existing audio file. Duet pairs must be confirmed first; either partner can add or delete recordings for their pair.
 
-All signed-in members can play saved recordings. There is no recording time limit; each file can be up to **50 MB**. Recordings stay available while voting is open and for **7 days after it closes**, including in round history, before automatic cleanup. Voting results remain. To keep your recording longer, download your own copy before saving.
+Before voting starts, recordings are visible only to their singer or confirmed pair. Once voting starts, all signed-in members can play saved recordings. There is no recording time limit; each file can be up to **50 MB**. Recordings stay available while voting is open and for **7 days after it closes**, including in round history, before automatic cleanup. Voting results remain. To keep your recording longer, download your own copy before saving.
 
 
 <a id="scores"></a>

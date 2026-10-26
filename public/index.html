@@ -1465,7 +1465,7 @@
         custom_entries: '请输入 2–100 个选项，每项不超过 120 字。',
         custom_duplicate: '选项不能重复，请修改后再发起。',
         custom_limit: '每人最多可选项数须为 1 到选项总数之间的整数。',
-        join_poll_first: '请先进入本轮。',
+        join_poll_first: '请先点击「来了」。',
         vote_limit: '已达到本轮投票上限，请先取消一个选择',
         voting_not_started: 'MD 尚未开启投票',
         need_two_candidates: '至少两位参选人才能开始',
@@ -2088,6 +2088,18 @@
       return el('div', {class:'duet-identity'}, entry.members.map(member => el('span', {class:'roster-name'}, avatarNode({id:member.id,name:member.name,avatar:member.avatar}), el('span', {}, member.name))));
     }
 
+    const inspectionExpanded=new Set();
+    function pollInspection(phase,kind){
+      const key=phase.id+'/'+kind,body=el('div',{class:'stack'});
+      const load=async()=>{body.replaceChildren(el('p',{class:'hint'},pair('加载中…','Loading…')));try{const data=await api(`/api/phases/${phase.id}/${kind}`);body.replaceChildren(
+        kind==='pending'?el('p',{class:'hint'},pair('仅列出点过「来了」但尚未提交确认的人；空选项提交也算完成。','Members who checked in but have not submitted; an empty submitted ballot counts as complete.')):el('p',{class:'hint'},pair('显示当前已保存的选择，提交状态另列；投票结束前选择仍可修改。','Current saved choices, with submission status. Choices can change until voting closes.')),
+        data.members.length?el('div',{class:'stack'},data.members.map(member=>el('div',{class:'card stack'},el('strong',{},member.name),kind==='ballots'?el('p',{class:'hint'},member.submitted?pair('已提交','Submitted'):pair('未提交','Not submitted')):null,kind==='ballots'?el('p',{},member.choices.length?member.choices.map(choice=>(choice.part?choice.part+' · ':'')+choice.name+(choice.reaction==='again'?' · '+both('again'):'')).join('、'):pair('未选择选项','No options selected')):null))):el('p',{class:'hint'},kind==='pending'?pair('暂无未提交成员。','No participants awaiting submission.'):pair('暂无参与记录。','No participation records yet.')));
+      }catch(error){body.replaceChildren(el('p',{class:'hint'},pair('加载失败，请重试。','Could not load. Please try again.')));showBanner(error.message);}};
+      const box=el('details',{class:'card stack poll-inspection',open:inspectionExpanded.has(key),'data-kind':kind,ontoggle:event=>{if(!box.isConnected)return;if(box.open){inspectionExpanded.add(key);load();}else inspectionExpanded.delete(key);}},el('summary',{},kind==='ballots'?pair('查看投票明细','View individual ballots'):pair('谁还没投？','Who hasn’t submitted?')),body,el('button',{type:'button',class:'nav-btn',onclick:load},pair('刷新名单','Refresh list')));
+      return box;
+    }
+    function pollManagement(phase){return [phase.canInspectVotes?pollInspection(phase,'ballots'):null,phase.canSeePending?pollInspection(phase,'pending'):null];}
+
     function voteProgressCard(progress){return el('section',{class:'card stack vote-progress',role:'status'},el('h3',{},pair('已提交 '+progress.submitted+'/'+progress.total,'Submitted '+progress.submitted+'/'+progress.total)),el('p',{class:'hint'},pair('正在查看 '+progress.online+' 人','Viewing now: '+progress.online)),el('p',{class:'hint'},progress.complete?pair('所有人已提交完毕','Everyone has submitted'):pair('等待 '+(progress.total-progress.submitted)+' 位本轮参与者提交','Waiting for '+(progress.total-progress.submitted)+' participants')),el('p',{class:'hint'},pair('分母是加入过本轮的人，离开后仍计入；正在查看按最近一分钟更新。','The total counts members who joined this poll, even after leaving; viewing activity uses the last minute.')));}
 
     function duetWithdraw(phase,entry,disabled,action){
@@ -2109,7 +2121,7 @@
         !phase.started ? el('p', {class:'hint'},pair('报名中，等待 MD 开启投票。','Registration is open. Waiting for the MD to start voting.')) : null];
       if (phase.canSeeResults) children.push(resultsToggle(phase));
       children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+(phase.candidateCount??phase.candidates.length)+' '+(phase.pollType==='pair'?'组':'人')+'已参选',(phase.candidateCount??phase.candidates.length)+' candidates registered'))));
-      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),duetWithdraw(phase,entry,false,action)));
+      if(!phase.started)for(const entry of ownerEntries)children.push(el('div',{class:'stack'},phase.pollType==='pair'?duetIdentity(entry):el('p',{class:'hint'},partName(entry.part)),recordingList((phase.recordings||[]).filter(r=>r.entryId===entry.id)),recordingControls(phase,{entryId:entry.id}),duetWithdraw(phase,entry,false,action)));
       if (phase.pollType==='pair') {
         if (!locked('pair')) children.push(el('form', {class:'stack',onsubmit:event=>{
           event.preventDefault();const form=new FormData(event.target);action('pair',{partnerId:Number(form.get('partnerId'))});
@@ -2138,6 +2150,7 @@
       }
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+      children.push(...pollManagement(phase));
       if (data.user.isMd||data.user.isAdmin) children.push(duetCloseControl(phase,action));
       round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
     }
@@ -2180,6 +2193,7 @@
       const children=[el('h2',{},phase.title),el('p',{class:'meta'},pollTypeLabel('custom')),el('p',{class:'hint'},pair(`最多选择 ${phase.voteLimit} 项 · 已选 ${selected} 项`,`Choose up to ${phase.voteLimit} · ${selected} selected`)),
        el('div',{class:'cards'},phase.candidates.map(option=>el('article',{class:option.mine?'card is-me stack':'card stack'},el('h3',{style:'overflow-wrap:anywhere'},option.name),el('button',{type:'button',class:'choice is-like','aria-pressed':option.mine?'true':'false',disabled:!option.mine&&selected>=phase.voteLimit,onclick:()=>action('vote',{candidateId:option.id,reaction:option.mine?null:'like'})},option.mine?pair('取消选择','Unselect'):pair('选择','Select'))))),ballotSubmit(phase,data.user.id)];
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+      children.push(...pollManagement(phase));
       if(data.user.isMd||data.user.isAdmin)children.push(duetCloseControl(phase,action));
       round.append(el('h2',{},t('thisRound')),el('section',{class:'panel stack'},children));
     }
@@ -2229,7 +2243,7 @@
         return;
       }
 
-      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('进入本轮','Enter round'));
+      const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('来了','I’m here'));
       if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
       if(phase.pollType==='custom'){renderCustomRound(data);return;}
       if (phase.pollType && phase.pollType!=='solo') {renderDuetRound(data);return;}
@@ -2247,6 +2261,7 @@
 
       children.push(el('div',{class:'card candidacy-status'},phase.iAmCandidate?el('p',{class:'candidacy-title'},pair('你已参选','You’re running')):null,el('p',{class:'candidacy-count'},pair('共 '+count+' 人已参选',count+' candidates registered'))));
       if (phase.iAmCandidate) {
+        if(!phase.started)children.push(el('section',{class:'card stack'},el('h3',{},pair('我的参选录音','My audition recording')),recordingList(phase.recordings||[]),recordingControls(phase,{candidateId:data.user.id})));
         children.push(el('button', {
           type: 'button',
           class: 'quiet',
@@ -2299,6 +2314,7 @@
 
       if(phase.started&&phase.participating)children.push(ballotSubmit(phase,data.user.id));
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
+      children.push(...pollManagement(phase));
 
       if(data.user.isMd||data.user.isAdmin)children.push(el('button', {
         type: 'button',
@@ -2357,6 +2373,7 @@
           item.pollType&&item.pollType!=='solo'?el('p',{class:'meta'},pollTypeLabel(item.pollType)):null,
           when ? el('p', { class: 'meta history-closed' }, pair('已结束','Closed'),' '+when) : null,
           item.canSeeResults ? resultsToggle(item) : null,
+          item.canInspectVotes?pollInspection(item,'ballots'):null,
           ...rows,
           item.recordings?.length?el('details',{},el('summary',{},pair('本轮录音（结束后保留一周）','Round recordings (kept for one week)')),recordingList(item.recordings,true)):null,
           item.canReveal?el('button',{type:'button',class:'nav-btn',onclick:()=>run(()=>api(`/api/phases/${item.id}/reveal`,{method:'POST',body:'{}'}))},pair('揭晓下一名','Reveal next rank')):null,
