@@ -1,3 +1,4 @@
+import {canViewLiveTotals} from './poll-privacy.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 // Keep the legacy phase type unchanged for existing deployments; the reserved marker
 // distinguishes custom options from singer candidacies throughout the API.
@@ -46,7 +47,7 @@ export async function customView(pool,p,user){
   candidates=candidates.map(row=>{if(row.likes!==last){rank++;last=row.likes;}return {...row,rank};});
   candidates=candidates.filter(row=>user.isAdmin||row.rank<=p.revealed_ranks);
  }
- return {pollType:'custom',voteLimit:Number(p.part_b),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>user.isAdmin?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
+ return {pollType:'custom',voteLimit:Number(p.part_b),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>(user.isAdmin||canViewLiveTotals(p,user))?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
 }
 export async function customAction(c,p,action,user,body){
  if(action==='reveal'){

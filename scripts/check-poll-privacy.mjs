@@ -19,7 +19,7 @@ try{
  for(const kind of ['solo','feedback','pair','parts','custom'])for(const anonymous of [undefined,true,false]){
   const body={title:'Privacy '+kind,pollType:['feedback','custom'].includes(kind)?kind==='feedback'?'solo':'custom':kind,votingMode:kind==='feedback'?'feedback':'default',entries:['A','B'],maxVotes:1,...(anonymous===undefined?{}:{anonymous})};
   const created=await api('/api/phases','creator',body,201),id=created.phase.id,expected=anonymous!==false;
-  assert.equal(created.phase.anonymous,expected);assert.equal(created.phase.canInspectVotes,!expected);assert.equal((await api('/api/state','admin')).phase.canInspectVotes,!expected);assert.equal((await api('/api/state','otherMd')).phase.canInspectVotes,false);
+  assert.equal(created.phase.anonymous,expected);assert.equal(created.phase.canSeeResults,!expected);if(kind==='custom')assert.ok(created.phase.candidates.every(c=>Object.hasOwn(c,'likes')===!expected));assert.equal(created.phase.canInspectVotes,!expected);assert.equal((await api('/api/state','admin')).phase.canInspectVotes,!expected);assert.equal((await api('/api/state','otherMd')).phase.canInspectVotes,false);
   const saved=(await query('SELECT is_anonymous FROM cucac.phases WHERE id=$1',[id])).rows[0];assert.equal(saved.is_anonymous,expected);
   for(const who of ['admin','creator'])await api(`/api/phases/${id}/ballots`,who,undefined,expected?403:200);
   for(const who of ['voter','otherMd'])await api(`/api/phases/${id}/ballots`,who,undefined,403);
