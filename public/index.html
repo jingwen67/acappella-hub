@@ -689,6 +689,8 @@
 
     .result-row:first-of-type { border-top: 0; padding-top: 0; }
 
+    .rank-revoke{width:auto;min-height:28px;padding:3px 8px;font-size:12px;white-space:nowrap;}
+    .rank-revoke .en{font-size:inherit;}
     .rank { color: var(--muted); }
 
     #loading { color: var(--muted); }
@@ -1462,6 +1464,7 @@
         bad_action: '此操作不适用于本轮投票',
         ballot_empty: '请先选择参选人，再提交投票',
         ballot_changed: '选择已发生变化，请刷新核对后重新提交',
+        bad_revoke: '该名次尚未揭晓或已撤回，请刷新后重试。',
         bad_anonymity: '请选择是否匿名投票。',
         custom_entries: '请输入 2–100 个选项，每项不超过 120 字。',
         custom_duplicate: '选项不能重复，请修改后再发起。',
@@ -1554,6 +1557,7 @@
         bad_action: 'This action is not available for this voting method.',
         ballot_empty: 'Select a singer before submitting your vote.',
         ballot_changed: 'Your selections changed. Refresh, review, and submit again.',
+        bad_revoke: 'This rank is not revealed or was already revoked. Refresh and try again.',
         bad_anonymity: 'Choose whether this poll is anonymous.',
         custom_entries: 'Enter 2–100 options, up to 120 characters each.',
         custom_duplicate: 'Options must be unique.',
@@ -2367,10 +2371,16 @@
         const when = formatTime(item.closedAt);
         const showDetails = item.canSeeResults && detailedResults.has(item.id);
         const visibleCandidates = showDetails ? item.candidates : item.candidates.filter(candidate => candidate.rank <= item.revealedRanks);
-        const resultRow = candidate => el('div', { class: 'result-row' },
+        const revokeShown=new Set();
+        const resultRow = candidate => {
+          const key=(candidate.part||'')+':'+candidate.rank;
+          const canRevoke=item.canReveal&&candidate.rank>=3&&candidate.rank<=item.revealedRanks&&!revokeShown.has(key);if(canRevoke)revokeShown.add(key);
+          return el('div', { class: 'result-row' },
           el('span', {class:'rank'}, candidate.rank),
           candidate.members ? duetIdentity(candidate) : el('span',{},candidate.name),
-          showDetails?el('span',{class:'meta'},item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null);
+          showDetails?el('span',{class:'meta'},item.votingMode==='default'?pair(candidate.likes+' 票',candidate.likes+' votes'):scoreLine(candidate.likes,candidate.again)):null,
+          canRevoke?el('button',{type:'button',class:'nav-btn rank-revoke','data-rank':candidate.rank,title:'撤回本轮第 '+candidate.rank+' 名及后续名次 / Hide rank '+candidate.rank+' and later ranks for this round',onclick:()=>run(()=>api(`/api/phases/${item.id}/revoke`,{method:'POST',body:JSON.stringify({rank:candidate.rank})}))},pair('撤回','Revoke')):null);
+        };
         const rows = item.pollType==='parts' ? pollParts(item).flatMap(part=>[el('h4',{},part.name),...visibleCandidates.filter(candidate=>candidate.part===part.id).map(resultRow)]) : visibleCandidates.length
           ? visibleCandidates.map(resultRow)
           : [el('p', { class: 'hint' }, t('noCandidates'))];

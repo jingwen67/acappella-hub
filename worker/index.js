@@ -837,7 +837,7 @@ export default {
         if(req.method==='GET'&&audioRead){const user=await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1],user),'Cache-Control':'private, no-store'});res.end();return;}
         const inspection=pathname.match(/^\/api\/phases\/(\d+)\/(ballots|pending|submitted)$/);
         if(req.method==='GET'&&inspection){const user=await requireUser(req);send(res,200,await env.voting.inspect(Number(inspection[1]),user,inspection[2]));return;}
-        const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|close|candidacy|vote|submit|enter|presence|pair|confirm|cancel|audition)$/);
+        const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|revoke|close|candidacy|vote|submit|enter|presence|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);
