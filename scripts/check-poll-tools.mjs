@@ -27,7 +27,7 @@ try{
   await api(`/api/phases/${p.id}/ballots`,'creator');for(const who of ['otherMd','voter'])await api(`/api/phases/${p.id}/ballots`,who,undefined,403);
   await api(`/api/phases/${p.id}/pending`,'voter',undefined,403);await api(`/api/phases/${p.id}/pending`,'otherMd',undefined,403);
   let pending=await api(`/api/phases/${p.id}/pending`,'creator');assert.deepEqual(pending.members.map(m=>m.name),['creator','voter']);assert.ok(!pending.members.some(m=>m.id===people.absent));
-  await query("INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot) VALUES($1,$2,'[]'::jsonb)",[p.id,people.creator]);pending=await api(`/api/phases/${p.id}/pending`,'admin');assert.deepEqual(pending.members.map(m=>m.name),['voter']);
+  await query("INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot) VALUES($1,$2,'[]'::jsonb)",[p.id,people.creator]);pending=await api(`/api/phases/${p.id}/pending`,'admin');assert.deepEqual(pending.members.map(m=>m.name),['voter']);const finished=await api(`/api/phases/${p.id}/submitted`,'creator');assert.deepEqual(finished.members,[{id:people.creator,name:'creator'}]);await api(`/api/phases/${p.id}/submitted`,'admin');for(const who of ['otherMd','voter'])await api(`/api/phases/${p.id}/submitted`,who,undefined,403);
   const normal=await api('/api/state','voter');assert.equal(normal.phase.canInspectVotes,false);assert.equal(normal.phase.canSeePending,false);assert.equal(JSON.stringify(normal).includes('choices'),false);
   await api(`/api/phases/${p.id}/close`,'creator',{});
   for(const who of ['admin','otherMd','voter']){assert.equal((await api('/api/state',who)).history[0].canReveal,false);await api(`/api/phases/${p.id}/reveal`,who,{},403);}

@@ -3,11 +3,12 @@ import {isCustomRound} from './custom-polls.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 // Read the existing ballots: introducing this screen never changes a running poll.
 export async function inspectPoll(pool,id,user,kind){
+ if(!['ballots','pending','submitted'].includes(kind))throw fail(400,'bad_action');
  const p=(await pool.query('SELECT * FROM cucac.phases WHERE id=$1',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
  if(kind==='ballots'&&!canInspectBallots(p,user))throw fail(403,'forbidden');
- if(kind==='pending'&&!user.isAdmin&&user.id!==p.created_by)throw fail(403,'forbidden');
- if(kind==='pending')return {members:(await pool.query(`SELECT u.id,u.name,u.full_name FROM cucac.vote_presence pr JOIN cucac.users u ON u.id=pr.user_id LEFT JOIN cucac.vote_submissions s ON s.phase_id=pr.phase_id AND s.voter_id=pr.user_id WHERE pr.phase_id=$1 AND pr.joined_at IS NOT NULL AND u.is_admin=0 AND s.voter_id IS NULL ORDER BY lower(u.name),u.id`,[id])).rows.map(u=>({id:u.id,name:u.full_name||u.name}))};
+ if(kind!=='ballots'&&!user.isAdmin&&user.id!==p.created_by)throw fail(403,'forbidden');
+ if(kind!=='ballots')return {members:(await pool.query(`SELECT u.id,u.name,u.full_name FROM cucac.vote_presence pr JOIN cucac.users u ON u.id=pr.user_id LEFT JOIN cucac.vote_submissions s ON s.phase_id=pr.phase_id AND s.voter_id=pr.user_id WHERE pr.phase_id=$1 AND pr.joined_at IS NOT NULL AND u.is_admin=0 AND s.voter_id ${kind==='submitted'?'IS NOT NULL':'IS NULL'} ORDER BY lower(u.name),u.id`,[id])).rows.map(u=>({id:u.id,name:u.full_name||u.name}))};
  let votes;
  if(isCustomRound(p))votes=(await pool.query('SELECT voter_id,option_id FROM cucac.custom_votes WHERE phase_id=$1 ORDER BY voter_id,option_id',[id])).rows.map(v=>({voterId:v.voter_id,name:p.part_labels[v.option_id-1],reaction:'like'}));
  else if(p.poll_type==='solo')votes=(await pool.query('SELECT v.voter_id,v.reaction,u.name,u.full_name FROM cucac.votes v JOIN cucac.users u ON u.id=v.candidate_id WHERE v.phase_id=$1 ORDER BY v.voter_id,v.candidate_id',[id])).rows.map(v=>({voterId:v.voter_id,name:v.full_name||v.name,reaction:v.reaction}));
