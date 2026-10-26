@@ -23,7 +23,7 @@ try{
   const saved=(await query('SELECT is_anonymous FROM cucac.phases WHERE id=$1',[id])).rows[0];assert.equal(saved.is_anonymous,expected);
   for(const who of ['admin','creator'])await api(`/api/phases/${id}/ballots`,who,undefined,expected?403:200);
   for(const who of ['voter','otherMd'])await api(`/api/phases/${id}/ballots`,who,undefined,403);
-  await api(`/api/phases/${id}/pending`,'creator');await api(`/api/phases/${id}/pending`,'admin');
+  await api(`/api/phases/${id}/pending`,'creator');await api(`/api/phases/${id}/pending`,'admin');await api(`/api/phases/${id}/submitted`,'admin');await api(`/api/phases/${id}/submitted`,'creator');for(const who of ['otherMd','voter'])await api(`/api/phases/${id}/submitted`,who,undefined,403);
   await api(`/api/phases/${id}/edit`,'creator',{anonymous:!expected},400);assert.equal((await query('SELECT is_anonymous FROM cucac.phases WHERE id=$1',[id])).rows[0].is_anonymous,expected);
   await api(`/api/phases/${id}/close`,'creator',{});const history=(await api('/api/state','creator')).history[0];assert.equal(history.anonymous,expected);assert.equal(history.canInspectVotes,!expected);
   await api(`/api/phases/${id}/ballots`,'creator',undefined,expected?403:200);
