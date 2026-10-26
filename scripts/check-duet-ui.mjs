@@ -14,7 +14,7 @@ const context={latest:{user:{isMd:true}},planPollSongs:{term:{label:"2026 Fall"}
  round:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}},
  history:{replaceChildren(){this.nodes=[];},append(...nodes){this.nodes.push(...nodes);}}};
 vm.createContext(context);
-vm.runInContext('let captureSession=null;const detailedResults=new Set();'+html.slice(html.indexOf('    function inlineConfirmation'),html.indexOf('    let editingRoster')),context);
+vm.runInContext('let captureSession=null;const detailedResults=new Set();const liveDetailedResults=new Set();'+html.slice(html.indexOf('    function inlineConfirmation'),html.indexOf('    let editingRoster')),context);
 const members=[{id:1,name:'One',isArranger:true},{id:2,name:'Two'},{id:3,name:'Three'}];
 context.data={user:{id:1,isMd:true},members,phase:null};vm.runInContext('renderRound(data)',context);
 const methodSelect=find(context.round.nodes,n=>n.tag==='select'&&n.attrs.name==='votingMode');assert.deepEqual(methodSelect.children.map(n=>n.attrs.value),['default','feedback','pair','parts']);
