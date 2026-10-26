@@ -16,7 +16,12 @@ export function createVoting(pool){let privacyReady;const ensurePrivacy=()=>priv
  let receipt;const c=await pool.connect();try{await c.query('BEGIN');
  const p=(await c.query('SELECT * FROM cucac.phases WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
- if(isCustomRound(p)&&!['enter','presence'].includes(action)){receipt=await customAction(c,p,action,user,body);}
+ if(action==='revoke'){
+  if(user.id!==p.created_by||user.isAdmin)throw fail(403,'forbidden');
+  if(p.status!=='closed')throw fail(400,'phase_not_closed');
+  if(!Number.isInteger(body.rank)||body.rank<3||body.rank>p.revealed_ranks)throw fail(400,'bad_revoke');
+  await c.query('UPDATE cucac.phases SET revealed_ranks=$1 WHERE id=$2',[body.rank-1,id]);
+ }else if(isCustomRound(p)&&!['enter','presence'].includes(action)){receipt=await customAction(c,p,action,user,body);}
  else if(action==='edit'){
   if(!user.isMd)throw fail(403,'forbidden');if(p.status!=='closed'||p.poll_type!=='solo')throw fail(400,'phase_not_closed');
   if(typeof body.title!=='string'||!body.title.trim()||body.title.trim().length>40)throw fail(400,'title_required');let title=body.title.trim();const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const song=(await c.query('SELECT title FROM cucac.plan_songs WHERE id=$1',[songId])).rows[0];if(!song)throw fail(404,'plan_missing');title=song.title+'-'+title;}await c.query('UPDATE cucac.phases SET title=$1,plan_song_id=$2 WHERE id=$3',[title,songId,id]);
