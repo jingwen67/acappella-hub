@@ -1,10 +1,11 @@
+import {canInspectBallots} from './poll-privacy.js';
 import {isCustomRound} from './custom-polls.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 // Read the existing ballots: introducing this screen never changes a running poll.
 export async function inspectPoll(pool,id,user,kind){
- if(kind==='ballots'&&!user.isAdmin)throw fail(403,'forbidden');
  const p=(await pool.query('SELECT * FROM cucac.phases WHERE id=$1',[id])).rows[0];
  if(!p)throw fail(404,'phase_missing');
+ if(kind==='ballots'&&!canInspectBallots(p,user))throw fail(403,'forbidden');
  if(kind==='pending'&&!user.isAdmin&&user.id!==p.created_by)throw fail(403,'forbidden');
  if(kind==='pending')return {members:(await pool.query(`SELECT u.id,u.name,u.full_name FROM cucac.vote_presence pr JOIN cucac.users u ON u.id=pr.user_id LEFT JOIN cucac.vote_submissions s ON s.phase_id=pr.phase_id AND s.voter_id=pr.user_id WHERE pr.phase_id=$1 AND pr.joined_at IS NOT NULL AND u.is_admin=0 AND s.voter_id IS NULL ORDER BY lower(u.name),u.id`,[id])).rows.map(u=>({id:u.id,name:u.full_name||u.name}))};
  let votes;

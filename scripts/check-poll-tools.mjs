@@ -13,7 +13,7 @@ try{
  const people={};for(const who of ['creator','otherMd','voter','absent'])people[who]=(await api('/api/register',who,{name:who,password:'test-password'},201)).user.id;
  await query('UPDATE cucac.users SET is_md=1 WHERE id IN ($1,$2)',[people.creator,people.otherMd]);
  for(const kind of ['solo','feedback','pair','parts','custom']){
-  const p=(await query("INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels) VALUES($1,'open',$2,'2026-10-25','2026-10-25',$3,$4,$5,$6,$7::jsonb) RETURNING id",[kind,people.creator,kind==='feedback'?'feedback':'default',['custom','feedback'].includes(kind)?'solo':kind,kind==='custom'?'__custom_poll_v1__':'High',kind==='custom'?'2':'Low',JSON.stringify(kind==='custom'?['Option A','Option B']:['High','Low'])])).rows[0];
+  const p=(await query("INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels,is_anonymous) VALUES($1,'open',$2,'2026-10-25','2026-10-25',$3,$4,$5,$6,$7::jsonb,false) RETURNING id",[kind,people.creator,kind==='feedback'?'feedback':'default',['custom','feedback'].includes(kind)?'solo':kind,kind==='custom'?'__custom_poll_v1__':'High',kind==='custom'?'2':'Low',JSON.stringify(kind==='custom'?['Option A','Option B']:['High','Low'])])).rows[0];
   for(const who of ['creator','voter'])await api(`/api/phases/${p.id}/enter`,who,{});
   if(kind==='custom')await query('INSERT INTO cucac.custom_votes VALUES($1,$2,1)',[p.id,people.voter]);
   else if(['solo','feedback'].includes(kind)){
@@ -24,7 +24,7 @@ try{
    await query('INSERT INTO cucac.duet_votes VALUES($1,$2,$3)',[p.id,entry.id,people.voter]);
   }
   const audit=await api(`/api/phases/${p.id}/ballots`,'admin');const ballot=audit.members.find(m=>m.id===people.voter);assert.equal(ballot.choices.length,1);assert.equal(ballot.submitted,false);assert.equal(ballot.choices[0].reaction,kind==='feedback'?'again':'like');assert.ok(ballot.choices[0].name.includes(kind==='custom'?'Option A':'creator'));if(kind==='parts')assert.equal(ballot.choices[0].part,'High');
-  for(const who of ['creator','otherMd','voter'])await api(`/api/phases/${p.id}/ballots`,who,undefined,403);
+  await api(`/api/phases/${p.id}/ballots`,'creator');for(const who of ['otherMd','voter'])await api(`/api/phases/${p.id}/ballots`,who,undefined,403);
   await api(`/api/phases/${p.id}/pending`,'voter',undefined,403);await api(`/api/phases/${p.id}/pending`,'otherMd',undefined,403);
   let pending=await api(`/api/phases/${p.id}/pending`,'creator');assert.deepEqual(pending.members.map(m=>m.name),['creator','voter']);assert.ok(!pending.members.some(m=>m.id===people.absent));
   await query("INSERT INTO cucac.vote_submissions(phase_id,voter_id,ballot) VALUES($1,$2,'[]'::jsonb)",[p.id,people.creator]);pending=await api(`/api/phases/${p.id}/pending`,'admin');assert.deepEqual(pending.members.map(m=>m.name),['voter']);

@@ -1,3 +1,4 @@
+import {isAnonymousPoll,canInspectBallots} from '../vercel/poll-privacy.js';
 import {isCustomRound} from '../vercel/custom-polls.js';
 import {createPdfs} from './pdfs.js';
 import { Buffer } from 'node:buffer';
@@ -102,7 +103,7 @@ export default {
       insertSession: db.prepare(`INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)`),
       deleteSession: db.prepare(`DELETE FROM sessions WHERE token = ?`),
       openPhase: db.prepare(`
-    SELECT p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
+    SELECT coalesce((to_jsonb(p)->>'is_anonymous')::boolean,true) AS is_anonymous,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.started_at,p.revealed_ranks,p.id, p.title, p.created_by, p.arranger_id, p.created_at, p.closed_at,
       u.name AS opened_by, a.name AS arranger_name
     FROM phases p
     JOIN users u ON u.id = p.created_by
@@ -111,11 +112,11 @@ export default {
   `),
       phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
-    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,part_c,part_labels,plan_song_id) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO phases (title, status, created_by, arranger_id, created_at,voting_mode,poll_type,part_a,part_b,part_c,part_labels,plan_song_id,is_anonymous) VALUES (?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
       closePhase: db.prepare(`UPDATE phases SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'`),
       history: db.prepare(`
-    SELECT p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
+    SELECT coalesce((to_jsonb(p)->>'is_anonymous')::boolean,true) AS is_anonymous,p.solo_results,p.plan_song_id,p.poll_type,p.part_a,p.part_b,p.part_c,p.part_labels,p.part_locks,p.candidate_order,p.status,p.registration_locked,p.voting_mode,p.revealed_ranks,p.id, p.title, p.closed_at, p.created_by, p.arranger_id, a.name AS arranger_name
     FROM phases p
     LEFT JOIN users a ON a.id = p.arranger_id
     WHERE p.status = 'closed'
@@ -392,15 +393,15 @@ export default {
         planSongId:phase.plan_song_id||null,planSongTitle:phase.plan_song_id?(await env.plans.songInfo(phase.plan_song_id))?.title||'':'',
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.id===phase.created_by&&!account.isAdmin, canInspectVotes:account.isAdmin, canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:isCustomRound(phase)?'custom':phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.id===phase.created_by&&!account.isAdmin, anonymous:isAnonymousPoll(phase),canInspectVotes:canInspectBallots(phase,account), canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:isCustomRound(phase)?'custom':phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
       })));
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
-        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,pollType:isCustomRound(open)?'custom':open.poll_type,...pollProgress,candidates:[]}:{
+        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,anonymous:isAnonymousPoll(open),pollType:isCustomRound(open)?'custom':open.poll_type,...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
-          canInspectVotes:account.isAdmin,canSeePending:account.isAdmin||account.id===open.created_by,
+          anonymous:isAnonymousPoll(open),canInspectVotes:canInspectBallots(open,account),canSeePending:account.isAdmin||account.id===open.created_by,
           recordings:env.recordings?await env.recordings.list(open.id,account):[],
           id: open.id,
           title: open.title,
@@ -694,7 +695,9 @@ export default {
           if (arrangerId!==null&&(!arranger || arranger.is_admin || arranger.is_alumni || !arranger.is_arranger)) {
             throw fail(400, 'poll_arranger_required');
           }
+          if(body.anonymous!==undefined&&typeof body.anonymous!=='boolean')throw fail(400,'bad_anonymity');
           if (await statements.openPhase.get()) throw fail(409, 'phase_open');
+          await env.voting.ensurePrivacy();
           try {
             if(body.pollType==='custom'){await env.voting.createCustom(user,body);send(res,201,await stateFor(user));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
@@ -702,7 +705,7 @@ export default {
             const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
             const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
             if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
-            await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId);
+            await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId,body.anonymous!==false);
           } catch (error) {
             if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
