@@ -1,4 +1,4 @@
-import {isAnonymousPoll,canInspectBallots} from '../vercel/poll-privacy.js';
+import {isAnonymousPoll,canInspectBallots,canViewLiveTotals} from '../vercel/poll-privacy.js';
 import {isCustomRound} from '../vercel/custom-polls.js';
 import {createPdfs} from './pdfs.js';
 import { Buffer } from 'node:buffer';
@@ -366,7 +366,7 @@ export default {
     }
     function seesResults(account, phase) {
       if (!account || !phase) return false;
-      return account.isAdmin;
+      return canViewLiveTotals(phase,account);
     }
     async function rankedResults(phase,account){
       if(isCustomRound(phase))return (await env.voting.customView(phase,account)).candidates;

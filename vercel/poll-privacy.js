@@ -5,3 +5,5 @@ export async function ensurePollPrivacy(pool){
  const exists=(await pool.query("SELECT 1 FROM information_schema.columns WHERE table_schema='cucac' AND table_name='phases' AND column_name='is_anonymous'")).rows.length;
  if(!exists)await pool.query('ALTER TABLE cucac.phases ADD COLUMN IF NOT EXISTS is_anonymous boolean NOT NULL DEFAULT true');
 }
+
+export const canViewLiveTotals=(phase,user)=>phase?.status==='open'&&(user.isAdmin||canInspectBallots(phase,user));

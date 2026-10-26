@@ -1,3 +1,4 @@
+import {canViewLiveTotals} from './poll-privacy.js';
 import {randomInt} from 'node:crypto';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const partLabels=p=>Array.isArray(p.part_labels)&&p.part_labels.length?p.part_labels:[p.part_a,p.part_b,...(p.part_c?[p.part_c]:[])];
@@ -93,7 +94,7 @@ export async function duetView(pool,p,user){
  const view=row=>({id:row.id,name:[row.full1||row.name1,row.full2||row.name2].filter(Boolean).join(' + '),part:row.part,
   members:[{id:row.member1,name:row.full1||row.name1,avatar:row.avatar1?`/api/avatars/${row.member1}?v=${row.avatar1}`:''},...(row.member2?[{id:row.member2,name:row.full2||row.name2,avatar:row.avatar2?`/api/avatars/${row.member2}?v=${row.avatar2}`:''}]:[])],
   auditionUrl:row.audition_url,isMe:belongs(row,user)});
- let candidates=rows.filter(row=>row.confirmed).map(row=>({...view(row),mine:row.mine?'like':null,...(user.isAdmin?{likes:row.likes,again:0}:{})}));
+ let candidates=rows.filter(row=>row.confirmed).map(row=>({...view(row),mine:row.mine?'like':null,...((user.isAdmin||canViewLiveTotals(p,user))?{likes:row.likes,again:0}:{})}));
  if(p.status==='closed'){
   candidates=[];
   for(const part of p.poll_type==='parts'?parts(p):['pair']){
