@@ -108,7 +108,7 @@ export default {
     FROM phases p
     JOIN users u ON u.id = p.created_by
     LEFT JOIN users a ON a.id = p.arranger_id
-    WHERE p.status = 'open'
+    WHERE p.status = 'open' ORDER BY p.id DESC
   `),
       phaseById: db.prepare(`SELECT * FROM phases WHERE id = ?`),
       insertPhase: db.prepare(`
@@ -378,10 +378,11 @@ export default {
       return ranked.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?c:{id:c.id,name:c.name,rank:c.rank,isMe:c.isMe});
     }
 
-    async function stateFor(user, songId=null) {
+    async function stateFor(user, songId=null,selectedPhaseId=Number(new URL(req.url).searchParams.get('phaseId'))||null) {
       const account = asUser(await statements.account.get(user.id));
       if (!account) throw fail(401, 'login_required');
-      const open = await statements.openPhase.get();
+      const active=await statements.openPhase.all();
+      const open=active.find(p=>p.id===selectedPhaseId)||active[0]||null;
       const openVisible = seesResults(account, open);
       const pollProgress=open&&env.voting?.progress?await env.voting.progress(open,account):{};
       const soloCandidates=open?.poll_type==='solo'?await loadCandidates(open.id,user.id,openVisible):[];
@@ -398,6 +399,7 @@ export default {
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
+        activeRounds:active.map(p=>({id:p.id,title:p.title,pollType:isCustomRound(p)?'custom':p.poll_type,started:Boolean(p.started_at),anonymous:isAnonymousPoll(p)})),
         phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,anonymous:isAnonymousPoll(open),pollType:isCustomRound(open)?'custom':open.poll_type,...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
@@ -688,21 +690,20 @@ export default {
             throw fail(400, 'poll_arranger_required');
           }
           if(body.anonymous!==undefined&&typeof body.anonymous!=='boolean')throw fail(400,'bad_anonymity');
-          if (await statements.openPhase.get()) throw fail(409, 'phase_open');
-          await env.voting.ensurePrivacy();
+          await env.voting.ensurePrivacy();await env.voting.ensureMultiple();
+          let createdPhaseId;
           try {
-            if(body.pollType==='custom'){await env.voting.createCustom(user,body);send(res,201,await stateFor(user));return;}
+            if(body.pollType==='custom'){const id=await env.voting.createCustom(user,body);send(res,201,await stateFor(user,null,id));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
             const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
             const songId=body.planSongId?Number(body.planSongId):null;if(songId){if(!Number.isInteger(songId))throw fail(400,'plan_invalid');const linked=await env.plans.pollSong(songId);title=linked.title+'-'+title;}
             if(!['solo','pair','parts'].includes(pollType))throw fail(400,'bad_voting_mode');
-            await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId,body.anonymous!==false);
+            const created=await statements.insertPhase.run(title, user.id, arranger?.id||null, now(),pollType==='solo'?(body.votingMode||'default'):'default',pollType,cleanText(body.partA,30)||'Part A',cleanText(body.partB,30)||'Part B',cleanText(body.partC,30)||'',JSON.stringify(partLabels.map(label=>label.trim())),songId,body.anonymous!==false);createdPhaseId=Number(created.lastInsertRowid);
           } catch (error) {
-            if (String(error.message).includes('UNIQUE')) throw fail(409, 'phase_open');
             throw error;
           }
-          send(res, 201, await stateFor(user));
+          send(res, 201, await stateFor(user,null,createdPhaseId));
           return;
         }
         const removePhase = pathname.match(/^\/api\/phases\/(\d+)\/delete$/);
@@ -832,7 +833,7 @@ export default {
         const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
         if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}
         const audioAction=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)\/(complete|delete)$/);
-        if(req.method==='POST'&&audioAction){const user=await requireUser(req);if(audioAction[2]==='complete')await env.recordings.complete(audioAction[1],user);else await env.recordings.remove(audioAction[1],user);send(res,200,await stateFor(user));return;}
+        if(req.method==='POST'&&audioAction){const user=await requireUser(req);const phaseId=audioAction[2]==='complete'?await env.recordings.complete(audioAction[1],user):await env.recordings.remove(audioAction[1],user);send(res,200,await stateFor(user,null,phaseId));return;}
         const audioRead=pathname.match(/^\/api\/recordings\/([a-f0-9-]+)$/);
         if(req.method==='GET'&&audioRead){const user=await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1],user),'Cache-Control':'private, no-store'});res.end();return;}
         const inspection=pathname.match(/^\/api\/phases\/(\d+)\/(ballots|pending|submitted)$/);
@@ -841,7 +842,7 @@ export default {
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);
           const phaseId = Number(action[1]);
-          if(env.voting){const voteReceipt=await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,action[2]==='presence'?{ok:true}:{...await stateFor(user),...(voteReceipt?{voteReceipt}:{})});return;}
+          if(env.voting){const voteReceipt=await env.voting.action(phaseId,action[2],user,await readBody(req));send(res,200,action[2]==='presence'?{ok:true}:{...await stateFor(user,null,phaseId),...(voteReceipt?{voteReceipt}:{})});return;}
           const phase = await statements.phaseById.get(phaseId);
           if (!phase) throw fail(404, 'phase_missing');
           if (phase.status !== 'open') throw fail(400, 'phase_closed');

@@ -14,7 +14,7 @@ try{
  await api('/api/phases','voter',body,403);
  for(const extra of [{entries:['One']},{entries:['Same',' same ']},{maxVotes:0},{maxVotes:5},{maxVotes:1.5},{entries:['a','x'.repeat(121)]}])await api('/api/phases','md',{...body,...extra},400);
  const created=await api('/api/phases','md',body,201),id=created.phase.id;assert.equal(created.phase.pollType,'custom');assert.equal(created.phase.voteLimit,2);assert.equal(created.phase.started,true);assert.equal(created.phase.candidates.length,4);assert.ok(created.phase.participating);
- await api('/api/phases','md',body,409);
+ const concurrent=(await api('/api/phases','md',{...body,title:'Concurrent poll'},201)).phase.id;await api(`/api/phases/${concurrent}/delete`,'admin',{});
  const before=await api('/api/state','voter');assert.equal(before.phase.candidates.length,0);assert.equal(before.phase.pollType,'custom');
  await api(`/api/phases/${id}/vote`,'voter',{candidateId:1,reaction:'like'},403);
  await api(`/api/phases/${id}/enter`,'voter',{});await api(`/api/phases/${id}/enter`,'second',{});

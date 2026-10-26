@@ -115,7 +115,7 @@ CREATE TABLE "photos" (
 
 CREATE UNIQUE INDEX "arrangers_name_unique" ON "arrangers" (lower("name"));
 
-CREATE UNIQUE INDEX "one_open_phase" ON "phases" ("status") WHERE "phases"."status" = 'open';
+-- Multiple open voting rounds are supported.
 
 CREATE UNIQUE INDEX "semesters_label_unique" ON "semesters" (lower("label"));
 

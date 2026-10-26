@@ -138,7 +138,7 @@ The MD chooses one of four methods when opening a round:
 4. Before voting starts, see candidate counts and manage your own registration; other candidate names stay hidden. Pair Voting requires the invited partner to confirm. After the MD starts voting, see the shuffled candidates and choose directly. Click again to unselect, then **Submit vote** to confirm, including empty ballots. Changing a selection requires re-confirmation. Choices save automatically and cannot be changed after the round closes.
 5. In Solo voting, select **Submit vote** to confirm your saved choices with the server. An empty selection can be submitted as an abstention, which counts as submitted. Submission status persists across refreshes and devices. The round creator sees submission progress among members who have joined this poll, and viewers active in the last minute; completion is shown when everyone submits. You may change choices before voting closes, then submit again. Submitting does not add duplicate votes; automatically saved choices still count without this optional confirmation.
 
-The MD can name the parts, such as “High voice / Low voice.” Only one round runs at a time. Pair Voting needs at least two confirmed pairs; Multi-part Voting needs at least one singer in each part before voting starts.
+The MD can name the parts, such as “High voice / Low voice.” Multiple rounds can run simultaneously. Use Active polls at the top to switch rounds. The MD can select New poll without ending existing rounds. Registration, choices, submissions and closing remain independent for each round. Pair Voting needs at least two confirmed pairs; Multi-part Voting needs at least one singer in each part before voting starts.
 
 Starting with two soloists or two pairs locks registration. In Multi-part Voting, each part starting with one or two singers locks separately. Larger groups allow later entries. After voting starts, withdrawal is disabled if it would leave fewer than three entries in a group, protecting existing ballots.
 
@@ -231,7 +231,7 @@ Administrators can also change a regular member’s username, enter a new passwo
 ### Manage Voting Rounds
 
 1. Sign in with your personal Music Director account and open **Solo voting**.
-2. If no round is active, enter a round name and select its Arranger.
+2. Enter a round name and optionally select its Arranger. Select New poll if other rounds are already active.
 3. The Arranger must be an Active member with the Arranger role. If the dropdown is empty, assign the role in the member roster first.
 4. Open the round so members can participate and vote.
 5. Select the end-round button and confirm when finished. The hosted version allows only Music Directors or administrators to end a round, even if another member sees the button.
@@ -250,7 +250,7 @@ Administrators can also change a regular member’s username, enter a new passwo
  | Score library is not configured | Ask an administrator to connect Google, set the index sheet and root folder, and add a semester. | 
  | No Arranger is available for a round | Assign the Arranger role to at least one Active member first. | 
  | I cannot see vote totals | Regular members see only their own choices. Results show revealed ranks without aggregate counts. | 
- | No active round | Wait for an MD to open a round. An active round must end before the next can begin. | 
+ | No active round | Wait for an MD to create a round, or switch to another active round at the top. |
  | Upload fails or request is too large | Check that the total upload is under 20 MB, you have the required role, and the Google connection is valid. | 
  | Drive access is denied | Check your Google account and the folder’s sharing permissions. Website accounts do not replace Google permissions. | 
  | Votes or profiles do not update immediately | Check that the action succeeded, then wait a few seconds. Data refreshes periodically; refresh manually if needed. | 
