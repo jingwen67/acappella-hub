@@ -1938,12 +1938,13 @@
     }
 
     const detailedResults = new Set();
+    const liveResultDefaults = new Set();
     function resultsToggle(item) {
       return el('button', {type:'button', class:'nav-btn', 'aria-expanded':detailedResults.has(item.id)?'true':'false', onclick:()=>{
         if (detailedResults.has(item.id)) detailedResults.delete(item.id);
         else detailedResults.add(item.id);
         if (latest) { renderRound(latest); renderHistory(latest.history); }
-      }}, item.status==='open'?(detailedResults.has(item.id)?pair('收起实时结果','Hide live results'):pair('查看实时结果','View live results')):detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
+      }}, item.status==='open'?(detailedResults.has(item.id)?pair('收起票数结果','Hide vote totals'):pair('查看票数结果','View vote totals')):detailedResults.has(item.id)?pair('收起详细结果','Hide detailed results'):pair('查看详细结果','View detailed results'));
     }
 
     let captureSession = null;
@@ -2101,13 +2102,13 @@
         kind==='submitted'?el('p',{class:'hint'},pair('已提交确认的人，包括空选项提交；不显示投票选择。','Members who submitted, including empty ballots. Voting choices are not shown.')):kind==='pending'?el('p',{class:'hint'},pair('仅列出点过「来了」但尚未提交确认的人；空选项提交也算完成。','Members who checked in but have not submitted; an empty submitted ballot counts as complete.')):el('p',{class:'hint'},pair('显示当前已保存的选择，提交状态另列；投票结束前选择仍可修改。','Current saved choices, with submission status. Choices can change until voting closes.')),
         data.members.length?el('div',{class:'stack'},data.members.map(member=>el('div',{class:'card stack'},el('strong',{},member.name),kind==='ballots'?el('p',{class:'hint'},member.submitted?pair('已提交','Submitted'):pair('未提交','Not submitted')):null,kind==='ballots'?el('p',{},member.choices.length?member.choices.map(choice=>(choice.part?choice.part+' · ':'')+choice.name+(choice.reaction==='again'?' · '+both('again'):'')).join('、'):pair('未选择选项','No options selected')):null))):el('p',{class:'hint'},kind==='submitted'?pair('暂无已提交成员。','No submissions yet.'):kind==='pending'?pair('暂无未提交成员。','No participants awaiting submission.'):pair('暂无参与记录。','No participation records yet.')));
       }catch(error){body.replaceChildren(el('p',{class:'hint'},pair('加载失败，请重试。','Could not load. Please try again.')));showBanner(error.message);}finally{inspecting=false;}};
-      const box=el('details',{class:'card stack poll-inspection',open:inspectionExpanded.has(key),'data-kind':kind,ontoggle:event=>{if(!box.isConnected)return;if(box.open){inspectionExpanded.add(key);load();}else inspectionExpanded.delete(key);}},el('summary',{},kind==='ballots'?pair('查看投票明细','View individual ballots'):kind==='submitted'?pair('谁投票了？','Who has submitted?'):pair('谁还没投？','Who hasn’t submitted?')),body,el('button',{type:'button',class:'nav-btn',onclick:load},pair('刷新名单','Refresh list')));
+      const box=el('details',{class:'card stack poll-inspection',open:inspectionExpanded.has(key),'data-kind':kind,ontoggle:event=>{if(!box.isConnected)return;if(box.open){inspectionExpanded.add(key);load();}else inspectionExpanded.delete(key);}},el('summary',{class:kind==='ballots'?'nav-btn':null},kind==='ballots'?pair('查看谁投了什么','See who voted for what'):kind==='submitted'?pair('谁投票了？','Who has submitted?'):pair('谁还没投？','Who hasn’t submitted?')),body,el('button',{type:'button',class:'nav-btn',onclick:load},pair('刷新名单','Refresh list')));
       box.refreshInspection=()=>load(true);return box;
     }
     function liveResults(phase){
       if(!phase.canSeeResults||!phase.started||!detailedResults.has(phase.id))return null;
       const rowsFor=entries=>{let rank=0,last=null;return [...entries].sort((a,b)=>(b.likes||0)-(a.likes||0)||a.id-b.id).map(entry=>{const likes=Number(entry.likes)||0;if(likes!==last){rank++;last=likes;}return el('div',{class:'result-row'},el('span',{class:'rank'},rank),entry.members?duetIdentity(entry):el('span',{},entry.name),el('span',{class:'meta'},phase.votingMode==='feedback'?scoreLine(likes,entry.again||0):pair(likes+' 票',likes+' votes')));});};
-      return el('section',{class:'card stack live-results'},el('h3',{},pair('实时结果','Live results')),el('p',{class:'hint'},pair('随选票自动更新，包含已保存但尚未提交确认的选择。','Updates with saved choices, including ballots not yet submitted for confirmation.')),phase.pollType==='parts'?pollParts(phase).flatMap(part=>[el('h4',{},part.name),...rowsFor(phase.candidates.filter(entry=>entry.part===part.id))]):rowsFor(phase.candidates));
+      return el('section',{class:'card stack live-results'},el('h3',{},pair('票数结果','Vote totals')),el('p',{class:'hint'},pair('随选票自动更新，包含已保存但尚未提交确认的选择。','Updates with saved choices, including ballots not yet submitted for confirmation.')),phase.pollType==='parts'?pollParts(phase).flatMap(part=>[el('h4',{},part.name),...rowsFor(phase.candidates.filter(entry=>entry.part===part.id))]):rowsFor(phase.candidates));
     }
     function pollManagement(phase){return [liveResults(phase),phase.canInspectVotes?pollInspection(phase,'ballots'):null,phase.canSeePending?pollInspection(phase,'pending'):null,phase.canSeePending?pollInspection(phase,'submitted'):null];}
 
@@ -2258,6 +2259,7 @@
         return;
       }
 
+      if(phase.canSeeResults&&phase.started&&!liveResultDefaults.has(phase.id)){liveResultDefaults.add(phase.id);detailedResults.add(phase.id);}
       round.append(el('p',{class:'hint poll-privacy'},anonymityLabel(phase)));
       const joinPoll=()=>el('button',{type:'button',class:'primary',onclick:()=>run(()=>api(`/api/phases/${phase.id}/enter`,{method:'POST',body:'{}'}))},pair('来了','I’m here'));
       if(!phase.participating&&!data.user.isMd&&!data.user.isAdmin){round.append(el('section',{class:'panel stack'},el('h2',{},phase.title),joinPoll()));return;}
