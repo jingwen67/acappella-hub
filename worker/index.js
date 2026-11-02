@@ -1169,7 +1169,7 @@ export default {
           const config = await google.load();
           if (!config.refreshToken || !config.spreadsheetId) throw fail(400, 'google_disconnected');
           const songUrl = `https://drive.google.com/drive/folders/${folderId}`;
-          const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/groups',video:'短视频/short video'})[item]).join(', ');
+          const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/small groups',video:'短视频/short video'})[item]).join(', ');
           const sheetValues = {
             title: nextTitle,
             arranger,
@@ -1275,7 +1275,7 @@ export default {
               });
               stored.push(uploaded.id);
             }
-            const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/groups',video:'短视频/short video'})[item]).join(', ');
+            const kindText = kinds.map(item => ({all:'大歌/all members',group:'小组/small groups',video:'短视频/short video'})[item]).join(', ');
             await google.appendRow({
               title,
               arranger,
