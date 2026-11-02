@@ -7,7 +7,7 @@
 
 ## 下一版本 · Upcoming release
 
-- **2026-11-01**：上传和更新乐谱时，性质写入 Google Sheet 统一为 `大歌/all members`、`小组/small groups`、`短视频/short video`，与现有下拉选项一致，并兼容读取旧值。状态：待部署。
+- **2026-11-01**：上传和更新乐谱时，性质写入 Google Sheet 统一为 `大歌/all members`、`小组/small groups`、`短视频/short video`，与现有下拉选项一致，并兼容读取旧值。状态：已上线。
 
 ### 新功能
 
