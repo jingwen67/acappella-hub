@@ -18,7 +18,7 @@ function configuredEnv(){
  environment.FLAT_LIBRARY=process.env.HUB_PROFILE==='new-club';
  environment.withLibraryLock=async task=>{const client=await pool.connect();try{await client.query("SELECT pg_advisory_lock(748219)");return await task();}finally{try{await client.query("SELECT pg_advisory_unlock(748219)");}finally{client.release();}}};
  environment.recordings=createRecordings(pool,environment.FILES);
- environment.plans=createPlans(pool);
+ environment.plans=createPlans(pool,{flat:environment.FLAT_LIBRARY});
  let prepared;environment.prepare=()=>prepared??=(ensureMultiplePolls(pool).then(()=>updateRequestedCurrentPoll(pool,process.env.HUB_PROFILE)).catch(error=>{prepared=undefined;throw error;}));
  return environment;
 }

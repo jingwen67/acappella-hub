@@ -1,20 +1,34 @@
 import assert from 'node:assert/strict';import fs from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';import {createDatabase} from '../vercel/database.js';import {createVoting} from '../vercel/voting.js';import worker from '../dist/vercel-worker.mjs';
+import {createPlans} from '../vercel/plans.js';
 const pg=new PGlite();await pg.exec(fs.readFileSync('vercel/schema.sql','utf8'));
 const query=async(sql,args=[])=>{if(sql.includes('pg_advisory_xact_lock'))return {rows:[],rowCount:0};if(sql.includes("CREATE TABLE IF NOT EXISTS cucac.custom_votes")){await pg.exec(sql);return {rows:[],rowCount:0};}const r=await pg.query(sql,args);return {rows:r.rows,rowCount:r.affectedRows??r.rows.length};};
 const pool={query,connect:async()=>({query,release(){}})},files=new Map();
-const env={DB:createDatabase(pool),FILES:{get:async()=>null,put:async()=>{}},ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',voting:createVoting(pool)};
+const env={DB:createDatabase(pool),FILES:{get:async()=>null,put:async()=>{}},ADMIN_PASSWORD:'test-admin-password',PUBLIC_ORIGIN:'https://hub.test',voting:createVoting(pool),plans:createPlans(pool,{flat:true}),FLAT_LIBRARY:true};
 const cookies={};
 async function api(path,who='',body,status=200){const res=await worker.fetch(new Request('https://hub.test'+path,{method:body===undefined?'GET':'POST',headers:{...(who&&cookies[who]?{Cookie:cookies[who]}:{}),'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);const data=await res.json();assert.equal(res.status,status,JSON.stringify(data));if(res.headers.get('set-cookie'))cookies[who]=res.headers.get('set-cookie').split(';')[0];return data;}
 try{
  await api('/api/login','admin',{name:'admin',password:env.ADMIN_PASSWORD});
  const md=await api('/api/register','md',{name:'MD',password:'test-password'},201);const voter=await api('/api/register','voter',{name:'Voter',password:'test-password'},201);const second=await api('/api/register','second',{name:'Second',password:'test-password'},201);
  await query('UPDATE cucac.users SET is_md=1 WHERE id=$1',[md.user.id]);
+ const initial=await api('/api/plan','md');const termId=initial.term.id;
+ await api('/api/plan/term','md',{label:'Not a semester'},400);
+ await api('/api/plan/add/'+termId,'voter',{title:'Not authorized'},403);
+ const lineup=await api('/api/plan/add/'+termId,'md',{title:'Current song'});
+ const songId=lineup.songs.find(s=>s.title==='Current song').id;
+ const added=await api('/api/plan/bulk/'+termId,'md',{songs:[{title:'Library song',folderUrl:'https://drive.google.com/drive/folders/testFolder'}]});
+ assert.equal(added.songs.length,2);
+ assert.equal((await query('SELECT id FROM cucac.plan_sheet_jobs')).rows.length,0);
+ assert.deepEqual((await api('/api/plan/poll-songs','md')).songs.map(s=>s.id),added.songs.map(s=>s.id));
  const body={pollType:'custom',title:'Choose songs',entries:['Song A','Song B','Song C','Song D'],maxVotes:2};
  await api('/api/phases','voter',body,403);
  for(const extra of [{entries:['One']},{entries:['Same',' same ']},{maxVotes:0},{maxVotes:5},{maxVotes:1.5},{entries:['a','x'.repeat(121)]}])await api('/api/phases','md',{...body,...extra},400);
- const created=await api('/api/phases','md',body,201),id=created.phase.id;assert.equal(created.phase.pollType,'custom');assert.equal(created.phase.voteLimit,2);assert.equal(created.phase.started,true);assert.equal(created.phase.candidates.length,4);assert.ok(created.phase.participating);
+ const created=await api('/api/phases','md',{...body,planSongId:songId},201),id=created.phase.id;assert.equal(created.phase.title,'Current song-Choose songs');assert.equal(created.phase.pollType,'custom');assert.equal(created.phase.voteLimit,2);assert.equal(created.phase.started,true);assert.equal(created.phase.candidates.length,4);assert.ok(created.phase.participating);
  const concurrent=(await api('/api/phases','md',{...body,title:'Concurrent poll'},201)).phase.id;await api(`/api/phases/${concurrent}/delete`,'admin',{});
+ await api('/api/plan/delete/'+songId,'md',{});
+ assert.ok(!(await api('/api/plan/poll-songs','md')).songs.some(s=>s.id===songId));
+ await api('/api/phases','md',{...body,planSongId:songId},404);
+ assert.equal((await query('SELECT plan_song_id FROM cucac.phases WHERE id=$1',[id])).rows[0].plan_song_id,songId);
  const before=await api('/api/state','voter');assert.equal(before.phase.candidates.length,0);assert.equal(before.phase.pollType,'custom');
  await api(`/api/phases/${id}/vote`,'voter',{candidateId:1,reaction:'like'},403);
  await api(`/api/phases/${id}/enter`,'voter',{});await api(`/api/phases/${id}/enter`,'second',{});

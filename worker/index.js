@@ -701,7 +701,7 @@ export default {
           await env.voting.ensurePrivacy();await env.voting.ensureMultiple();
           let createdPhaseId;
           try {
-            if(body.pollType==='custom'){const id=await env.voting.createCustom(user,body);send(res,201,await stateFor(user,null,id));return;}
+            if(body.pollType==='custom'){const linkedId=body.planSongId?Number(body.planSongId):null;if(linkedId!==null&&!Number.isInteger(linkedId))throw fail(400,'plan_invalid');const linked=linkedId===null?null:await env.plans.pollSong(linkedId);const id=await env.voting.createCustom(user,body,linked);send(res,201,await stateFor(user,null,id));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
             const partLabels=body.partLabels??[];if(!Array.isArray(partLabels)||(partLabels.length&&(partLabels.length<2||partLabels.some(label=>typeof label!=='string'||!label.trim()||label.length>30))))throw fail(400,'bad_part');
@@ -822,21 +822,21 @@ export default {
         if(pathname==='/api/plan/poll-songs'&&req.method==='GET'){const user=await requireUser(req);if(!user.isMd)throw fail(403,'forbidden');send(res,200,{songs:await env.plans.pollSongs()});return;}
         if(pathname==='/api/plan/results'&&req.method==='GET'){const user=await requireUser(req);const id=Number(url.searchParams.get('songId'));if(!Number.isInteger(id)||id<=0)throw fail(400,'plan_invalid');const state=await stateFor(user,id);send(res,200,{history:state.history});return;}
         if(pathname==='/api/plan/library'&&req.method==='GET'){
-          const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');const source=Number(url.searchParams.get('semesterId'));if(source){const semester=await statements.semesterById.get(source);if(!semester?.folder_id)throw fail(404,'semester_missing');send(res,200,{folders:(await google.listScoreFolders(semester.folder_id)).map(s=>({...s,semester:semester.label}))});}else send(res,200,{folders:await google.listScoreIndex()});return;
+          const user=await requireUser(req);if(!isManager(user)&&(env.FLAT_LIBRARY||!user.isPresident))throw fail(403,'forbidden');if(env.FLAT_LIBRARY){const root=await rootLibrary();send(res,200,{folders:root?await google.listScoreFolders(root.folder_id):[]});return;}const source=Number(url.searchParams.get('semesterId'));if(source){const semester=await statements.semesterById.get(source);if(!semester?.folder_id)throw fail(404,'semester_missing');send(res,200,{folders:(await google.listScoreFolders(semester.folder_id)).map(s=>({...s,semester:semester.label}))});}else send(res,200,{folders:await google.listScoreIndex()});return;
         }
         if(pathname==='/api/plan'&&req.method==='GET'){
           const user=await requireUser(req);const semesterId=Number(url.searchParams.get('semesterId'));
-          if(semesterId){const semester=await statements.semesterById.get(semesterId);if(!semester?.folder_id)throw fail(404,'semester_missing');const folders=await google.listScoreFolders(semester.folder_id);send(res,200,await env.plans.fromSemester(user,semester.label,folders));}
+          if(semesterId&&!env.FLAT_LIBRARY){const semester=await statements.semesterById.get(semesterId);if(!semester?.folder_id)throw fail(404,'semester_missing');const folders=await google.listScoreFolders(semester.folder_id);send(res,200,await env.plans.fromSemester(user,semester.label,folders));}
           else send(res,200,await env.plans.list(user,Number(url.searchParams.get('termId'))||undefined));return;
         }
         if(pathname.startsWith('/api/plan/')&&req.method==='POST'){
-          if(/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
+          if(!env.FLAT_LIBRARY&&/^\/api\/plan\/sync\/\d+$/.test(pathname)){const user=await requireUser(req);if(!isManager(user)&&!user.isPresident)throw fail(403,'forbidden');await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,Number(pathname.split('/').at(-1))));return;}
           const user=await requireUser(req);const match=pathname.match(/^\/api\/plan\/(term|current|archive|add|bulk|save|big|lock|edit|delete|entry)(?:\/(\d+))?$/);
-          if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
+          if(!match)throw fail(404,'not_found');const data=await env.plans.mutate(user,match[1],Number(match[2]),await readBody(req));if(!env.FLAT_LIBRARY&&['add','bulk','edit'].includes(match[1])){await env.plans.sync(google.recordPlanSemesters);send(res,200,await env.plans.list(user,data.term.id));}else send(res,200,data);return;
         }
         if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
           if(!env.recordings)throw fail(404,'not_found');
-          await env.recordings.cleanup();if(env.plans)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true});return;
+          await env.recordings.cleanup();if(env.plans&&!env.FLAT_LIBRARY)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true});return;
         }
         const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
         if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}

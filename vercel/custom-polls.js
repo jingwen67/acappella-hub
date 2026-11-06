@@ -16,7 +16,7 @@ DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.custom_votes FROM authenticated; END IF;
 END $$;`;
 const optionsFor=p=>Array.isArray(p.part_labels)?p.part_labels:[];
-export async function createCustomPoll(pool,user,body){
+export async function createCustomPoll(pool,user,body,linked=null){
  if(!user.isMd)throw fail(403,'cannot_start');
  const title=typeof body.title==='string'?body.title.trim():'';
  if(!title||title.length>40)throw fail(400,'title_required');
@@ -30,7 +30,7 @@ export async function createCustomPoll(pool,user,body){
   await c.query('SELECT pg_advisory_xact_lock(748220)');
   await c.query(customPollSchema);
   const now=new Date().toISOString();
-  const row=(await c.query(`INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels,registration_locked,is_anonymous) VALUES($1,'open',$2,$3,$3,'default','solo','__custom_poll_v1__',$4,$5::jsonb,1,$6) RETURNING id`,[title,user.id,now,String(limit),JSON.stringify(labels),body.anonymous!==false])).rows[0];
+  const row=(await c.query(`INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels,registration_locked,is_anonymous,plan_song_id) VALUES($1,'open',$2,$3,$3,'default','solo','__custom_poll_v1__',$4,$5::jsonb,1,$6,$7) RETURNING id`,[linked?linked.title+'-'+title:title,user.id,now,String(limit),JSON.stringify(labels),body.anonymous!==false,linked?.id??null])).rows[0];
   await c.query('COMMIT');return row.id;
  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
 }

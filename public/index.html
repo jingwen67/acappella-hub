@@ -874,7 +874,7 @@
       <div class="hub-actions">
         <button id="open-profile" class="hub-card" type="button" data-i18n="myProfile">我的资料</button>
         <button id="open-members" class="hub-card" type="button" data-i18n="membersButton">全体成员</button>
-        <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">这学期唱什么</button>
+        <button id="open-plan" class="hub-card" type="button" data-i18n="planTitle">现在唱什么</button>
         <button id="open-scores" class="hub-card" type="button" data-i18n="scoresButton">乐谱库</button>
         <button id="open-poll" class="hub-card" type="button" data-i18n="pollButton">投票</button>
         <button class="hub-card" type="button" onclick="location.href='/workshop/index.html'" data-i18n="workshopButton">编曲Workshop</button>
@@ -882,7 +882,7 @@
     </section>
 
     <section id="plan" hidden>
-      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">这学期唱什么</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
+      <header class="top"><div><button id="plan-back" class="nav-btn" type="button" data-i18n="back">Back</button><p class="kicker">CU Chinese A Cappella</p><h1 data-i18n="planTitle">现在唱什么</h1></div><div class="who"><button id="plan-logout" class="nav-btn" type="button" data-i18n="logout">Log out</button><span id="plan-me"></span></div></header>
       <div id="plan-body" class="stack"></div>
     </section>
     <section id="profile" hidden>
@@ -1111,7 +1111,7 @@
         fullName: '英文全名',
         pronouns: '代词',
         position: '职位',
-        planTitle: '这学期唱什么',
+        planTitle: '现在唱什么',
         voicePart: '声部',
         school: '学校',
         gradYear: '毕业年份',
@@ -1273,7 +1273,7 @@
         fullName: 'English full name',
         pronouns: 'Pronouns',
         position: 'Position',
-        planTitle: 'What Are We Singing?',
+        planTitle: 'What Are We Singing Now?',
         voicePart: 'Voice part',
         school: 'School',
         gradYear: 'Graduation year',
@@ -1774,7 +1774,7 @@
       if(latest&&['scores','score-search','score-upload'].includes(view))renderScores(latest);
       if(view==='plan'&&latest&&!planData&&!planLoading)loadPlan();
       if(view==='poll')votePresence();
-      if(view==='poll'&&latest&&!latest.phase)planLoadPollSongs(true);
+      if(view==='poll'&&latest?.user?.isMd)planLoadPollSongs(true);
     }
 
     let profileEditing = false;
@@ -2204,9 +2204,10 @@
       return el('form',{class:'stack',id:'custom-poll-form',onsubmit:event=>{
         event.preventDefault();const form=new FormData(event.target);
         const entries=form.getAll('entries').map(value=>String(value).trim());
-        run(()=>api('/api/phases',{method:'POST',body:JSON.stringify({pollType:'custom',title:form.get('title'),entries,anonymous:form.get('anonymous')!=='false',maxVotes:Number(form.get('maxVotes'))})}));
+        run(()=>api('/api/phases',{method:'POST',body:JSON.stringify({pollType:'custom',title:form.get('title'),planSongId:Number(form.get('planSongId'))||null,entries,anonymous:form.get('anonymous')!=='false',maxVotes:Number(form.get('maxVotes'))})}));
       }},
-       el('label',{},pair('投票名称','Poll title'),el('input',{name:'title',maxlength:'40',required:true,autocomplete:'off'})),
+       el('label',{},pair('关联歌曲','Linked song'),el('select',{name:'planSongId',onchange:event=>planUpdatePollTitlePrefix(event.target.closest('form'))},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title)))),
+       el('label',{},pair('投票名称','Poll title'),el('div',{class:'poll-title-entry'},el('span',{class:'poll-title-prefix',hidden:true}),el('input',{name:'title',maxlength:'40',required:true,autocomplete:'off'}))),
        rows,addButton,
        el('label',{},pair('每人最多可选几项','Maximum choices per person'),limit),
        el('p',{class:'hint'},pair('发起后立即开放投票；每个选项最多选一次，也可以不选。','Voting opens immediately. Each option can be selected once; choosing none is allowed.')),
@@ -2230,7 +2231,7 @@
       const chooser=pollRoundChooser(data);if(chooser)round.append(chooser);
       const phase = composingPoll?null:data.phase;
       if (!phase) {
-        if(!planPollSongs)planLoadPollSongs();
+        if(data.user.isMd&&!planPollSongs)planLoadPollSongs();
         const arrangers = (data.members || []).filter((person) => person.isArranger && !person.isAlumni);
         const block = [el('h2', {}, t('idleTitle'))];
         
@@ -2254,7 +2255,7 @@
               }));
             },
           },
-            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId',onchange:event=>planUpdatePollTitlePrefix(event.target.closest('form'))},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title+' · '+(planPollSongs.term?.label||''))))),
+            el('label',{class:'poll-song-choice'},pair('为哪首歌选 Solo？','Which song is this Solo for?'),el('select',{name:'planSongId',onchange:event=>planUpdatePollTitlePrefix(event.target.closest('form'))},el('option',{value:''},pair('不关联歌曲','No linked song')),...(planPollSongs?.songs||[]).map(s=>el('option',{value:s.id},s.title)))),
             el('label', {}, t('roundName'),
               el('div',{class:'poll-title-entry'},el('span',{class:'poll-title-prefix',hidden:true}),el('input', { name: 'title', maxlength: '40', required: true, autocomplete:'off' })),
             ),

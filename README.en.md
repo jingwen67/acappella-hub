@@ -40,7 +40,7 @@ This is a home screen shortcut to the website and requires an internet connectio
 - [Accounts and Sign-in](#accounts)
 - [My Profile](#profile)
 - [Members](#roster)
-- [What Are We Singing?](#song-plan)
+- [What Are We Singing Now?](#song-plan)
 - [Voting](#voting)
 - [Browse Scores](#scores)
 - [Upload and Edit Scores](#upload)
@@ -98,21 +98,19 @@ Profiles and galleries are visible to other signed-in members. Share only inform
 - Music Director, Arranger, and board position labels are assigned by an administrator or someone with the appropriate permission; you cannot assign them to yourself through your profile.
 
 <a id="song-plan"></a>
-### What Are We Singing?
+### What Are We Singing Now?
 
-Open **What Are We Singing?** from the home page. It defaults to the current semester; use the dropdown to view archived semesters.
+Open **What Are We Singing Now?** from the home page. It shows the current repertoire and lineup.
 
 - **Songs** appear down the left, with **Solo, Soprano, Alto, Tenor, Baritone, Bass, Bbox** across the top. Each cell can contain multiple singers. On phones, scroll horizontally while the song column stays visible.
 - Active members can select **+ Join** in any non-Solo cell, regardless of their profile voice parts. You may sing multiple parts in one song. **×** beside your name removes only that part.
 - **The MD assigns Solo singers**; members cannot join or remove Solo themselves. The MD can add or remove singers in any part and confirm a lineup to lock member signup.
-- **Add / manage songs** supports checking multiple library songs and selecting all results. Search the whole library by default, or browse a semester’s Google Drive folder, just like updating existing scores.
+- **Add / manage songs** supports checking multiple library songs and selecting all results. The MD can search the entire score library.
 - For scores not uploaded yet, **enter the song title manually** and begin arranging the lineup. It shows “Scores pending.” Selecting the same title from the library later links its folder while preserving signup.
-- In **Semester settings**, the MD can choose the current semester or start a new one. Switching archives the other semesters as read only, preserving their roster and lineup. The performance plan is managed independently of the contents of score-library semester folders.
-- **Scores ↗** opens the linked folder. Removing a song from a semester keeps its scores and signup; re-adding restores them.
-- Google Sheet **Semester** retains every performance semester. Reusing a song appends the new semester without overwriting history. Google failures leave the list saved; sync can be retried and also retries daily.
+- **Scores ↗** opens the linked folder. Removing a song from the current lineup keeps its scores and signup; re-adding restores them.
 
 - **Full group**: checking the song’s box fills every active singer into their matching profile parts, including multiple parts. Solo and existing assignments stay intact. Unchecking keeps the lineup; cells can still be adjusted individually.
-- Full group automatically locks signup; unchecking reopens it. Voting results in each Solo cell opens linked closed rounds. When creating a Solo poll, select its song from the current semester.
+- Full group automatically locks signup; unchecking reopens it. Voting results in each Solo cell opens linked closed rounds. When creating a poll, you can link a song from the current lineup.
 
 
 
@@ -162,7 +160,7 @@ Before voting starts, recordings are visible only to their singer or confirmed p
 2. **All semesters** is selected by default. Type a song title to search, or choose a specific semester such as `2026 Fall`.
 3. Select **View PDF** to read, turn pages, zoom, or enter fullscreen inside Hub using the PDF’s top-right button or a double-click. Phones fit the screen width by default; computers start at 200%. Select Fit after zooming to restore screen-width reading. Tap the reading-direction button to switch between horizontal page turns and continuous vertical scrolling with pages directly following each other. Fullscreen uses a black surround; tap to show controls, and double-click again to exit. Select **Download** when you want a copy. The song and semester folder links still open Google Drive.
 
-Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current semester in What Are We Singing? and add a PDF. Hub PDF reading requires login and does not make scores public. Use Share in the reader to send a Hub link to the selected PDF. Members who are signed out sign in first and then return to that score.
+Hub opens the starred PDF first. With multiple unstarred PDFs, it uses the most recently modified file; a single PDF is selected automatically. You can switch PDFs in the reader. Missing PDFs prompt you to contact your MD. MDs can check missing PDFs for the current lineup in What Are We Singing Now? and add a PDF. Hub PDF reading requires login and does not make scores public. Use Share in the reader to send a Hub link to the selected PDF. Members who are signed out sign in first and then return to that score.
 
 An administrator must configure the Google score library first. If the page says setup is incomplete, contact an administrator. Members do not need to configure Google Cloud themselves.
 
