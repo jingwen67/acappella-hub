@@ -2,7 +2,7 @@ import {canViewLiveTotals} from './poll-privacy.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 // Keep the legacy phase type unchanged for existing deployments; the reserved marker
 // distinguishes custom options from singer candidacies throughout the API.
-export const isCustomRound=phase=>phase?.part_a==='__custom_poll_v1__';
+export const isCustomRound=phase=>['__custom_poll_v1__','__song_poll_v1__'].includes(phase?.part_a);
 export const customPollSchema=`
 CREATE TABLE IF NOT EXISTS cucac.custom_votes (
  phase_id integer NOT NULL REFERENCES cucac.phases(id) ON DELETE CASCADE,
@@ -30,7 +30,7 @@ export async function createCustomPoll(pool,user,body,linked=null){
   await c.query('SELECT pg_advisory_xact_lock(748220)');
   await c.query(customPollSchema);
   const now=new Date().toISOString();
-  const row=(await c.query(`INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels,registration_locked,is_anonymous,plan_song_id) VALUES($1,'open',$2,$3,$3,'default','solo','__custom_poll_v1__',$4,$5::jsonb,1,$6,$7) RETURNING id`,[linked?linked.title+'-'+title:title,user.id,now,String(limit),JSON.stringify(labels),body.anonymous!==false,linked?.id??null])).rows[0];
+  const row=(await c.query(`INSERT INTO cucac.phases(title,status,created_by,created_at,started_at,voting_mode,poll_type,part_a,part_b,part_labels,registration_locked,is_anonymous,plan_song_id) VALUES($1,'open',$2,$3,$3,'default','solo',$8,$4,$5::jsonb,1,$6,$7) RETURNING id`,[linked?linked.title+'-'+title:title,user.id,now,String(limit),JSON.stringify(labels),body.anonymous!==false,linked?.id??null,body.pollType==='song'?'__song_poll_v1__':'__custom_poll_v1__'])).rows[0];
   await c.query('COMMIT');return row.id;
  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
 }
@@ -47,7 +47,7 @@ export async function customView(pool,p,user){
   candidates=candidates.map(row=>{if(row.likes!==last){rank++;last=row.likes;}return {...row,rank};});
   candidates=candidates.filter(row=>user.isAdmin||row.rank<=p.revealed_ranks);
  }
- return {pollType:'custom',voteLimit:Number(p.part_b),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>(user.isAdmin||canViewLiveTotals(p,user))?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
+ return {pollType:p.part_a==='__song_poll_v1__'?'song':'custom',voteLimit:Number(p.part_b),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>(user.isAdmin||canViewLiveTotals(p,user))?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
 }
 export async function customAction(c,p,action,user,body){
  if(action==='reveal'){
