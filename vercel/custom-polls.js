@@ -16,6 +16,8 @@ DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN REVOKE ALL ON cucac.custom_votes FROM authenticated; END IF;
 END $$;`;
 const optionsFor=p=>Array.isArray(p.part_labels)?p.part_labels:[];
+const unlimited=p=>p.part_a==='__song_poll_v1__'&&Number(p.part_b)===0;
+const voteLimit=p=>unlimited(p)?optionsFor(p).length:Number(p.part_b);
 export async function createCustomPoll(pool,user,body,linked=null){
  if(!user.isMd)throw fail(403,'cannot_start');
  const title=typeof body.title==='string'?body.title.trim():'';
@@ -23,7 +25,7 @@ export async function createCustomPoll(pool,user,body,linked=null){
  const entries=body.entries;
  if(!Array.isArray(entries)||entries.length<2||entries.length>100||entries.some(v=>typeof v!=='string'||!v.trim()||v.trim().length>120))throw fail(400,'custom_entries');
  const labels=entries.map(v=>v.trim());if(new Set(labels.map(v=>v.normalize('NFKC').toLowerCase())).size!==labels.length)throw fail(400,'custom_duplicate');
- const limit=body.maxVotes;if(!Number.isInteger(limit)||limit<1||limit>labels.length)throw fail(400,'custom_limit');
+ const limit=body.pollType==='song'&&body.maxVotes==null?0:body.maxVotes;if(!Number.isInteger(limit)||(limit===0?body.pollType!=='song':limit<1||limit>labels.length))throw fail(400,'custom_limit');
  const c=await pool.connect();try{
   await c.query('BEGIN');
   // Serialize additive first-use initialization across both concurrent creates and cold starts.
@@ -47,7 +49,7 @@ export async function customView(pool,p,user){
   candidates=candidates.map(row=>{if(row.likes!==last){rank++;last=row.likes;}return {...row,rank};});
   candidates=candidates.filter(row=>user.isAdmin||row.rank<=p.revealed_ranks);
  }
- return {pollType:p.part_a==='__song_poll_v1__'?'song':'custom',voteLimit:Number(p.part_b),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>(user.isAdmin||canViewLiveTotals(p,user))?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
+ return {pollType:p.part_a==='__song_poll_v1__'?'song':'custom',voteLimit:voteLimit(p),unlimited:unlimited(p),candidateCount:optionsFor(p).length,iAmCandidate:false,candidates:candidates.map(row=>(user.isAdmin||canViewLiveTotals(p,user))?{...row,isMe:false}:{id:row.id,name:row.name,mine:row.mine||null,rank:row.rank,isMe:false})};
 }
 export async function customAction(c,p,action,user,body){
  if(action==='reveal'){
@@ -78,7 +80,7 @@ export async function customAction(c,p,action,user,body){
   else{
    if(body.reaction!=='like')throw fail(400,'bad_reaction');
    const n=(await c.query('SELECT count(*)::int AS n FROM cucac.custom_votes WHERE phase_id=$1 AND voter_id=$2 AND option_id<>$3',[p.id,user.id,id])).rows[0].n;
-   if(n>=Number(p.part_b))throw fail(400,'vote_limit');
+   if(n>=voteLimit(p))throw fail(400,'vote_limit');
    await c.query('INSERT INTO cucac.custom_votes(phase_id,voter_id,option_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[p.id,user.id,id]);
   }
   await c.query('DELETE FROM cucac.vote_submissions WHERE phase_id=$1 AND voter_id=$2',[p.id,user.id]);return;

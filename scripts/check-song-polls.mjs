@@ -25,6 +25,13 @@ try{
  await api('/api/phases/'+id+'/vote','voter',{candidateId:3,reaction:'like'});
  assert.equal((await query('SELECT voter_id FROM cucac.vote_submissions WHERE phase_id=$1',[id])).rows.length,0);
  await api('/api/phases/'+id+'/close','md',{});await api('/api/phases/'+id+'/songs','md',{songFolderIds:['songFolder33333']},400);assert.equal((await api('/api/state','md')).history.find(h=>h.id===id).pollType,'song');
+ const unlimited=await api('/api/phases','md',{...body,maxVotes:null},201);const freeId=unlimited.phase.id;assert.equal(unlimited.phase.unlimited,true);assert.equal(unlimited.phase.voteLimit,2);
+ await api('/api/phases/'+freeId+'/enter','voter',{});
+ await api('/api/phases/'+freeId+'/vote','voter',{candidateId:1,reaction:'like'});await api('/api/phases/'+freeId+'/vote','voter',{candidateId:2,reaction:'like'});
+ const expanded=await api('/api/phases/'+freeId+'/songs','md',{songFolderIds:['songFolder33333']});assert.equal(expanded.phase.voteLimit,3);assert.equal(expanded.phase.unlimited,true);
+ await api('/api/phases/'+freeId+'/vote','voter',{candidateId:3,reaction:'like'});
+ assert.equal((await query('SELECT option_id FROM cucac.custom_votes WHERE phase_id=$1',[freeId])).rows.length,3);
+ const defaultBody={...body};delete defaultBody.maxVotes;assert.equal((await api('/api/phases','md',defaultBody,201)).phase.unlimited,true);
  const anonymous=await api('/api/phases','md',{...body,anonymous:true},201);assert.equal(anonymous.phase.anonymous,true);await api('/api/phases/'+anonymous.phase.id+'/ballots','md',undefined,403);
  }
  console.log('PASS: song library validation, MD-only creation, flat and semester libraries, named default, anonymous option, votes, inspections and history.');

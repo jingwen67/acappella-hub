@@ -2218,7 +2218,7 @@
     function renderCustomRound(data){
       const phase=data.phase,selected=phase.candidates.filter(option=>option.mine).length;
       const action=(kind,body={})=>run(()=>api(`/api/phases/${phase.id}/${kind}`,{method:'POST',body:JSON.stringify(body)}));
-      const children=[el('h2',{},phase.title),el('p',{class:'meta'},pollTypeLabel(phase.pollType)),phase.canSeeResults?resultsToggle(phase):null,el('p',{class:'hint'},pair(`最多选择 ${phase.voteLimit} 项 · 已选 ${selected} 项`,`Choose up to ${phase.voteLimit} · ${selected} selected`)),
+      const children=[el('h2',{},phase.title),el('p',{class:'meta'},pollTypeLabel(phase.pollType)),phase.canSeeResults?resultsToggle(phase):null,el('p',{class:'hint'},phase.unlimited?pair(`不限选择数量 · 已选 ${selected} 首`,`No choice limit · ${selected} selected`):pair(`最多选择 ${phase.voteLimit} 项 · 已选 ${selected} 项`,`Choose up to ${phase.voteLimit} · ${selected} selected`)),
        el('div',{class:'cards'},phase.candidates.map(option=>el('article',{class:option.mine?'card is-me stack':'card stack'},el('h3',{style:'overflow-wrap:anywhere'},option.name),el('button',{type:'button',class:'choice is-like','aria-pressed':option.mine?'true':'false',disabled:!option.mine&&selected>=phase.voteLimit,onclick:()=>action('vote',{candidateId:option.id,reaction:option.mine?null:'like'})},option.mine?pair('取消选择','Unselect'):pair('选择','Select'))))),ballotSubmit(phase,data.user.id)];
       if(phase.voteProgress)children.push(voteProgressCard(phase.voteProgress));
       const addSongs=phase.pollType==='song'?songPollAddControl(phase):null;if(addSongs)children.push(addSongs);
