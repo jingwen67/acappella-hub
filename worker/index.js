@@ -394,13 +394,13 @@ export default {
         planSongId:phase.plan_song_id||null,planSongTitle:phase.plan_song_id?(await env.plans.songInfo(phase.plan_song_id))?.title||'':'',
         closedAt: phase.closed_at,
         arranger: phase.arranger_name || '',
-        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.id===phase.created_by&&!account.isAdmin, anonymous:isAnonymousPoll(phase),canInspectVotes:canInspectBallots(phase,account), canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:isCustomRound(phase)?'custom':phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
+        votingMode:phase.voting_mode, revealedRanks:phase.revealed_ranks, canReveal:account.id===phase.created_by&&!account.isAdmin, anonymous:isAnonymousPoll(phase),canInspectVotes:canInspectBallots(phase,account), canSeeResults:account.isAdmin, candidates:await rankedResults(phase,account), recordings:env.recordings?await env.recordings.list(phase.id,account):[], pollType:isCustomRound(phase)?(phase.part_a==='__song_poll_v1__'?'song':'custom'):phase.poll_type,partA:phase.part_a,partB:phase.part_b,partC:phase.part_c||'',partLabels:phase.part_labels||[]
       })));
       return {
         uiVersion:typeof __HUB_UI_VERSION__==='string'?__HUB_UI_VERSION__:'',
         user: account,
-        activeRounds:active.map(p=>({id:p.id,title:p.title,pollType:isCustomRound(p)?'custom':p.poll_type,started:Boolean(p.started_at),anonymous:isAnonymousPoll(p)})),
-        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,anonymous:isAnonymousPoll(open),pollType:isCustomRound(open)?'custom':open.poll_type,...pollProgress,candidates:[]}:{
+        activeRounds:active.map(p=>({id:p.id,title:p.title,pollType:isCustomRound(p)?(p.part_a==='__song_poll_v1__'?'song':'custom'):p.poll_type,started:Boolean(p.started_at),anonymous:isAnonymousPoll(p)})),
+        phase: open ? (!pollProgress.participating&&!isManager(account)?{id:open.id,title:open.title,anonymous:isAnonymousPoll(open),pollType:isCustomRound(open)?(open.part_a==='__song_poll_v1__'?'song':'custom'):open.poll_type,...pollProgress,candidates:[]}:{
           ...(openDuet||{}),
           ...pollProgress,
           anonymous:isAnonymousPoll(open),canInspectVotes:canInspectBallots(open,account),canSeePending:account.isAdmin||account.id===open.created_by,
@@ -430,7 +430,7 @@ export default {
             title: row.title,
             status: row.status,
             openedBy: row.opened_by,
-            closedAt: row.closed_at,pollType:isCustomRound(row)?'custom':row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
+            closedAt: row.closed_at,pollType:isCustomRound(row)?(row.part_a==='__song_poll_v1__'?'song':'custom'):row.poll_type,planSongId:row.plan_song_id||null,planSongTitle:row.plan_song_title||''
           }))
         } : null,
         library: await libraryFor(account)
@@ -693,6 +693,13 @@ export default {
           await env.voting.ensurePrivacy();await env.voting.ensureMultiple();
           let createdPhaseId;
           try {
+            if(body.pollType==='song'){
+              const ids=body.songFolderIds;if(!Array.isArray(ids)||ids.length<2||ids.length>100||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw fail(400,'custom_entries');
+              const sources=(await statements.listSemesterFolders.all()).filter(s=>s.folder_id);
+              const batches=await Promise.all(sources.map(s=>google.listScoreFolders(s.folder_id)));const songs=new Map(batches.flat().map(s=>[s.id,s]));
+              if(ids.some(id=>!songs.has(id)))throw fail(400,'custom_entries');
+              const id=await env.voting.createCustom(user,{...body,entries:ids.map(id=>songs.get(id).name),anonymous:body.anonymous===true});send(res,201,await stateFor(user,null,id));return;
+            }
             if(body.pollType==='custom'){const id=await env.voting.createCustom(user,body);send(res,201,await stateFor(user,null,id));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
             const pollType=body.pollType||'solo';
