@@ -378,6 +378,13 @@ export default {
       return ranked.filter(c=>account.isAdmin||c.rank<=phase.revealed_ranks).map(c=>account.isAdmin?c:{id:c.id,name:c.name,rank:c.rank,isMe:c.isMe});
     }
 
+    async function songPollEntries(ids){
+              if(!Array.isArray(ids)||ids.length<1||ids.length>100||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw fail(400,'custom_entries');
+              const sources=(await statements.listSemesterFolders.all()).filter(s=>s.folder_id);
+              const batches=await Promise.all(sources.map(s=>google.listScoreFolders(s.folder_id)));const songs=new Map(batches.flat().map(s=>[s.id,s]));
+              if(ids.some(id=>!songs.has(id)))throw fail(400,'custom_entries');
+              return ids.map(id=>songs.get(id).name);
+    }
     async function stateFor(user, songId=null,selectedPhaseId=Number(new URL(req.url).searchParams.get('phaseId'))||null) {
       const account = asUser(await statements.account.get(user.id));
       if (!account) throw fail(401, 'login_required');
@@ -694,11 +701,8 @@ export default {
           let createdPhaseId;
           try {
             if(body.pollType==='song'){
-              const ids=body.songFolderIds;if(!Array.isArray(ids)||ids.length<2||ids.length>100||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw fail(400,'custom_entries');
-              const sources=(await statements.listSemesterFolders.all()).filter(s=>s.folder_id);
-              const batches=await Promise.all(sources.map(s=>google.listScoreFolders(s.folder_id)));const songs=new Map(batches.flat().map(s=>[s.id,s]));
-              if(ids.some(id=>!songs.has(id)))throw fail(400,'custom_entries');
-              const id=await env.voting.createCustom(user,{...body,entries:ids.map(id=>songs.get(id).name),anonymous:body.anonymous===true});send(res,201,await stateFor(user,null,id));return;
+              const entries=await songPollEntries(body.songFolderIds);
+              const id=await env.voting.createCustom(user,{...body,entries,anonymous:body.anonymous===true});send(res,201,await stateFor(user,null,id));return;
             }
             if(body.pollType==='custom'){const id=await env.voting.createCustom(user,body);send(res,201,await stateFor(user,null,id));return;}
             if(body.votingMode&&!['default','feedback'].includes(body.votingMode))throw fail(400,'bad_voting_mode');
@@ -845,6 +849,12 @@ export default {
         if(req.method==='GET'&&audioRead){const user=await requireUser(req);res.writeHead(302,{Location:await env.recordings.play(audioRead[1],user),'Cache-Control':'private, no-store'});res.end();return;}
         const inspection=pathname.match(/^\/api\/phases\/(\d+)\/(ballots|pending|submitted)$/);
         if(req.method==='GET'&&inspection){const user=await requireUser(req);send(res,200,await env.voting.inspect(Number(inspection[1]),user,inspection[2]));return;}
+        const addSongs=pathname.match(/^\/api\/phases\/(\d+)\/songs$/);
+        if(req.method==='POST'&&addSongs){
+          const user=await requireUser(req);if(!user.isMd)throw fail(403,'forbidden');const phaseId=Number(addSongs[1]);
+          const phase=await statements.phaseById.get(phaseId);if(!phase)throw fail(404,'phase_missing');if(phase.part_a!=='__song_poll_v1__')throw fail(400,'bad_action');if(phase.status!=='open')throw fail(400,'phase_closed');
+          const body=await readBody(req);await env.voting.action(phaseId,'songs',user,{entries:await songPollEntries(body.songFolderIds)});send(res,200,await stateFor(user,null,phaseId));return;
+        }
         const action = pathname.match(/^\/api\/phases\/(\d+)\/(edit|start|reveal|revoke|close|candidacy|vote|submit|enter|presence|pair|confirm|cancel|audition)$/);
         if (req.method === 'POST' && action) {
           const user = await requireUser(req);

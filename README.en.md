@@ -121,6 +121,8 @@ Open **What Are We Singing?** from the home page. It defaults to the current sem
 
 Song polls: MDs can choose “Song poll” when launching a round, search the score library, and select at least two songs. Set the maximum choices per voter; polls default to non-anonymous, with an anonymous option. CUCAC supports semester filtering; Reborn searches its entire library.
 
+Before a song poll closes, MDs can use “Add songs” to append library songs. New entries appear at the end; existing votes, confirmations, and choice limits remain unchanged. Members can revise their choices and submit again.
+
 All voting methods ask whether the poll is anonymous; the default is Yes. Anonymous polls do not expose individual ballots. For non-anonymous polls, only the creator and administrator can inspect them. This setting is fixed after launch. Existing rounds default to anonymous; aggregate results and submission progress are unchanged.
 
 **Custom polls:** The MD selects **Custom poll**, enters a title and options (two separate boxes by default; select Add option for more), and sets the maximum choices per person. Voting opens immediately with no candidacy signup. Select **I’m here**, make your choices, and select **Submit vote** for confirmation. Choosing none is allowed. Changes are allowed before closing; submit again after changing a selection. Results remain in history.

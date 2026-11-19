@@ -55,6 +55,14 @@ export async function customAction(c,p,action,user,body){
   await c.query('UPDATE cucac.phases SET revealed_ranks=revealed_ranks+1 WHERE id=$1',[p.id]);return;
  }
  if(p.status!=='open')throw fail(400,'phase_closed');
+ if(action==='songs'){
+  if(!user.isMd)throw fail(403,'forbidden');if(p.part_a!=='__song_poll_v1__')throw fail(400,'bad_action');
+  if(!Array.isArray(body.entries)||!body.entries.length||body.entries.some(name=>typeof name!=='string'||!name.trim()||name.trim().length>120))throw fail(400,'custom_entries');
+  const labels=[...optionsFor(p)],seen=new Set(labels.map(name=>name.normalize('NFKC').toLowerCase()));
+  for(const name of body.entries){const label=name.trim(),key=label.normalize('NFKC').toLowerCase();if(!seen.has(key)){seen.add(key);labels.push(label);}}
+  if(labels.length>100)throw fail(400,'custom_entries');
+  await c.query('UPDATE cucac.phases SET part_labels=$1::jsonb WHERE id=$2',[JSON.stringify(labels),p.id]);return;
+ }
  if(action==='close'){
   if(!user.isMd&&!user.isAdmin)throw fail(403,'forbidden');
   const result=await customView(c,p,{...user,isAdmin:true});
