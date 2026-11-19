@@ -477,6 +477,14 @@ export default {
         name
       }));
     }
+    async function syncFlatLibrary({force=false}={}){
+      if(!env.FLAT_LIBRARY)return null;
+      if(!force&&env.flatLibrarySyncedAt&&Date.now()-env.flatLibrarySyncedAt<600000)return null;
+      if(env.flatLibrarySync)return env.flatLibrarySync;
+      const task=async()=>{const config=await google.load();if(!config.refreshToken||!config.spreadsheetId||!config.parentFolderId)return null;return google.syncRootFolders(config.parentFolderId);};
+      env.flatLibrarySync=(env.withLibraryLock?env.withLibraryLock(task):task()).then(result=>{if(result)env.flatLibrarySyncedAt=Date.now();return result;}).finally(()=>{env.flatLibrarySync=null;});
+      return env.flatLibrarySync;
+    }
     async function rootLibrary(){
       const config=await google.load();if(!config.parentFolderId)return null;
       const existing=(await statements.listSemesterFolders.all()).find(row=>row.label==='__root_library__');if(existing?.folder_id===config.parentFolderId)return existing;
@@ -847,7 +855,7 @@ export default {
         }
         if (req.method==='GET' && pathname==='/api/recordings/cleanup') {
           if(!env.recordings)throw fail(404,'not_found');
-          await env.recordings.cleanup();if(env.plans&&!env.FLAT_LIBRARY)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true});return;
+          await env.recordings.cleanup();const librarySync=env.FLAT_LIBRARY?await syncFlatLibrary({force:true}):null;if(env.plans&&!env.FLAT_LIBRARY)await env.plans.sync(google.recordPlanSemesters);send(res,200,{ok:true,...(librarySync?{librarySync}:{})});return;
         }
         const audioUpload=pathname.match(/^\/api\/phases\/(\d+)\/recordings$/);
         if(req.method==='POST'&&audioUpload){const user=await requireUser(req);send(res,201,await env.recordings.begin(Number(audioUpload[1]),user,await readBody(req)));return;}
@@ -1037,11 +1045,11 @@ export default {
         }
         if(req.method==='POST'&&pathname==='/api/library/sync'){
           const user=await requireUser(req);if(!isManager(user))throw fail(403,'forbidden');if(!env.FLAT_LIBRARY)throw fail(404,'not_found');
-          const task=async()=>{const root=await rootLibrary();if(!root)throw fail(400,'parent_missing');return google.syncRootFolders(root.folder_id);};
-          send(res,200,env.withLibraryLock?await env.withLibraryLock(task):await task());return;
+          const result=await syncFlatLibrary({force:true});if(!result)throw fail(400,'google_disconnected');send(res,200,result);return;
         }
         if (req.method === 'GET' && pathname === '/api/library/folders') {
-          await requireUser(req);
+          const user=await requireUser(req);
+          if(env.FLAT_LIBRARY&&isManager(user)){try{await syncFlatLibrary();}catch(error){console.error('Library link sync pending',error.message);}}
           if(env.FLAT_LIBRARY){const root=await rootLibrary();if(!root)throw fail(400,'parent_missing');send(res,200,{id:url.searchParams.get('semesterId')||'all',label:'',url:'',folders:await google.listScoreFolders(root.folder_id)});return;}
           if(url.searchParams.get('semesterId')==='all'){
             const semesters=(await statements.listSemesterFolders.all()).filter(item=>item.folder_id);
@@ -1064,6 +1072,7 @@ export default {
         if (req.method === 'GET' && pathname === '/api/library/songs') {
           const user = await requireUser(req);
           if (!user.isArranger) throw fail(403, 'not_arranger');
+          if(env.FLAT_LIBRARY&&isManager(user)){try{await syncFlatLibrary();}catch(error){console.error('Library link sync pending',error.message);}}
           const semesters = await statements.listSemesters.all();
           const root=env.FLAT_LIBRARY?await rootLibrary():null;
           const folders = (await google.listScoreIndex()).map(item => ({...item, semesterId:env.FLAT_LIBRARY?root?.id:semesters.find(s => item.semester.split(/[,，]/).some(label => label.trim().toLowerCase() === s.label.toLowerCase()))?.id || 0}));

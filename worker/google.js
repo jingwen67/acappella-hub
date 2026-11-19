@@ -327,7 +327,9 @@ export function createGoogle(storage) {
       if(direct.length){skipped++;continue;}
       const names=index.rows.filter(row=>normalize(row.title)===normalize(folder.name));
       // Link only a unique title with an empty link; never overwrite a conflicting link.
-      if(names.length===1&&!String(names[0].link||'').trim()){
+      const matchingFolders=folders.filter(candidate=>normalize(candidate.name)===normalize(folder.name));
+      const placeholder=names.length===1&&(!String(names[0].link||'').trim()||normalize(names[0].link)===normalize(names[0].title));
+      if(names.length===1&&matchingFolders.length===1&&placeholder){
         await updateScoreRow(names[0].row,{link:sheetLink(folder.url,folder.name)});names[0].link=folder.url;linked++;continue;
       }
       if(names.length){skipped++;continue;}
